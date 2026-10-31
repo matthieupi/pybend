@@ -1,0 +1,75 @@
+
+### docs/changelogs/backend/03_Performance_Backend.md (169 total lines)
+1: # Backend Performance Optimizations
+2: 
+3: > **Status:** Complete.
+4: > **Scope:** Eliminated major backend performance bottlenecks — schema caching, N+1 query batching, connection pooling, introspection caching, and FK indexing.
+5: 
+6: ---
+7: 
+8: ## Table of Contents
+9: 
+10: 1. [Summary](#1-summary)
+167: - **485 unit tests** — all passing
+168: - **386 integration tests** — all passing
+169: - No behavioral changes — purely performance improvements
+
+### docs/changelogs/frontend/01_Refactor_PTT_into_NTT.md (570 total lines)
+1: # PTT → N3TX Merge — Architecture Report
+2: 
+3: > **Status:** Complete and verified.
+4: > **Scope:** The `PTT` class has been deleted. Its responsibilities are now split
+5: > between `N3TX` (static registry + universal router) and `DynamicClass` (per-type
+6: > behavior: schema, instances, CRUD, Observable).
+7: 
+8: ---
+9: 
+10: ## Table of Contents
+568: The file `example.html` is an old standalone test page, not part of the active
+569: framework. It was intentionally left unchanged. If it needs to work again, its
+570: PTT references will need updating.
+
+### docs/changelogs/frontend/02_Component_Layer_Refactor.md (245 total lines)
+1: # Component Layer Refactor & Enhancement Primitives
+2: 
+3: > **Status:** Complete (P0 through P3).
+4: > **Scope:** Rebuilt the entire component hierarchy and added schema-driven UI primitives.
+5: 
+6: ---
+7: 
+8: ## Table of Contents
+9: 
+10: 1. [Summary](#1-summary)
+243: | **P4** | Schema-driven permissions (§12) | Pending — needs auth system maturity |
+244: | — | Adaptive display schema integration | Future — `display_modes` in `__ui__` to auto-select fields per mode |
+245: | — | Typed `__ui__` config | Future — replace plain dict with Pydantic model for validation |
+
+### docs/changelogs/frontend/03_Navigation_Selection.md (276 total lines)
+1: # Navigation & Selection Primitives
+2: 
+3: > **Status:** Complete.
+4: > **Scope:** Added client-side navigation (Router actor + ntx-router view container), collection selection API, and fixed duplicate network requests.
+5: 
+6: ---
+7: 
+8: ## Table of Contents
+9: 
+10: 1. [Summary](#1-summary)
+274: 8. Page load with `#Product/2` in URL — detail view shown directly
+275: 9. Console: `matrix.children.get('main')` returns the Router actor
+276: 10. Network tab: each comment fetched exactly once (not 4x)
+
+### docs/changelogs/frontend/04_Performance_Frontend.md (115 total lines)
+1: # Frontend Performance Optimizations
+2: 
+3: > **Status:** Complete.
+4: > **Scope:** Reduced DOM thrashing and prevented event listener accumulation in the rendering pipeline.
+5: 
+6: ---
+7: 
+8: ## Table of Contents
+9: 
+10: 1. [Summary](#1-summary)
+113: - **485 backend unit tests** — all passing
+114: - **386 backend integration tests** — all passing
+115: - No behavioral changes — purely performance improvements

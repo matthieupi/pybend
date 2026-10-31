@@ -1,0 +1,150 @@
+
+### .project/archive/features/styling-system/styling-system.jsonl (16 total lines)
+1: {"id":"task-01","wave":1,"title":"Create public token packs","intent":"Establish a frontend-owned public token contract that apps and built-ins can rely on without coupling appearance to schema. The first step is additive: create semantic `--ntx-*` tokens and keep current variable names alive through aliases so the existing UI keeps working during migration.","context":"N3TX currently defines theme values directly in `dark-theme.css` and `light-theme.css`, and component CSS also references ad hoc names such as `--card-bg`, `--panel-bg`, and `--accent-primary`. This task creates the shared token foundation that later tasks will consume while keeping appearance entirely frontend-owned.","instructions":"Create `/workspace/packages/n3tx-ui/src/n3tx_ui/static/styles/tokens/base.css`, `/workspace/packages/n3tx-ui/src/n3tx_ui/static/styles/tokens/dark.css`, and `/workspace/packages/n3tx-ui/src/n3tx_ui/static/styles/tokens/light.css`. In `base.css`, define the public semantic families for color, borders, glass, typography, spacing, radius, shadow, and motion, then alias legacy names like `--surface-0`, `--text-0`, `--accent`, `--border`, and `--radius-sm` to the new semantic values. In `dark.css` and `light.css`, override semantic tokens only; do not move body, button, or layout recipe styles into these files.","files":{"read":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css","/workspace/packages/n3tx-ui/src/n3tx_ui/static/light-theme.css","/workspace/.traces/features/styling-system/styling-system.md"],"modify":[],"create":["/workspace/packages/n3tx-ui/src/n3tx_ui/st
+2: {"id":"task-02","wave":1,"title":"Expand the theme runtime API","intent":"The frontend needs a proper theme registry instead of a binary dark-light toggle helper so applications can patch tokens and compose future recipes without rewriting the framework helper. The existing toggle behavior must remain stable for current apps and tests.","context":"`theme.js` currently stores `ntx-theme` in localStorage, updates `document.documentElement.dataset.theme`, and dispatches a `theme-change` event. That simple flow is useful and should remain the compatibility surface while new registration and token-patching helpers are added behind it.","instructions":"Modify `/workspace/packages/n3tx-core/src/n3tx_core/static/utils/theme.js` to preserve `getTheme()`, `setTheme()`, and `toggleTheme()`, but add a small registry API for registering known theme names and optionally patching document-level CSS variables. Keep the storage key and dataset behavior unchanged, and keep the event payload compatible with current listeners while allowing extra detail fields if useful.","files":{"read":["/workspace/packages/n3tx-core/src/n3tx_core/static/utils/theme.js","/workspace/tests/frontend/tests/utils/theme.test.js","/workspace/.traces/features/styling-system/styling-system.md"],"modify":["/workspace/packages/n3tx-core/src/n3tx_core/static/utils/theme.js"],"create":[]},"conventions":"Do not break the current import-time auto-apply behavior. Keep the API tiny and framework-owned; this is a registry helper, not a full design system manager.","verification":{"commands":["cd /workspace/tests/frontend && n
+3: {"id":"task-03","wave":1,"title":"Extract a reusable stylesheet loader","intent":"N3TX needs one stylesheet loading path for all shadow-based UI, not separate implementations in Component, topbar, modal, sidebar, profile, and toast. A shared loader reduces drift, keeps caching behavior consistent, and gives later tasks one place to improve stylesheet adoption.","context":"`Component.js` already caches and adopts CSSStyleSheets, but the implementation is private and unusable by standalone elements. Several framework components still inject `<link>` tags or maintain their own constructable stylesheet logic. This task turns the current logic into a reusable utility and keeps `Component` on the same behavior.","instructions":"Create `/workspace/packages/n3tx-core/src/n3tx_core/static/core/stylesheets.js` with shared helpers for resolving one or many stylesheet URLs, fetching and caching constructable stylesheets, and adopting them onto a shadow root. Then update `/workspace/packages/n3tx-core/src/n3tx_core/static/core/Component.js` to use that helper instead of its private cache methods while preserving multi-stylesheet support and render deferral until styles are ready.","files":{"read":["/workspace/packages/n3tx-core/src/n3tx_core/static/core/Component.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-modal.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js"],"modify":["/workspace/packages/n3tx-core/src/n3tx_core/static/core/Component.js"],"create":["/workspace/packages/n3tx-core/src/n3tx_core/static/core/stylesheets.js"]},"conventio
+4: {"id":"task-04","wave":2,"title":"Bridge legacy theme entrypoints to tokens and a default recipe","intent":"Existing apps load `dark-theme.css` and `light-theme.css` directly, so the new styling system must preserve those filenames while recutting them into token imports plus a default recipe. This task keeps the public loading contract stable while separating values from visuals.","context":"The current theme files mix token definitions, page styling, body backgrounds, and component-adjacent skin rules. After task-01, token values should live in dedicated token packs; the remaining global look should move into a recipe file so future themes can compose different visuals with the same semantic contract.","instructions":"Create `/workspace/packages/n3tx-ui/src/n3tx_ui/static/styles/recipes/glass/global.css` to hold the current framework-level visual recipe such as body ambiance, page chrome, typography defaults, and global button look. Then update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` to import `styles/tokens/base.css`, `styles/tokens/dark.css`, and the glass recipe, and update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/light-theme.css` to import `styles/tokens/light.css` and only light-mode overrides that truly depend on the `data-theme` switch.","files":{"read":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css","/workspace/packages/n3tx-ui/src/n3tx_ui/static/light-theme.css","/workspace/packages/n3tx-ui/src/n3tx_ui/static/example.html"],"modify":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css","/workspace/package
+5: {"id":"task-05","wave":2,"title":"Migrate shell components to the shared stylesheet loader","intent":"Standalone shell components should use the same stylesheet cache and adoption path as `Component`-based elements so apps get consistent performance and customization behavior. This removes framework-level fragmentation without changing component responsibilities.","context":"`ntx-topbar.js`, `ntx-sidebar.js`, and `ntx-profile.js` currently attach shadow roots and inject `<link>` elements or inline markup-level stylesheet tags. They are framework shell components, not data actors, but they still benefit from the same constructable stylesheet adoption used elsewhere.","instructions":"Update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js`, `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js`, and `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-profile.js` to import the shared stylesheet helper from `n3tx-core` static code. Remove their manual `<link>` management and adopt the relevant component CSS through the shared loader while preserving current render logic and lifecycle behavior.","files":{"read":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-profile.js"],"modify":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js","/workspace/packages/n3tx-ui/src/n3t
+6: {"id":"task-06","wave":2,"title":"Migrate modal and toast to the shared stylesheet loader","intent":"Modal and toast currently use one-off stylesheet paths even though they are framework-level primitives used across the UI. Unifying them under the shared loader removes duplication and gives later theme work one consistent adoption path.","context":"`ntx-modal.js` maintains its own constructable stylesheet singleton and `Toast.js` injects CSS into document head. Both pieces are UI infrastructure; they should share the same caching story as the rest of the framework while keeping their existing APIs intact.","instructions":"Update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-modal.js` to use the shared stylesheet helper instead of its private sheet cache. Update `/workspace/packages/n3tx-core/src/n3tx_core/static/utils/Toast.js` to load `Toast.css` through the shared utility in a way that keeps the current global-toast UX intact, even if the implementation still ends in a document-level adoption step rather than a shadow root.","files":{"read":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-modal.js","/workspace/packages/n3tx-core/src/n3tx_core/static/utils/Toast.js","/workspace/tests/frontend/tests/utils/Toast.test.js"],"modify":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-modal.js","/workspace/packages/n3tx-core/src/n3tx_core/static/utils/Toast.js"],"create":[]},"conventions":"Keep `NTTModal.open()` and `showToast()` APIs stable. The goal is loader unification, not UX redesign. If Toast tests rely on implementation detail
+7: {"id":"task-07","wave":3,"title":"Add base loading, error, and empty-state hooks","intent":"A styling system is incomplete if components only skin happy-path rendering. The framework should own minimal loading, error, and empty defaults so apps can theme them instead of rebuilding them from scratch.","context":"The frontend refactor notes already propose `renderLoading()`, `renderError(error)`, and `renderEmpty()` defaults in the `Component` base. `ntx-element.css` already contains base-state selectors but the base class does not expose a coherent state contract for theming and override.","instructions":"Update `/workspace/packages/n3tx-core/src/n3tx_core/static/core/Component.js` to provide default `renderLoading()`, `renderError(error)`, and `renderEmpty()` helpers and a lightweight `data-state` contract that subclasses can reuse. Update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-element.css` to rename or extend the state selectors so they consume semantic tokens and match the new base class output without forcing a specific visual recipe.","files":{"read":["/workspace/packages/n3tx-core/src/n3tx_core/static/core/Component.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-element.css","/workspace/docs/frontend/03_SYSTEM_IMPROVEMENTS_REFACTOR.md"],"modify":["/workspace/packages/n3tx-core/src/n3tx_core/static/core/Component.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-element.css"],"create":[]},"conventions":"Defaults should be minimal and overridable. Do not make base states visually loud; expose a contract that re
+8: {"id":"task-08","wave":3,"title":"Make widget stylesheet adoption explicit","intent":"Widget styling currently depends on implicit global CSS assumptions even though widgets render inside shadow roots. The framework needs an explicit widget stylesheet contract so widget visuals travel with the components that use them.","context":"`widgets.css` defines many classes used by widget renderers, but the stylesheet is not systematically adopted by shadow components that render widget output. `ntx-item` and row-based editing surfaces are the main framework-owned widget hosts and should intentionally layer widget styles into their `styles` arrays.","instructions":"Update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/widgets/index.js` to export the shared widget stylesheet URL list, including `widgets.css` and any other shared widget CSS that should be adopted by hosts. Then update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js` and `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-row.js` so their `get styles()` return inherited component CSS plus the exported widget stylesheet URLs.","files":{"read":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/widgets/index.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-row.js"],"modify":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/widgets/index.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-row.js"],"create":[]},"conven
+9: {"id":"task-09","wave":4,"title":"Expose stable styling surfaces on entity components","intent":"Apps should be able to restyle `ntx-item` and `ntx-list` without replacing them or targeting brittle internal selectors. Stable `part` names and host/state attributes are the main customization contract for shadow components.","context":"`ntx-item` and `ntx-list` are the core entity renderers used throughout the framework. They already control their own markup and display modes; this task makes that markup intentionally stylable by exposing semantic parts such as container, title, fields, actions, and empty states.","instructions":"Update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js` and `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.js` so the key DOM nodes receive stable `part` names and meaningful host or root state attributes such as `data-state`, `display`, and `mode`. Keep current behavior and display-mode dispatch intact; the change should be surgical markup annotation rather than a render rewrite.","files":{"read":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.js","/workspace/packages/n3tx-ui/docs/components.md"],"modify":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.js"],"create":[]},"conventions":"Use role-based part names, not DOM-shape names. The public contract should describe semantics like title, field, and actions rather than imple
+10: {"id":"task-10","wave":4,"title":"Expose stable styling surfaces on action and stream components","intent":"Method buttons and streaming views are public primitives too, and they need the same restyling contract as item and list components. Stable parts let apps theme action forms, stream outputs, and agent streams without forking framework code.","context":"`ntx-method`, `ntx-stream`, and `ntx-stream-agent` currently render their own shadow DOM but do not expose a supported styling surface. The streaming hierarchy already layers stylesheets; this task adds semantic parts and state attributes to those same renderers.","instructions":"Update `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js`, `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js`, and `/workspace/packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js` so their rendered DOM exposes semantic `part` names and stable state attributes for forms, buttons, output containers, stream entries, and footers. Preserve current method execution and stream dispatch behavior.","files":{"read":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js","/workspace/packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js"],"modify":["/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js","/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js","/workspace/packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.
+14: {"id":"task-14","wave":6,"title":"Add unit and integration coverage for theme, loader, and state contracts","intent":"The new styling system introduces runtime contracts that need fast feedback in unit tests before browser coverage runs. This task locks down the registry behavior, shared loader behavior, and new Component state helpers so later visual tasks do not regress them.","context":"Frontend tests already cover `theme.js` and `Component.js`, but there is no dedicated test for the shared stylesheet helper and the current tests do not assert the new state rendering contract. This wave extends the existing frontend test style rather than inventing a new harness.","instructions":"Update `/workspace/tests/frontend/tests/utils/theme.test.js` to cover the expanded theme registry API without breaking the current expectations. Update `/workspace/tests/frontend/tests/core/Component.test.js` to assert the new state helpers and style-loader integration surface. Create `/workspace/tests/frontend/tests/core/stylesheets.test.js` for the shared stylesheet helper, focusing on URL normalization, cache reuse, and adoption orchestration.","files":{"read":["/workspace/tests/frontend/tests/utils/theme.test.js","/workspace/tests/frontend/tests/core/Component.test.js","/workspace/tests/frontend/package.json"],"modify":["/workspace/tests/frontend/tests/utils/theme.test.js","/workspace/tests/frontend/tests/core/Component.test.js"],"create":["/workspace/tests/frontend/tests/core/stylesheets.test.js"]},"conventions":"Follow existing Vitest style: ESM imports, explicit `describe` blocks, and moc
+15: {"id":"task-15","wave":6,"title":"Add component and browser coverage for parts and theme compatibility","intent":"Stable public styling surfaces only matter if they are verified in real component markup and browser-level theme flows. This task locks down the visible contracts that apps will rely on for customization.","context":"The framework already has component tests for `ntx-item` and `ntx-method` plus a large browser suite for CSS and theming. Extend those surfaces so they assert the new `part` contract, widget-style adoption behavior, and compatibility of legacy theme entrypoints with the semantic token layer.","instructions":"Update `/workspace/tests/frontend/tests/components/ntx-item.test.js` to assert the presence of key entity component parts and state attributes. Update `/workspace/tests/frontend/tests/components/ntx-method.test.js` to assert method and stream styling surfaces. Update `/workspace/tests/frontend/tests/e2e/css-and-theming-unit.spec.js` so it checks both legacy variables and new semantic variables, ensuring compatibility survives the migration.","files":{"read":["/workspace/tests/frontend/tests/components/ntx-item.test.js","/workspace/tests/frontend/tests/components/ntx-method.test.js","/workspace/tests/frontend/tests/e2e/css-and-theming-unit.spec.js"],"modify":["/workspace/tests/frontend/tests/components/ntx-item.test.js","/workspace/tests/frontend/tests/components/ntx-method.test.js","/workspace/tests/frontend/tests/e2e/css-and-theming-unit.spec.js"],"create":[]},"conventions":"Keep component tests focused on contract surfaces, not every DOM node.
+16: {"id":"task-16","wave":6,"title":"Update styling documentation","intent":"The new styling system changes the supported customization path and must be documented as a first-class framework contract. Without docs, developers will keep targeting brittle selectors or mixing schema and theme responsibilities.","context":"`FRONTEND.md` and `packages/n3tx-ui/docs/components.md` describe current component hooks and schema consumption, but there is no dedicated styling-system document. The docs need to explain tokens, recipe layering, widget style adoption, the shared stylesheet loader, and the `part`/state customization path.","instructions":"Update `/workspace/FRONTEND.md` with the new styling architecture and file map. Update `/workspace/packages/n3tx-ui/docs/components.md` to document `part`, host/state attributes, and stylesheet composition. Create `/workspace/packages/n3tx-ui/docs/styling.md` as the dedicated guide for semantic tokens, recipe files, widget stylesheet adoption, runtime theme APIs, and the recommended customization ladder from token overrides to renderer replacement.","files":{"read":["/workspace/FRONTEND.md","/workspace/packages/n3tx-ui/docs/components.md","/workspace/.traces/features/styling-system/styling-system.md"],"modify":["/workspace/FRONTEND.md","/workspace/packages/n3tx-ui/docs/components.md"],"create":["/workspace/packages/n3tx-ui/docs/styling.md"]},"conventions":"Documentation should reinforce the architecture boundary: schema stays semantic and frontend owns appearance. Reference concrete file paths and public contracts, not temporary implementation
+
+### .project/archive/features/styling-system/styling-system.md (225 total lines)
+1: # Styling System - Execution Plan
+2: 
+3: ## Summary
+4: 
+5: Design and implement a frontend-owned styling system for N3TX that gives the framework strong default visuals while making deep customization predictable, layered, and incremental. The schema keeps owning semantic rendering hints such as field order, groups, renderer choice, widget choice, and display density; the frontend owns tokens, recipes, stylesheet loading, widget styling, component parts, and theme/runtime APIs.
+6: 
+7: This plan intentionally avoids pushing visual decisions into Python model schema. The implementation stays primarily in `packages/n3tx-core/src/n3tx_core/static/`, `packages/n3tx-ui/src/n3tx_ui/static/`, `packages/n3tx-agents/src/n3tx_agents/static/`, and the frontend test/docs suite.
+8: 
+9: ## Product Boundary
+10: 
+223: 3. A unified stylesheet loader for both Component-based and standalone elements.
+224: 4. Stable `part` and host/state attributes for core built-ins.
+225: 5. Test coverage and documentation describing the new customization path.
+
+### .project/archive/features/test-suite/01-frontend-unit-tests.md (1322 total lines)
+1: # Frontend Unit Test Plan — N3TX N3TX 0.6
+2: 
+3: > **Scope**: Every exported function, method, class, and behavior in the N3TX 0.6 frontend.
+4: > **Framework**: Vitest + jsdom (or similar JS test runner)
+5: > **Estimated test cases**: ~700+
+6: 
+7: ---
+8: 
+9: ## CORE LAYER
+10: 
+1320: - Large collections (1000s of items)
+1321: - Deep nesting (multi-level $ref hydration)
+1322: - Concurrent operations (multiple ATTACH calls racing, overlapping UPDATE/DELETE)
+
+### .project/archive/features/test-suite/02-backend-integration-tests.md (463 total lines)
+1: # Backend Integration Test Plan — N3TX Framework
+2: 
+3: > **Scope**: Every API endpoint, cross-module workflow, and authorization scenario.
+4: > **Framework**: pytest + httpx (async) or requests (sync), FastAPI TestClient
+5: > **Estimated test cases**: ~160+
+6: 
+7: ---
+8: 
+9: ## 1. SCHEMA ENDPOINTS
+10: 
+461: 5. Capture and validate error response structure
+462: 6. Test names: `test_create_product_as_authenticated_user_succeeds`
+463: 7. Group into test classes by feature area
+
+### .project/archive/features/test-suite/03-backend-unit-tests.md (730 total lines)
+1: # Backend Unit Test Plan — N3TX Framework
+2: 
+3: > **Scope**: Every function, method, class, and behavior in the Python backend.
+4: > **Framework**: pytest with mocking (unittest.mock), in-memory SQLite
+5: > **Estimated test cases**: ~600+
+6: 
+7: ---
+8: 
+9: ## 1. PROTO_MODEL.PY — Base Model & Schema Generation
+10: 
+728: 
+729: ### Error Handling
+730: - 400, 404, 403, 409, 422 — correct status codes and messages
+
+### .project/archive/features/test-suite/04-frontend-integration-e2e-tests.md (537 total lines)
+1: # Frontend Integration & E2E Test Plan — N3TX N3TX 0.6
+2: 
+3: > **Scope**: Component interactions, message flows, data binding (integration) + real browser automation (Playwright E2E)
+4: > **Framework**: Integration — Vitest + jsdom; E2E — Playwright
+5: > **Estimated test cases**: ~180+
+6: 
+7: ---
+8: 
+9: ## A. CLASSICAL INTEGRATION TESTS
+10: 
+535: - Submit with required field empty, paste large text
+536: - Browser autofill interference, hidden required fields
+537: - Array fields with complex objects
+
+### .project/archive/features/test-suite/05-ui-unit-tests.md (604 total lines)
+1: # 05 — UI Component Unit Tests (Playwright)
+2: 
+3: > **Scope**: Every visual element, button, input field, and component interaction in the browser — tested in isolation using Playwright against a live server.
+4: > **Framework**: Playwright (`tests/e2e/*.spec.js`)
+5: > **Goal**: Full coverage of every UI element's behavior, appearance, and edge cases. Every button must be clicked. Every input must be typed into. Every visual state must be verified.
+6: > **Estimated test cases**: ~300+
+7: 
+8: ---
+9: 
+10: ## EXECUTION INSTRUCTIONS FOR SUBAGENTS
+602: - Use `test.describe()` blocks to group related tests
+603: - Use `test.beforeEach()` for common setup (page navigation, login)
+604: - Avoid hardcoded IDs where possible — query for first available item instead
+
+### .project/archive/features/test-suite/06-ui-integration-tests.md (723 total lines)
+1: # 06 — UI Integration Tests (Playwright End-to-End User Flows)
+2: 
+3: > **Scope**: Complete user journeys through the application, testing that components work together correctly, state propagates, and the full data lifecycle works end-to-end.
+4: > **Framework**: Playwright (`tests/e2e/*.spec.js`)
+5: > **Goal**: Verify every user workflow from start to finish. Registration through deletion. Every action must produce the expected result and the UI must reflect changes in real-time.
+6: > **Estimated test cases**: ~250+
+7: 
+8: ---
+9: 
+10: ## EXECUTION INSTRUCTIONS FOR SUBAGENTS
+721: - Use `test.describe.serial()` for tests that depend on each other within a group (e.g., create then verify)
+722: - DO NOT skip tests with `test.skip()` — either fix them or document the bug
+723: - Think about EVERY edge case: empty strings, null values, very long strings, special characters, unicode, rapid clicks, concurrent actions, network errors, auth state changes
+
+### .project/archive/features/tests/1-frontend-test-harness-option-b.md (683 total lines)
+1: # Plan 1 — Frontend Test Harness, Option B
+2: 
+3: ## Purpose
+4: 
+5: Implement the **Option B flexible frontend test harness** described in `.project/plans/frontend-test-architecture-deepening-candidates.md` candidate #1.
+6: 
+7: The goal is to deepen the frontend test boundary so Vitest tests can exercise the schema-driven frontend contract without manually wiring every collaborator:
+8: 
+9: - schema fixture construction
+10: - `NTT.SCHEMA()` / DynamicClass registration
+681: - `tests/frontend/tests/helpers/harness/transport.js`
+682: - `tests/frontend/tests/helpers/harness/components.js`
+683: - `tests/frontend/tests/components/ntx-item.contract.test.js`
+
+### .project/archive/features/tests/2-e2e-app-server-harness-option-b.md (730 total lines)
+1: # Plan 2 — E2E App Server Harness, Option B
+2: 
+3: ## Purpose
+4: 
+5: Implement the **Option B class-based E2E app server harness** for frontend Playwright tests.
+6: 
+7: This corresponds to candidate #2 from `.project/plans/frontend-test-architecture-deepening-candidates.md`: **Unified E2E app/server lifecycle harness**.
+8: 
+9: The goal is to deepen the local app lifecycle module so Playwright configs and fixtures no longer duplicate setup logic for:
+10: 
+728: - `tests/frontend/tests/e2e/start-e2e-app.js`
+729: - `tests/frontend/tests/e2e/fixtures/parallel.js`
+730: - `tests/frontend/tests/e2e/global-teardown.js`

@@ -1,0 +1,461 @@
+
+### AGENTS.md (713 total lines)
+651: 
+652: | Test suite | Command | What it covers |
+653: |-----------|---------|---------------|
+654: | Core unit tests | `cd /workspace && .venv-agents/bin/python -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/` | Models, storage, auth, routes, schema |
+655: | Actor tests | `cd /workspace && .venv-agents/bin/python -m pytest packages/n3tx-actors/src/n3tx_actors/tests/` | Actor system, interceptors, auth |
+656: | Agent tests | `cd /workspace && .venv-agents/bin/python -m pytest packages/n3tx-agents/src/n3tx_agents/tests/` | AgentMixin, AgentActor, tools |
+657: | Files tests | `cd /workspace && .venv-agents/bin/python scripts/test-backend.py --suite files -- -q` | File metadata model and byte stores |
+658: | Core example (Level 1/2) | `cd /workspace && .venv-agents/bin/python -m pytest examples/core/tests/` | CRUD, auth flow, pagination, FK hydration |
+659: | Actors example (Level 3) | `cd /workspace && .venv-agents/bin/python -m pytest examples/actors/tests/` | Same coverage with actor routing |
+660: | Grants example (Agents) | `cd /workspace && .venv-agents/bin/python -m pytest examples/grants/tests/` | Agents, grants, sources |
+661: | Frontend unit tests | `cd /workspace/tests/frontend && npx vitest run` | JS runtime, components, theme helpers, widgets |
+662: | Frontend E2E tests | `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js` | Browser verification against seeded `examples/core` |
+663: 
+664: Frontend Playwright notes:
+665: 
+666: - The harness serves `examples/core` and seeds an isolated SQLite DB in `tests/frontend/tests/e2e/global-setup.js`.
+667: - Local workspace runs use `/workspace/.venv-e2e` for Python web dependencies; the harness auto-detects it and falls back to `python3` if missing.
+668: - The Playwright config injects `PYTHONPATH` so package source trees resolve directly from `packages/*/src`.
+669: 
+670: ### Starting a Server
+671: ```bash
+672: cd /workspace/examples/core && python3 main.py     # Level 1/2
+673: cd /workspace/examples/actors && python3 main.py   # Level 3
+674: cd /workspace/examples/grants && python3 main.py   # Agents
+675: ```
+676: 
+677: ### Commit Messages
+678: Format: `type(scope): Description [wave]`
+679: 
+680: - **type**: `feat`, `fix`, `test`, `docs`, `refactor`, `chore`
+681: - **scope** (optional): `core`, `actors`, `agents`, `ui`, `api`, `frontend`, `example`
+682: - **Description**: imperative mood, capitalized
+683: - **[wave]**: current development wave in brackets. Check recent commits for the active wave.
+684: 
+685: Examples:
+686: ```
+687: feat(actors): Add interceptor mechanism and two-tier auth [0.10]
+688: fix(core): Move FastAPI imports to module level in network_api.py [0.10]
+689: docs: Update AGENTS.md for multi-package structure [0.10]
+690: ```
+691: 
+692: ### Authentication for Testing
+693: Most endpoints require a JWT token. Schema endpoints (`GET /{ClassName}`) are public.
+694: 
+695: **Seed users** (created by `cd examples/core && python3 seed.py`):
+696: | Email | Password | Role |
+697: |---|---|---|
+698: | `alice@example.com` | `alice123` | `user` |
+699: | `bob@example.com` | `bob123` | `user` |
+700: | `charlie@example.com` | `charlie123` | `user` |
+701: 
+702: **Get a token:**
+703: ```bash
+704: TOKEN=$(curl -s -X POST http://localhost:5000/users/login \
+705:   -H 'Content-Type: application/json' \
+706:   -d '{"email":"alice@example.com","password":"alice123"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+707: ```
+708: 
+709: **Use it:**
+710: ```bash
+711: curl -s http://localhost:5000/products -H "x-access-token: $TOKEN"
+712: curl -s http://localhost:5000/Product  # Schema (no auth needed)
+713: ```
+
+### BACKEND.md (459 total lines)
+1: # N3TX Backend Reference
+2: 
+3: This document contains backend-specific key files, architecture details, and patterns. It supplements the main `CLAUDE.md` which contains cross-cutting architecture, the multi-package structure, and all directives.
+4: 
+5: **Before reading this file**, check the documentation in `/workspace/docs/` and per-package `docs/` directories first. See `CLAUDE.md` → "Documentation-First Context Loading" for the required order.
+6: 
+7: Relevant docs:
+8: - `/workspace/docs/CORE.md` — Schema-driven development, model patterns
+9: - `/workspace/docs/MODELS.md` — Model layer, pipelines, StorableMixin
+10: - `/workspace/docs/ACTORS.md` — Actor system, TX messaging
+11: - `/workspace/docs/AGENTS.md` — LLM integration, tool discovery
+12: - `/workspace/docs/AUTHORIZATION.md` — Full authorization system
+13: - `packages/n3tx-core/docs/` — app-bootstrap, authorization, schema-pipeline, storage
+14: - `packages/n3tx-actors/docs/` — actor-messaging, actor-model, interceptors, network-adapters
+15: - `packages/n3tx-agents/docs/` — mixin, agent-actor, tool-discovery
+16: 
+17: ## Backend Architecture Detail
+18: 
+19: ```
+20: models/*.py          Define data models (extend ProtoModel / BaseUser / ActorModel)
+21:      |
+22:      v
+23: ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
+24: (n3tx-core)          orchestrates schema pipeline, handles serialization
+25:      |
+26:      +-- schema()              Orchestrates proto_schema.* pipeline (base → strip_hidden →
+27:      |                         methods → defs → access → widget → ui → [viewable] → [agent] → metadata)
+28:      |                         [ ] = registered by external packages at import time
+29:      +-- model_dump()          Plain dict (DB). model_response() runs base → relationships →
+30:      |                         schema_url → instance_url → populate
+31:      +-- __init_subclass__()   Auto-injects StorableMixin for __storable__=True models;
+32:      |                         loops _mixin_registry for external mixins (ViewableMixin, AgentMixin)
+33:      +-- register_mixin()      Module-level API — external packages register mixins at import time
+34:      |
+35:      v
+36: ActorModel           Bridge class (Actor + ProtoModel): models that participate
+37: (n3tx-actors)        in actor messaging. CRUD via handler_crud(), lifecycle events,
+38:                       same schema/storage as ProtoModel.
+39:      |
+40:      v
+41: register_model()     Registers model with storage backend
+42:      |
+43:      v
+44: register_routes()    Auto-generates CRUD routes from registered models (routes_fastapi.py)
+45:      |
+46:      v
+47: FastAPI router       Serves schema at GET /{ClassName}, CRUD at /{tablename}/...
+48: 
+49: Interceptors         use() on any Actor — register TX interceptors on inbox/send/request
+50: (n3tx-actors)        Signature: async (TX) -> TX. Return error TX to short-circuit.
+51: 
+52: NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor routing)
+53: (n3tx-actors)        create_app(routing='actor') wires NetworkAPI + auth interceptor
+54:                       Two-tier auth: Tier 1 (boundary gate) + Tier 2 (handler OWNER check)
+55: ```
+56: 
+57: ## Key Files
+58: 
+59: ### Models & Serialization (n3tx-core)
+60: - `packages/n3tx-core/src/n3tx_core/models/proto_model.py` - Base model, `model_response()`, local relationship hydration, `register_mixin()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
+61: - `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` - Schema pipeline: 7 core stages + external extensions. Extensible via `@schema_extension` and `register_mixin()`.
+62: - `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` - Dump pipeline for serialization. Extensible via `@dump_extension` decorator.
+63: - `packages/n3tx-core/src/n3tx_core/models/base_user.py` - Abstract base user with `login()` and `register_user()` endpoints
+64: - `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` - CRUD operations. `list()` supports `limit`/`offset` pagination.
+65: - `packages/n3tx-core/src/n3tx_core/models/ref.py` - Canonical HTTP(S) `Ref[T]` value and URL-part helpers
+66: - `packages/n3tx-core/src/n3tx_core/utils/typer.py` - Compatibility re-export for historical `Ref`, `_SelfRefMarker`, and `flatten_refs()` imports
+67: 
+68: ### Storage (n3tx-core)
+69: - `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` - SQLite backend with Ref hydration, JSON/list field serialization (`_coerce_value()` + `_deserialize_json_fields()`)
+70: - `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py` - Auto-migration + Rails-style manual migrations
+71: - `packages/n3tx-core/src/n3tx_core/utils/introspection.py` - `get_json_fields()`, `get_fk_list_fields()`, `get_ref_fields()`, `get_ref_list_fields()`
+72: 
+73: ### Authorization & Authentication (n3tx-core)
+74: - `packages/n3tx-core/src/n3tx_core/authorize/` - Standalone auth package (JWT + ABAC, zero N3TX imports)
+75: - `packages/n3tx-core/src/n3tx_core/authorize/auth.py` - JWT: password hashing, token create/decode, `configure()`
+76: - `packages/n3tx-core/src/n3tx_core/authorize/rules.py` - `AccessRule` base + built-ins (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`)
+77: - `packages/n3tx-core/src/n3tx_core/authorize/context.py` - `AccessContext` dataclass
+78: - `packages/n3tx-core/src/n3tx_core/authorize/resolver.py` - `AuthorizationResolver` Protocol + `DefaultResolver`
+79: - `packages/n3tx-core/src/n3tx_core/authorize/errors.py` - `AccessDenied` exception
+80: - `packages/n3tx-core/src/n3tx_core/authorize/schema.py` - Serialize access rules to JSON
+81: 
+82: ### API / Routes (n3tx-core)
+83: - `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py` - Level 1/2 route factories with authorization, pagination, and user resolution (`_resolve_user`)
+84: - `packages/n3tx-core/src/n3tx_core/api/backend.py` - `FastAPIBackend`, static file serving, `_discover_static_dirs()` for multi-package static merge
+85: - `packages/n3tx-core/src/n3tx_core/api/routes_flask.py` - Flask alternative
+86: - `packages/n3tx-core/src/n3tx_core/api/discovery.py` - `/_meta`, `/.well-known/agent.json`
+87: - `packages/n3tx-core/src/n3tx_core/utils/decorators.py` - `@expose_route()` for custom method endpoints
+88: - `packages/n3tx-core/src/n3tx_core/utils/registrar.py` - `registered_models` registry and model registration helpers
+89: 
+90: ### Network Adapters (n3tx-actors)
+91: - `packages/n3tx-actors/src/n3tx_actors/api/network_adapter.py` - `NetworkAdapter(Actor)` base class. `request()` for req/resp correlation, `stream()` for multi-reply streaming.
+92: - `packages/n3tx-actors/src/n3tx_actors/api/network_api.py` - `NetworkAPI`: HTTP REST bridge for Level 3 actor routing. `create_api_routes()` generates FastAPI routes.
+93: - `packages/n3tx-actors/src/n3tx_actors/api/remote_matrix.py` - `RemoteMatrix`: direct HTTP(S) REST adapter and `MatrixReferenceResolver` for explicit storage populate.
+94: - `packages/n3tx-actors/src/n3tx_actors/remote_proxy.py` - `RemoteRef`: explicit HTTP(S) remote handle returned by `ActorModel.ref()`.
+95: - `packages/n3tx-actors/src/n3tx_actors/api/auth_interceptor.py` - Tier 1 auth interceptor. `async (TX) -> TX` function.
+96: - `packages/n3tx-actors/src/n3tx_actors/api/network_ws.py` - `NetworkWebSocket`: WebSocket bridge for frontend Matrix.
+97: - `packages/n3tx-actors/src/n3tx_actors/api/network_mcp.py` - `NetworkMCP`: MCP JSON-RPC 2.0 bridge.
+98: - `packages/n3tx-actors/src/n3tx_actors/api/network_ap.py` - `NetworkAP`: ActivityPub federation bridge.
+99: 
+100: ### Widgets (n3tx-core)
+101: - `packages/n3tx-core/src/n3tx_core/widgets/widget.py` - `Widget` base class, `WidgetMeta`, built-in field types, auto-detection registry
+102: - `packages/n3tx-core/src/n3tx_core/widgets/schema_ext.py` - Schema pipeline stage (`@schema_extension(before='ui')`)
+103: 
+104: ### App Bootstrap (n3tx-core)
+105:  - `packages/n3tx-core/src/n3tx_core/app.py` - `N3TXApp` builder + `create_app()` factory. Supports `routing='direct'` and `routing='actor'`. In actor mode, re-syncs Matrix children to the finalized registered actor model classes after storage registration.
+106: - `packages/n3tx-core/src/n3tx_core/__init__.py` - Public API re-exports
+107: - `packages/n3tx-core/src/n3tx_core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS, SERVICE_NAME, SERVICE_TOKEN, REMOTES
+108: 
+109: ### Agents (n3tx-agents)
+110: - `packages/n3tx-agents/src/n3tx_agents/mixin.py` - AgentMixin: `ctx()`, `tools()`, `agentic()`, `run()`, streaming variants
+111: - `packages/n3tx-agents/src/n3tx_agents/actor.py` - AgentActor: concrete model, instances ARE agents
+112: - `packages/n3tx-agents/src/n3tx_agents/deps.py` - `AgentDeps` dataclass for Pydantic AI
+113: - `packages/n3tx-agents/src/n3tx_agents/tools.py` - Tool discovery + function generation
+114: - `packages/n3tx-agents/src/n3tx_agents/schema_ext.py` - Schema extension for `__agent__` models
+115: - `packages/n3tx-agents/src/n3tx_agents/__init__.py` - Calls `register_mixin('__agent__', AgentMixin)` **before** importing AgentActor (import ordering requirement)
+116: 
+117: ### Files (n3tx-files)
+118: - `packages/n3tx-files/src/n3tx_files/file.py` - `File(ActorModel)` metadata resource; bytes live in a `FileStore`
+119: - `packages/n3tx-files/src/n3tx_files/store.py` - `FileStore` protocol and `LocalFileStore` filesystem byte provider
+120: - `packages/n3tx-files/src/n3tx_files/address.py` - Canonical local File `$id` validation and id extraction
+121: - `packages/n3tx-files/src/n3tx_files/materialize.py` - Registers `File`-typed method argument materialization when `n3tx_files` is imported
+122: - `packages/n3tx-files/src/n3tx_files/routes.py` - Package-local multipart upload and binary/range download adapters
+123: - `packages/n3tx-files/src/n3tx_files/config.py` - File package configuration such as `N3TX_FILE_STORE_DIR`
+124: - `packages/n3tx-files/docs/file.md` - File capability architecture and guardrails
+125: 
+126: ### UI Mixin (n3tx-ui)
+127: - `packages/n3tx-ui/src/n3tx_ui/mixin.py` - `ViewableMixin` + `viewable` schema stage. Registers `__viewable__`/`__ui__` triggers via `register_mixin()`. **Must be imported before model files with `__ui__`.**
+128: 
+129: ## Backend Patterns
+130: 
+
+### BACKEND.md (459 total lines)
+131: ### BaseUser Pattern
+132: ```python
+133: from n3tx_core.models.base_user import BaseUser
+134: 
+135: class User(BaseUser):
+136:     __tablename__ = 'users'
+137:     __abstract__ = False
+138:     image: Optional[str] = Field(default=None)
+139: ```
+140: `BaseUser` provides: `name`, `email`, `role`, `password_hash`, plus `login()` and `register_user()` endpoints. The method was renamed from `register()` to `register_user()` to avoid MRO collision with `Actor.register()`.
+141: 
+142: ### Local Model Collections
+143: ```python
+144: class Product(ProtoModel):
+145:     comments: list[Comment] = Field(default=[])
+146: ```
+147: 
+148: `list[T]` stores an ordered JSON list of local child ids on the parent row and
+149: hydrates those ids into self-describing child objects in responses. Use custom
+150: methods such as `Product.comment(...)` for domain-specific append/toggle actions.
+151: For shared relationships, prefer an explicit link model; `ManyToMany[T]` remains
+152: a legacy helper for existing shared-link use cases.
+153: 
+154: ### Custom Method Return Types
+155: `@expose_route` methods may return any import-resolvable model type, including a
+156: different `ProtoModel` than the route owner. With `from __future__ import
+157: annotations`, route registration resolves return annotations through
+158: `typing.get_type_hints()` before passing them to FastAPI's `response_model`, so
+159: patterns such as `Product.comment(...) -> Comment` remain valid and validated.
+160: 
+161: ### Custom Method Scope
+162: 
+163: `@expose_route` method scope is descriptor-aware and published in schema as both
+164: `scope` and `requires_instance`. Route generation, actor dispatch, tool
+165: discovery, and remote streaming should use `requires_instance` for routing
+166: decisions:
+167: 
+168: | Python declaration | Schema `scope` | `requires_instance` | Route shape |
+169: |---|---|---:|---|
+170: | `def action(self, ...)` | `instancemethod` | `true` | `POST /{ClassName}/{id}/{route}` |
+171: | `@classmethod def action(cls, ...)` | `classmethod` | `false` | `POST /{ClassName}/{route}` |
+172: | `@staticmethod def action(...)` | `staticmethod` | `false` | `POST /{ClassName}/{route}` |
+173: | `def action(...)` with no `self`/`cls` | `actormethod` | `false` | `POST /{ClassName}/{route}` |
+174: 
+175: For decorator order, prefer the normal Python descriptor shape:
+176: 
+177: ```python
+178: @staticmethod
+179: @expose_route('/upload-to-splat', methods=['POST'], stream=True)
+180: async def upload_to_splat(...):
+181:     ...
+182: 
+183: @classmethod
+184: @expose_route('/rebuild', methods=['POST'])
+185: def rebuild(cls):
+186:     ...
+187: ```
+188: 
+189: The schema-declared route path is authoritative for distributed calls. For
+190: example, `RemoteMatrix.stream()` resolves `POST /ComputePipeline/upload-to-splat`
+191: from schema metadata instead of synthesizing `/ComputePipeline/0/upload_to_splat`
+192: when `requires_instance` is false.
+193: 
+194: ### API Response Format
+195: All entity responses include `$schema` (schema URL) and `$id` (instance URL), injected by `model_response()` via the dump pipeline.
+196: 
+197: ### Route Grammar and Hypermedia View Entrypoints
+198: 
+199: N3TX exposes an additive dual route grammar. Table-name routes remain the
+200: compatibility JSON API; class-name routes provide schema, read mirrors, and
+201: HTML/view entrypoints.
+202: 
+203: | Route | Layer | Response | Notes |
+204: |---|---|---|---|
+205: | `GET /{ClassName}` | schema/type | JSON Schema | Existing schema endpoint |
+206: | `GET /{tablename}` | data API | JSON list | Existing table-name API |
+207: | `POST /{tablename}` | data API | JSON entity | Existing create route |
+208: | `GET /{tablename}/{id:int}` | data API | JSON entity | Existing canonical read route |
+209: | `PUT /{tablename}/{id:int}` | data API | JSON entity | Existing update route |
+210: | `DELETE /{tablename}/{id:int}` | data API | JSON status/payload | Existing delete route |
+211: | `POST /{tablename}/{id:int}/{method}` | method API | JSON/SSE | Existing `@expose_route` instance methods |
+212: | `GET /{ClassName}/_` | class-name mirror | JSON list | Explicit `_` collection marker |
+213: | `POST /{ClassName}` | class-name mirror | JSON entity | Create mirror; `GET /{ClassName}` stays schema |
+214: | `GET /{ClassName}/{id:int}` | class-name mirror | JSON entity | Read mirror of table-name read |
+215: | `PUT /{ClassName}/{id:int}` | class-name mirror | JSON entity | Update mirror |
+216: | `DELETE /{ClassName}/{id:int}` | class-name mirror | JSON status/payload | Delete mirror |
+217: | `POST /{ClassName}/{id:int}/{method}` | class-name mirror | JSON/SSE | Literal `@expose_route` method mirror |
+218: | `GET /{ClassName}/@` | view/html | HTML | Collection default view shell |
+219: | `GET /{ClassName}/@{view}` | view/html | HTML | Collection named view shell |
+220: | `GET /{ClassName}/{id:int}/@` | view/html | HTML | Member default view shell |
+221: | `GET /{ClassName}/{id:int}/@{view}` | view/html | HTML | Member named view shell |
+222: 
+223: The class-name JSON mirrors intentionally reuse the same handlers as the
+224: table-name routes in direct FastAPI routing. `GET /{ClassName}` remains schema;
+225: `GET /{ClassName}/_` is the explicit JSON collection marker. Actor routing
+226: dispatches equivalent TXs to the table-name actor address. In both modes, auth,
+227: population query parameters, missing-record behavior, and serialization stay
+228: aligned with the table-name route.
+229: 
+230: Response identity is class-name based: a response fetched through either
+231: `GET /products/1` or `GET /Product/1` has `$schema` ending in `/Product` and
+232: `$id` ending in `/Product/1`. Method mirrors are registered only for literal
+233: `@expose_route` declarations; there is no generic class-name method catch-all.
+234: 
+235: #### Partial update contract
+236: 
+237: Generated `PUT /{tablename}/{id}` and `PUT /{ClassName}/{id}` handlers in direct
+238: and actor routing preserve the supplied JSON patch. `StorableMixin.update()`
+239: merges it with the current entity, validates the complete result through the
+240: original model, and sends only supplied fields to storage. This is the same
+241: contract used by direct backend calls and raw TX updates:
+242: 
+243: ```python
+244: Product.update(product.id, {'name': 'Renamed'})  # patch; other fields unchanged
+245: TX(name='update', target='products', data={'id': product.id, 'name': 'Renamed'})
+246: ```
+247: 
+248: Omitted fields remain unchanged. Supplied collections are replaced as a whole
+249: and writes are last-write-wins; use domain-specific `@expose_route` methods for
+250: append/remove/toggle operations where concurrent mutation matters.
+251: Canonical details: `docs/API_CRUD_ENDPOINTS.md#update-resource` and
+252: `packages/n3tx-core/docs/storage.md#update-boundary-contract`.
+253: 
+254: Local owned collections are declared as `list[T]` fields on the parent. SQLite
+255: stores an ordered JSON list of child ids and hydrates those ids into
+256: self-describing child objects on read. Public child identity remains flat and
+257: class-name based, e.g. `$id=/Comment/2`; nested route identity is not a storage
+258: primitive. If a parent has multiple relationships to the same child class, for
+259: example `comments: list[Comment]` and `reviews: list[Comment]`, the relationship
+260: field name remains local schema/UI metadata on the parent while the child model
+
+### BACKEND.md (459 total lines)
+261: continues to own its flat CRUD route and identity.
+262: 
+263: HTML/view routes are owned by optional model capability hooks such as
+264: `ViewableMixin.register_view_routes()` from `n3tx-ui`. Core and actor routing
+265: delegate to that hook when present, so the core and actors packages do not
+266: hard-import UI code. View routes are hidden from OpenAPI and return a minimal
+267: HTML shell that mounts the normal frontend custom element runtime; they are not
+268: a separate server-side component renderer. The `@` segment always means
+269: view/html, never JSON data or method invocation.
+270: 
+271: ### Authorization (ABAC)
+272: ```python
+273: from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE, Where
+274: 
+275: class Product(ProtoModel):
+276:     __owner_field__ = 'user_owner'
+277:     __access__ = {
+278:         'read':   ANYONE,
+279:         'create': AUTHENTICATED,
+280:         'update': OWNER | ROLE('admin'),
+281:         'delete': ROLE('admin'),
+282:     }
+283: ```
+284: Rules compose with `|` (OR), `&` (AND), `~` (NOT). See `packages/n3tx-core/docs/authorization.md` for full details.
+285: 
+286: ### Self-Referential Nesting
+287: ```python
+288: class Comment(ProtoModel):
+289:     parent_id: Optional[Ref['self']] = Field(default=None)
+290: ```
+291: `Ref['self']` emits `{"type": "selfref"}` in JSON Schema. Stored as nullable `INTEGER` column.
+292: 
+293: ### Distributed Ref Configuration
+294: 
+295: Distributed backend-to-backend reference helpers read process config by default:
+296: 
+297: ```text
+298: N3TX_SERVICE_NAME=api
+299: N3TX_SERVICE_TOKEN=...
+300: N3TX_REMOTES={"storage":{"url":"http://storage:7100","token":"..."}}
+301: ```
+302: 
+303: Apps can override deployment defaults during bootstrap:
+304: 
+305: ```python
+306: app = create_app(
+307:     models=[Job],
+308:     routing='actor',
+309:     remotes={'storage': {'url': 'http://storage:7100', 'token': '...'}},
+310:     service_name='api',
+311:     service_token='...',
+312: )
+313: ```
+314: 
+315: `Ref[T]` accepts local ids, local class-name paths such as `/File/12`, current
+316: API URLs, configured remote HTTP URLs, and canonical `n3tx://service/Class/id`
+317: refs. Configured remote HTTP refs canonicalize to `n3tx://...`; unconfigured
+318: HTTP(S) URLs are external links, not Matrix refs.
+319: 
+320: Remote dereference/populate is opt-in. `SQLiteStorage(reference_resolver=None)`
+321: preserves local-only behavior. Actor routing with configured `remotes` registers
+322: `RemoteMatrix` and injects `MatrixReferenceResolver` into compatible storage
+323: backends. For explicit Python calls to a remote model identity, use:
+324: 
+325: ```python
+326: artifact = Artifact.ref('n3tx://storage/Artifact/42')
+327: result = await artifact.call('process', mode='fast')
+328: ```
+329: 
+330: `RemoteMatrix` sends `Authorization: Bearer <token>`, `X-N3TX-Service`, and
+331: optional `X-N3TX-User` headers. A receiving N3TX backend accepts service calls
+332: when the bearer token matches its configured `SERVICE_TOKEN`; forwarded user JSON
+333: is installed as `request.state.user` so existing route and ActorModel ABAC
+334: behavior remains authoritative. Remote HTTP `$id` values are canonicalized back
+335: to `n3tx://service/Class/id` before returning through Matrix/populate.
+336: 
+337: ### JSON Fields (dict/list in SQLite)
+338: The storage layer transparently handles `dict`, `Dict[...]`, `list`, primitive
+339: typed list fields, local owned `list[T]` id arrays, and `list[Ref[T]]` pointer
+340: arrays as JSON TEXT columns. Write paths serialize with `json.dumps(value,
+341: default=str)`; read paths deserialize with `json.loads()` before Pydantic model
+342: construction and hydrate local `list[T]` ids into objects.
+343: 
+344: Use JSON fields for parent-owned embedded data such as metadata, settings,
+345: agent constraints, primitive tags, external payload fragments, distributed
+346: pointer arrays, and local owned relationship id lists. Model children that need
+347: independent auth, lifecycle, or row-level updates as first-class storable models
+348: and point to them from parent `list[T]` fields.
+349: 
+350: Full guide: `docs/JSON_FIELDS.md`. Package mechanism reference:
+351: `packages/n3tx-core/docs/storage.md`.
+352: 
+353: ### Dump Pipeline
+354: ```python
+355: data = product.model_response()    # runs dump pipeline (injects $schema, $id)
+356: data = product.model_dump()        # plain dict for storage (no metadata)
+357: ```
+358: 
+359: External packages extend via `@dump_extension`:
+360: ```python
+361: from n3tx_core.models.proto_dump import dump_extension
+362: 
+363: @dump_extension(after='response')
+364: def activity(instance, d: dict) -> dict:
+365:     ...
+366: ```
+367: 
+368: ### NetworkAdapter Pattern
+369: ALL external protocol interaction flows through a `NetworkAdapter(Actor)`. Each adapter translates between an external protocol and TX messages. See `packages/n3tx-actors/docs/network-adapters.md`.
+370: 
+371: ```python
+372: from n3tx_actors.api.network_mcp import NetworkMCP, create_mcp_routes
+373: from n3tx_actors.api.network_ap import NetworkAP, create_federation_routes
+374: 
+375: mcp = NetworkMCP(addr='mcp')
+376: matrix.register(mcp)
+377: app.include_router(create_mcp_routes(mcp))
+378: ```
+379: 
+380: ### Widget Pattern (Python)
+381: ```python
+382: from n3tx_core.widgets import MarkdownField, UrlField, CurrencyField
+383: 
+384: class BlogPost(ProtoModel):
+385:     body: MarkdownField(rows=10)    # Annotated[str, MarkdownField(rows=10)]
+386:     website: UrlField               # validates as AnyHttpUrl, widget=url
+387:     price: CurrencyField            # validates as float, widget=currency
+388: ```
+389: 
+390: Three detection cases in the `widget` schema pipeline stage:

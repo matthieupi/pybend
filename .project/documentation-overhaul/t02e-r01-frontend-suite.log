@@ -1,0 +1,94 @@
+
+> ntx-frontend-tests@0.6.0 test
+> vitest run --maxWorkers=2 --minWorkers=1
+
+
+ RUN  v1.6.1 /workspace/neuralys/collagen/lib/n3tx/tests/frontend
+
+ ✓ tests/components/ntx-ref-picker.test.js  (70 tests) 329ms
+ ✓ tests/components/ntx-item.test.js  (87 tests) 366ms
+ ✓ tests/generators/form.test.js  (77 tests) 130ms
+ ✓ tests/components/ntx-sidebar.test.js  (67 tests) 555ms
+ ✓ tests/core/route-functions.test.js  (103 tests) 139ms
+ ✓ tests/components/ntx-method.test.js  (69 tests) 325ms
+ ✓ tests/core/NTT.test.js  (56 tests) 94ms
+ ✓ tests/core/Router.test.js  (52 tests) 54ms
+ ✓ tests/transport/NetworkAdapter.test.js  (32 tests) 134ms
+ ✓ tests/transport/HTTP.test.js  (53 tests) 1538ms
+ ✓ tests/components/ntx-router.test.js  (22 tests) 144ms
+ ✓ tests/components/ntx-table.test.js  (12 tests) 147ms
+ ✓ tests/core/Utils.test.js  (52 tests) 44ms
+ ✓ tests/integration/network-entity-sync.test.js  (22 tests) 692ms
+ ✓ tests/utils/Permissions.test.js  (32 tests | 1 skipped) 25ms
+ ✓ tests/components/ntx-logs.test.js  (20 tests) 181ms
+ ✓ tests/integration/router-navigation.test.js  (22 tests) 477ms
+ ✓ tests/components/ntx-list.test.js  (30 tests) 165ms
+ ✓ tests/core/DynamicClassFunctor.test.js  (14 tests) 29ms
+ ✓ tests/integration/method-response-pull.test.js  (6 tests) 1187ms
+ ✓ tests/integration/observable-pattern.test.js  (17 tests) 396ms
+ ✓ tests/integration/schema-bootstrap.test.js  (18 tests) 463ms
+ ✓ tests/integration/permission-ui.test.js  (28 tests) 361ms
+ ✓ tests/integration/response-no-pull.test.js  (5 tests) 1245ms
+ ✓ tests/integration/form-entity-binding.test.js  (22 tests) 346ms
+ ✓ tests/integration/duplicate-read-requests.test.js  (6 tests) 594ms
+ ✓ tests/integration/nested-entities.test.js  (11 tests) 289ms
+ ✓ tests/components/ntx-topbar.test.js  (8 tests) 146ms
+ ✓ tests/integration/actor-messaging.test.js  (15 tests) 380ms
+ ✓ tests/integration/list-item-interaction.test.js  (18 tests) 461ms
+ ✓ tests/integration/entity-lifecycle.test.js  (14 tests) 350ms
+ ✓ tests/components/ntx-row.test.js  (8 tests) 91ms
+ ✓ tests/core/Actor.test.js  (25 tests) 23ms
+ ✓ tests/utils/Logging.test.js  (22 tests) 20ms
+ ✓ tests/transport/Socket.test.js  (16 tests) 26ms
+stdout | tests/integration/method-response-flow.test.js > Full favorite flow — network request audit > should audit all network requests during favorite action via instance.call()
+=== Fetch Log ===
+  0: POST http://localhost:5000/Product/1/favorite
+Posts: 1, Pull GETs: 0, List GETs: 0
+
+stdout | tests/integration/method-response-flow.test.js > Full favorite flow — network request audit > should audit requests when favorite is called via DynamicClass.call (class-level)
+=== Fetch Log (class-level call) ===
+  0: POST http://localhost:5000/Product/favorite
+
+stdout | tests/integration/method-response-flow.test.js > Full favorite flow — network request audit > watcher notification count after favorite should be zero
+Watcher UPDATE notifications: 0
+
+ ✓ tests/integration/method-response-flow.test.js  (3 tests) 1148ms
+ ✓ tests/integration/method-execution.test.js  (11 tests) 282ms
+ ✓ tests/core/Observable.test.js  (20 tests) 21ms
+ ✓ tests/integration/display-mode-cascade.test.js  (23 tests) 470ms
+ ✓ tests/components/ntx-profile.test.js  (12 tests) 163ms
+ ✓ tests/utils/Toast.test.js  (19 tests) 104ms
+ ✓ tests/core/Component.test.js  (13 tests) 20ms
+ ✓ tests/components/ntx-sidebar-link-item.test.js  (6 tests) 72ms
+ ✓ tests/components/ntx-user.test.js  (13 tests) 33ms
+ ✓ tests/core/TX.test.js  (15 tests) 17ms
+ ✓ tests/components/ntx-agents.test.js  (6 tests) 125ms
+ ✓ tests/components/ntx-list-field.test.js  (8 tests) 90ms
+ ✓ tests/components/ntx-item-method-attrs.test.js  (3 tests) 15ms
+ ✓ tests/utils/registrar.test.js  (15 tests) 21ms
+ ✓ tests/utils/theme.test.js  (11 tests) 24ms
+ ✓ tests/components/ListElement.test.js  (14 tests) 13ms
+ ✓ tests/components/ntx-stream-envelope.test.js  (4 tests) 44ms
+ ✓ tests/components/ntx-item-uppercase.test.js  (2 tests) 16ms
+ ✓ tests/utils/Assert.test.js  (13 tests) 45ms
+ ✓ tests/core/Matrix.test.js  (8 tests) 12ms
+ ✓ tests/components/ntx-favorites.test.js  (5 tests) 22ms
+ ✓ tests/components/ntx-theme-button.test.js  (6 tests) 69ms
+ ✓ tests/utils/DateFormat.test.js  (12 tests) 13ms
+ ✓ tests/components/ntx-method-zero-required.test.js  (2 tests) 50ms
+ ✓ tests/components/ntx-method-optional-fields.test.js  (2 tests) 42ms
+ ✓ tests/generators/form-uppercase.test.js  (2 tests) 8ms
+ ✓ tests/components/ntx-icon.test.js  (5 tests) 95ms
+ ✓ tests/components/NTTElement.test.js  (4 tests) 7ms
+ ✓ tests/generators/form-array-permissions.test.js  (1 test) 9ms
+ ✓ tests/components/ntx-agent.test.js  (2 tests) 13ms
+ ✓ tests/generators/form-display-uppercase.test.js  (2 tests) 4ms
+ ✓ tests/widgets/BoolWidget.test.js  (2 tests) 11ms
+ ✓ tests/widgets/ReferenceWidget.test.js  (2 tests) 10ms
+ ✓ tests/components/ntx-element.test.js  (1 test) 32ms
+
+ Test Files  69 passed (69)
+      Tests  1397 passed | 1 skipped (1398)
+   Start at  13:34:39
+   Duration  36.72s (transform 2.11s, setup 378ms, collect 5.27s, tests 15.07s, environment 33.79s, prepare 6.84s)
+

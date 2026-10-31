@@ -1,0 +1,728 @@
+
+### docs/README.md (586 total lines)
+261: |                Model Layer                               |
+262: |  (ProtoModel + Mixins)                                   |
+263: |  - Schema Generation ($schema, $id)                      |
+264: |  - Validation (Pydantic)                                 |
+265: |  - Business Logic                                        |
+266: +--------------------------+------------------------------+
+267:                            |
+268: +--------------------------v------------------------------+
+269: |              Storage Layer                                |
+270: |  (StorableMixin + AbstractStorage)                       |
+271: |  - CRUD Operations                                       |
+272: |  - Data Persistence                                      |
+273: |  - Auto-Migration                                        |
+274: +---------------------------------------------------------+
+275: ```
+276: 
+277: ### Key Components
+278: 
+279: - **ProtoModel**: Base model with schema generation, optional storage, and `model_response()` for metadata injection via the dump pipeline
+280: - **StorableMixin**: Provides CRUD operations via dependency injection
+281: - **AbstractStorage**: Interface for storage backends (SQLite, JSON, etc.)
+282: - **Registrar**: Central registry for models
+283: - **Backend Adapters**: FastAPI/Flask integration layer
+284: - **Ref**: Type-safe foreign key wrapper with schema generation
+285: 
+286: ## Configuration
+287: 
+288: Edit `config.py` to configure your application:
+289: 
+290: ```python
+291: # Backend framework
+292: BACKEND = "fastapi"  # or "flask"
+293: 
+294: # API Settings
+295: VERSION = "0.5.0"
+296: HOST = "0.0.0.0"
+297: PORT = 8000
+298: 
+299: # Database
+300: SQLITE_DB_FILE = "n3tx.db"
+301: ```
+302: 
+303: ## API Documentation
+304: 
+305: N3TX automatically generates OpenAPI-compatible schemas for all models and endpoints.
+306: 
+307: ### Schema Endpoint
+308: 
+309: Each model exposes its schema at `GET /{ModelName}`:
+310: 
+311: ```bash
+312: curl http://localhost:8000/User
+313: ```
+314: 
+315: Response:
+316: ```json
+317: {
+318:   "$schema": "http://localhost:8000/Schema",
+319:   "$id": "http://localhost:8000/User",
+320:   "type": "object",
+321:   "properties": {
+322:     "id": {"type": "integer"},
+323:     "name": {"type": "string"},
+324:     "email": {"type": "string"}
+325:   },
+326:   "methods": {
+327:     "login": {
+328:       "route": "/login",
+329:       "methods": ["POST"],
+330:       "parameters": {
+331:         "email": {"type": "string"},
+332:         "password": {"type": "string"}
+333:       },
+334:       "returns": {"$ref": "#/$defs/User"}
+335:     }
+336:   },
+337:   "$defs": {
+338:     "User": {
+339:       "$id": "http://localhost:8000/User"
+340:     }
+341:   }
+342: }
+343: ```
+344: 
+345: The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
+346: 
+347: Storable entities now advertise class-name `$id` values such as `/User/1` even
+348: when read through legacy table-name routes like `/users/1`. Table-name routes
+349: remain available for compatibility; response identity is class-name based.
+350: `GET /User` remains schema, `GET /User/1` mirrors reads, and `GET /User/@...`
+351: is reserved for HTML/view entrypoints.
+352: 
+353: ### Generate Markdown Docs
+354: 
+355: N3TX includes a documentation generator:
+356: 
+357: ```bash
+358: python -m utils.generate_docs
+359: ```
+360: 
+361: This creates `/docs/{model_name}.md` files with complete API documentation.
+362: 
+363: ## Advanced Usage
+364: 
+365: ### Instance Methods on Models
+366: 
+367: ```python
+368: class Product(ProtoModel):
+369:     __storable__: ClassVar[bool] = True
+370:     __tablename__: ClassVar[str] = 'products'
+371:     
+372:     name: str
+373:     price: float
+374:     
+375:     @expose_route('/discount', methods=['POST'])
+376:     def apply_discount(self, percentage: float) -> Product:
+377:         """Apply a discount to this product"""
+378:         self.price = self.price * (1 - percentage / 100)
+379:         self.save()
+380:         return self
+381: ```
+382: 
+383: This creates `POST /products/{id}/discount` endpoint.
+384: 
+385: ### Custom Validation
+386: 
+387: Use Pydantic's validation features:
+388: 
+389: ```python
+390: from pydantic import field_validator
+
+### docs/README.md (586 total lines)
+391: 
+392: class User(ProtoModel):
+393:     __storable__: ClassVar[bool] = True
+394:     __tablename__: ClassVar[str] = 'users'
+395:     
+396:     email: str
+397:     
+398:     @field_validator('email')
+399:     @classmethod
+400:     def lowercase_email(cls, v):
+401:         return v.lower()
+402: ```
+403: 
+404: ### Error Handling
+405: 
+406: N3TX includes automatic error handling with stack traces:
+407: 
+408: ```python
+409: from utils.erroring import get_traceback_info
+410: 
+411: try:
+412:     # Your code
+413:     pass
+414: except Exception as e:
+415:     trace_info = get_traceback_info(e)
+416:     # Returns structured error with file, line, function, code
+417: ```
+418: 
+419: ## Project Structure
+420: 
+421: ```
+422: n3tx/
+423: ├── api/
+424: │   ├── backend.py              # Backend adapters (FastAPI/Flask)
+425: │   └── routes_fastapi.py       # Route registration logic
+426: ├── models/
+427: │   ├── proto_model.py          # Base model with schema generation
+428: │   ├── storable_mixin.py       # CRUD operations mixin
+429: │   ├── viewable_mixin.py       # UI view support
+430: │   ├── user_model.py           # Example: User model
+431: │   ├── product_model.py        # Example: Product model
+432: │   └── comment_model.py        # Example: Comment model
+433: ├── storage/
+434: │   ├── abstract_storage.py     # Storage interface
+435: │   ├── sqlite_storage.py       # SQLite implementation
+436: │   └── json_storage.py         # JSON file implementation
+437: ├── utils/
+438: │   ├── decorators.py           # @expose_route decorator
+439: │   ├── registrar.py            # Model registration
+440: │   ├── typer.py                # Ref type wrapper
+441: │   ├── introspection.py        # Schema introspection
+442: │   ├── erroring.py             # Error handling utilities
+443: │   └── generate_docs.py        # Documentation generator
+444: ├── config.py                   # Configuration
+445: └── main.py                     # Application entry point
+446: ```
+447: 
+448: ## Examples
+449: 
+450: ### Complete CRUD Example
+451: 
+452: ```python
+453: # 1. Define model
+454: class Article(ProtoModel):
+455:     __storable__: ClassVar[bool] = True
+456:     __tablename__: ClassVar[str] = 'articles'
+457:     
+458:     id: Optional[int] = None
+459:     title: str
+460:     content: str
+461:     author: Ref[User]
+462:     published: bool = False
+463: 
+464: # 2. Register model
+465: storage = SQLiteStorage('blog.db')
+466: register_model(Article, storage=storage)
+467: 
+468: # 3. Use the API
+469: # POST /articles - Create article
+470: # GET /articles - List all articles
+471: # GET /articles/1 - Get article by ID (response includes $schema and $id)
+472: # PUT /articles/1 - Update article
+473: # DELETE /articles/1 - Delete article
+474: ```
+475: 
+476: ### Nested Resources
+477: 
+478: ```python
+479: class Product(ProtoModel):
+480:     __storable__: ClassVar[bool] = True
+481:     __tablename__: ClassVar[str] = 'products'
+482:     
+483:     name: str
+484:     reviews: Optional[List[Review]] = []
+485: 
+486: # Creates endpoints:
+487: # POST /products/{parent_id}/reviews
+488: # GET /products/{parent_id}/reviews
+489: # GET /products/{parent_id}/reviews/{id}
+490: ```
+491: 
+492: ## Development
+493: 
+494: ### Running Tests
+495: 
+496: ```bash
+497: pytest tests/
+498: ```
+499: 
+500: ### Running with Auto-Reload
+501: 
+502: ```bash
+503: python main.py
+504: # Or with uvicorn directly
+505: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+506: ```
+507: 
+508: ### Generating Documentation
+509: 
+510: ```bash
+511: GENERATE_DOCS=true python main.py
+512: ```
+513: 
+514: ## Troubleshooting
+515: 
+516: ### Database Migration Issues
+517: 
+518: If you encounter migration errors:
+519: 
+520: ```python
+
+### docs/README.md (586 total lines)
+521: # In sqlite_storage.py, the migrate_table method automatically
+522: # adds missing columns. Check logs for migration status.
+523: ```
+524: 
+525: ### Foreign Key Serialization
+526: 
+527: Foreign keys are automatically serialized as integers:
+528: 
+529: ```python
+530: # This is handled automatically
+531: product = Product.get(1)
+532: # product.user will be an integer ID, not a User object
+533: ```
+534: 
+535: ### Circular Imports
+536: 
+537: Use forward references:
+538: 
+539: ```python
+540: from __future__ import annotations
+541: 
+542: class User(ProtoModel):
+543:     posts: Optional[List['Post']] = []
+544: 
+545: # At the end of the file
+546: User.update_forward_refs()
+547: ```
+548: 
+549: ## Roadmap
+550: 
+551: - [ ] PostgreSQL storage backend
+552: - [ ] MongoDB storage backend
+553: - [ ] GraphQL support
+554: - [ ] WebSocket support
+555: - [ ] Built-in authentication/authorization
+556: - [ ] Async storage operations
+557: - [ ] Query builder / filtering
+558: - [ ] Pagination support
+559: - [ ] Rate limiting
+560: - [ ] Caching layer
+561: 
+562: ## Contributing
+563: 
+564: Contributions are welcome! Please:
+565: 
+566: 1. Fork the repository
+567: 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+568: 3. Commit your changes (`git commit -m 'Add amazing feature'`)
+569: 4. Push to the branch (`git push origin feature/amazing-feature`)
+570: 5. Open a Pull Request
+571: 
+572: ## License
+573: 
+574: This project is licensed under the MIT License - see the LICENSE file for details.
+575: 
+576: ## Acknowledgments
+577: 
+578: - Built with [Pydantic](https://pydantic-docs.helpmanual.io/) for data validation
+579: - Supports [FastAPI](https://fastapi.tiangolo.com/) and [Flask](https://flask.palletsprojects.com/)
+580: - Inspired by Django ORM and SQLAlchemy
+581: 
+582: ## Support
+583: 
+584: - Email: support@n3tx.dev
+585: - Issues: [GitHub Issues](https://github.com/yourusername/n3tx/issues)
+586: - Discussions: [GitHub Discussions](https://github.com/yourusername/n3tx/discussions)
+
+### docs/frontend/01_UI_SEPARATION_CONCERNS.md (489 total lines)
+1: # N3TX Component Layer: Separation of Concerns
+2: 
+3: Architectural analysis and refactoring plan for the N3TX frontend component hierarchy.
+4: 
+5: ---
+6: 
+7: ## 1. System Context
+8: 
+9: N3TX is a schema-driven frontend framework built on vanilla JS Web Components. The backend (N3TX/FastAPI) publishes JSON Schemas for every model. The frontend fetches these schemas at runtime, creates DynamicClasses (typed N3TX instances), and renders UI components that stay in sync via a message bus (Matrix/Actor system).
+10: 
+11: ### The Data Layer (N3TX Core — unchanged by this refactor)
+12: 
+13: The data layer lives in `core/N3TX.js` and is separate from the component layer. It handles:
+14: 
+15: - **Schema registry**: `N3TX.ATTACH` bootstraps models on first reference — fetches schema from backend, creates a `DynamicClass` via `prototype()`, stores it in a global `#prototypes` map.
+16: - **DynamicClass**: A runtime N3TX subclass per model (e.g., "Product"). Holds the schema, typed property accessors, instance map, CRUD methods, watcher set. Created by the `prototype()` factory function.
+17: - **Instance management**: Each backend record becomes a `DynamicClass` instance (an N3TX actor) with its own address, href, value, and signal/observe reactivity.
+18: - **Watcher pattern**: Components ATTACH to a DynamicClass. The class tracks watchers and sends UPDATE TXs when data arrives or changes.
+19: - **Message routing**: `Matrix` is the root Actor. All TXs flow through it. `Actor.subclass()` stamps static/instance `send`/`inbox`/`register` onto any class.
+20: 
+21: **Key point**: The data layer works independently of any rendering. Components are consumers of TXs — they receive data and decide what to do with it.
+22: 
+23: ### Request Lifecycle
+24: 
+25: ```
+26: 1. <ntx-list model="Product">         Component appears in DOM
+27: 2. attributeChangedCallback            Sends ATTACH TX to N3TX
+28: 3. N3TX.ATTACH("Product")              Checks registry:
+29:    - Unknown model? Fetch schema       SCHEMA TX -> NetworkAdapter -> GET /Product
+30:    - Schema in flight? Queue TX
+31:    - DynamicClass ready? Forward TX
+32: 4. N3TX.SCHEMA(data)                   Creates DynamicClass via prototype()
+33:    - Replays queued ATTACHes
+34:    - Triggers DynamicClass.call('READ') -> GET /products
+35: 5. DynamicClass.READ(data)            Creates N3TX instances per record
+36:    - Notifies all watchers with instance addresses
+37: 6. List.UPDATE([addrs])               Receives address array, renders grid
+38: 7. <ntx-item ref="Product/1">         Stamps child per address
+39: 8. NTTElement sends ATTACH TX          For specific instance
+40: 9. N3TX instance.ATTACH                Responds with DESCRIBE TX (proto + data)
+41: 10. Item.DESCRIBE({proto, data})       Sets schema + value, renders
+42: ```
+43: 
+44: ---
+45: 
+46: ## 2. Current Component Hierarchy
+47: 
+48: ```
+49: HTMLElement
+50:   └── Component              (core/Component.js)
+51:         └── NTTElement       (components/ntx-element.js)
+52:               ├── Item       (components/ntx-item.js)     -> <ntx-item>
+53:               └── List       (components/ntx-list.js)     -> <ntx-list>
+54: ```
+55: 
+56: ### Component (`core/Component.js`, ~70 lines)
+57: 
+58: Extends HTMLElement, gets `Actor.subclass(Component)` applied.
+59: 
+60: **Owns:**
+61: - `addr` and `hash` assignment in constructor
+62: - Dual registration: `matrix.register(this)` + `this.constructor.register(this)`
+63: - `observedAttributes`: `['addr', 'hash']`
+64: - Empty `connectedCallback`, logging-only `disconnectedCallback`
+65: - Abstract `render()` (throws NotImplementedError)
+66: 
+67: **Problems:**
+68: - Circular import: line 1 imports `'../components/ntx-item.js'` (a grandchild)
+69: - Zero independent consumers — every Component is an NTTElement
+70: - ~15 lines of real logic wrapped in a class + file + import chain
+71: 
+72: ### NTTElement (`components/ntx-element.js`, ~155 lines)
+73: 
+74: Extends Component. The "entity-aware base".
+75: 
+76: **Owns:**
+77: - Shadow DOM setup (`attachShadow`)
+78: - Schema/proto resolution: `model` attr -> ATTACH TX -> `define(proto)` -> `definedCallback()`
+79: - Ref resolution: `ref` attr -> READ TX (URL) or ATTACH TX (N3TX address)
+80: - `value` getter/setter with type checking and auto-render (when `this.$schema` is truthy)
+81: - `describe(proto, data)` — legacy dual-init path alongside `define()`
+82: - `update(data)` — trivial `value = data` wrapper
+83: - `subscribe(tt, attribute, callback)` — Observable subscription helper
+84: - `attach(addr)` — N3TX.attach wrapper
+85: - Re-declares `observedAttributes`: `['model', 'addr', 'hash', 'ref']` (overrides parent's)
+86: - Re-declares abstract `render()` (duplicate of Component's)
+87: 
+88: **Problems:**
+89: - `observedAttributes` silently overrides Component's (works by coincidence, not by merging)
+90: - `disconnectedCallback` never calls `super` — Component's logging is dead code
+91: - `describe()` and `define()` are two paths to the same state with different side effects
+92: - `set value()` auto-renders based on `this.$schema` — a property only defined on Item
+93: - `subscribe()` only used by List; `update()` reimplemented by both children
+94: - Duplicate abstract `render()` declaration
+95: 
+96: ### Item (`components/ntx-item.js`, ~165 lines)
+97: 
+98: Extends NTTElement. Registered as `<ntx-item>`.
+99: 
+100: **Owns:**
+101: - Default value: `{}` (single entity)
+102: - Message handlers: `UPDATE(data)`, `READ(data)`, `DESCRIBE(data)`
+103: - Display/edit toggle: `mode` property, pencil/save button
+104: - Rendering: delegates to `Formidable.getForm()` for schema-driven form
+105: - Method rendering: iterates `schema.methods`, stamps `<ntx-method>` elements
+106: - Input handling: `handleInputChange(e)` mutates value from form inputs
+107: - Save: `save()` sends UPDATE TX with current value
+108: 
+109: **Problems:**
+110: - Tightly couples data lifecycle (UPDATE/DESCRIBE handlers) with rendering (Formidable)
+111: - Edit UX (mode toggle, input binding, save) is baked in — can't extend Item without inheriting all of it
+112: - `$schema` property used by parent's `set value()` but only defined here
+113: 
+114: ### List (`components/ntx-list.js`, ~72 lines)
+115: 
+116: Extends NTTElement. Registered as `<ntx-list>`.
+117: 
+118: **Owns:**
+119: - Default value: `[]` (collection)
+120: - `definedCallback()`: subscribes to proto UPDATE, triggers collection READ
+121: - `UPDATE(data)`: receives array of addresses, sets value, renders
+122: - `append(data)`: pushes to array
+123: - Rendering: header with model name + count, stamps `<ntx-item>` per address
+124: 
+125: **Problems:**
+126: - Hardcodes `<ntx-item>` as child element — no way to customize
+127: - Has `Actor.subclass(List)` at module level (redundant — already inherited through Component)
+128: 
+129: ---
+130: 
+
+### docs/frontend/01_UI_SEPARATION_CONCERNS.md (489 total lines)
+131: ## 3. Identified Issues Summary
+132: 
+133: | # | Issue | Where | Impact |
+134: |---|---|---|---|
+135: | 1 | Circular import | Component.js:1 imports ntx-item.js | Module loading fragility |
+136: | 2 | Component has zero independent consumers | Component.js | Unnecessary abstraction layer |
+137: | 3 | Double `Actor.subclass` | ntx-list.js:71 | Inconsistent (Item doesn't do it) |
+138: | 4 | `observedAttributes` overridden without merge | NTTElement | Fragile if Component's list changes |
+139: | 5 | Broken `super.disconnectedCallback()` chain | NTTElement | Component's cleanup is dead code |
+140: | 6 | Duplicate abstract `render()` | Component + NTTElement | Redundant, confusing |
+141: | 7 | `define()` vs `describe()` dual lifecycle | NTTElement | Two paths to same state |
+142: | 8 | `set value()` depends on subclass state (`$schema`) | NTTElement | Base depends on child's property |
+143: | 9 | `subscribe()` only used by List | NTTElement | Base method for one child |
+144: | 10 | `update()` reimplemented by both children | NTTElement | Dead base method |
+145: | 11 | Edit UX baked into Item | ntx-item.js | Can't extend without inheriting edit toggle |
+146: | 12 | List hardcodes `<ntx-item>` children | ntx-list.js | No customization |
+147: | 13 | Double registration (matrix + constructor) | Component | Unclear which is canonical |
+148: | 14 | Stylesheet setup repeated in each subclass | Item, List constructors | Boilerplate |
+149: 
+150: ---
+151: 
+152: ## 4. Proposed Architecture
+153: 
+154: ```
+155: HTMLElement
+156:   └── Component                 (merged Component + NTTElement)
+157:         ├── NTTElement          (single entity lifecycle)
+158:         │     └── NTTItem       (built-in default: schema-driven auto-render)
+159:         └── ListElement         (collection lifecycle)
+160:               └── NTTList       (built-in default: grid of <ntx-item>)
+161: ```
+162: 
+163: Three layers. Each adds exactly one concern. No layer reaches into another's job.
+164: 
+165: ### Component — "I exist on the Matrix and I know my schema"
+166: 
+167: Merges current `Component` + `NTTElement`. Single file: `core/Component.js`.
+168: 
+169: **Owns:**
+170: - HTMLElement extension + Shadow DOM setup
+171: - Actor identity: `addr`, `hash`, `matrix.register(this)`, `Actor.subclass(Component)`
+172: - Schema resolution: `model` attr -> ATTACH TX -> N3TX core -> `define(proto)` -> `definedCallback()`
+173: - Ref resolution: `ref` attr -> ATTACH TX (N3TX address) or READ TX (URL)
+174: - `value` storage: getter/setter with type checking, **no auto-render** (children decide)
+175: - Stylesheet hook: `get styles()` returns CSS URL, base handles `<link>` injection
+176: - `observedAttributes`: `['addr', 'hash', 'model', 'ref']`
+177: - Lifecycle: `connectedCallback`, `disconnectedCallback` (cleanup detach/unsubscribe)
+178: - Abstract `render()` contract (single declaration)
+179: 
+180: **Does NOT own:**
+181: - Data fetching strategy (pull vs push)
+182: - Save/update cycle
+183: - Collection management
+184: - How anything looks
+185: 
+186: **Removed from current NTTElement:**
+187: - `describe(proto, data)` — dead legacy path; children use message handlers
+188: - `update(data)` — trivial wrapper; children override via `UPDATE` handler
+189: - Auto-render in `set value()` — moved to NTTElement's override
+190: - `subscribe()` — moved to ListElement (only consumer)
+191: 
+192: ### NTTElement — "I am one entity"
+193: 
+194: Extends Component. File: `components/NTTElement.js`.
+195: 
+196: **Owns:**
+197: - Default value: `{}`
+198: - Message handlers:
+199:   - `UPDATE(data)` — receives entity data, resolves `$schema`, triggers render
+200:   - `DESCRIBE(data)` — receives proto + data together (from N3TX instance ATTACH response)
+201:   - `READ(data)` — handles direct URL fetch response
+202: - `save()` — sends UPDATE TX with current value back to `this.ref`
+203: - Override `set value()` — auto-renders when schema is available
+204: - Value accessors with `$schema`/`$id` injection
+205: 
+206: **Does NOT own:**
+207: - Rendering (abstract — subclass must implement or use default)
+208: - Edit UX (mode toggle, input binding, button placement)
+209: - Styles
+210: 
+211: ### ListElement — "I am a collection"
+212: 
+213: Extends Component. File: `components/ListElement.js`.
+214: 
+215: **Owns:**
+216: - Default value: `[]`
+217: - `definedCallback()` — subscribes to proto, triggers collection READ
+218: - `UPDATE(data)` — receives array of instance addresses, sets value, renders
+219: - `append(data)` — adds to collection
+220: - Default `render()` — iterates value, stamps `this.childTag` per address
+221: - `get childTag()` — overridable hook, defaults to `'ntx-item'`
+222: 
+223: **Does NOT own:**
+224: - How individual items look (that's the child component's job)
+225: - Grid layout details (that's CSS)
+226: - Item-level data management
+227: 
+228: ### Built-in Defaults — zero-config components
+229: 
+230: These provide the "just put it in HTML and it works" experience:
+231: 
+232: ```js
+233: // components/ntx-item.js
+234: class NTTItem extends NTTElement {
+235:   mode = 'display';
+236: 
+237:   render() {
+238:     const icon = this.mode === 'edit' ? '\u{1F4BE}' : '\u{270F}\u{FE0F}';
+239:     this.shadowRoot.innerHTML = `<div class="card">
+240:       <button class="edit-btn">${icon}</button>
+241:       ${Formidable.getForm({schema: this.schema, value: this.value}, this.mode)}
+242:       ${this.renderMethods()}
+243:     </div>`;
+244:     this.bindEvents();
+245:   }
+246: 
+247:   // ... edit toggle, input handling, method rendering
+248: }
+249: customElements.define('ntx-item', NTTItem);
+250: ```
+251: 
+252: ```js
+253: // components/ntx-list.js
+254: class NTTList extends ListElement {}
+255: customElements.define('ntx-list', NTTList);
+256: ```
+257: 
+258: ---
+259: 
+260: ## 5. Developer Experience
+
+### docs/frontend/01_UI_SEPARATION_CONCERNS.md (489 total lines)
+261: 
+262: ### Minimum item component
+263: 
+264: ```js
+265: import { NTTElement } from './NTTElement.js';
+266: 
+267: class ProductCard extends NTTElement {
+268:   get styles() { return './product-card.css'; }
+269: 
+270:   render() {
+271:     const { name, price, description } = this.value;
+272:     this.shadowRoot.innerHTML = `
+273:       <h2>${name}</h2>
+274:       <p>${description}</p>
+275:       <span class="price">$${price}</span>
+276:     `;
+277:   }
+278: }
+279: customElements.define('product-card', ProductCard);
+280: ```
+281: 
+282: No fetch, no Redux, no state management, no schema parsing. The developer writes a template — the framework handles everything else.
+283: 
+284: ### Minimum list component
+285: 
+286: ```js
+287: import { ListElement } from './ListElement.js';
+288: 
+289: class ProductGrid extends ListElement {
+290:   get styles() { return './product-grid.css'; }
+291:   get childTag() { return 'product-card'; }
+292: }
+293: customElements.define('product-grid', ProductGrid);
+294: ```
+295: 
+296: Or with a fully custom render:
+297: 
+298: ```js
+299: class ProductGrid extends ListElement {
+300:   render() {
+301:     this.shadowRoot.innerHTML = `
+302:       <h1>Products (${this.value.length})</h1>
+303:       <div class="masonry">
+304:         ${this.value.map(addr =>
+305:           `<product-card ref="${addr}"></product-card>`
+306:         ).join('')}
+307:       </div>
+308:     `;
+309:   }
+310: }
+311: ```
+312: 
+313: ### Usage in HTML
+314: 
+315: ```html
+316: <!-- Zero-config (built-in defaults) -->
+317: <ntx-list model="Product"></ntx-list>
+318: 
+319: <!-- Custom components -->
+320: <product-grid model="Product"></product-grid>
+321: ```
+322: 
+323: ### Item with save support
+324: 
+325: ```js
+326: class EditableProduct extends NTTElement {
+327:   #mode = 'display';
+328: 
+329:   render() {
+330:     if (this.#mode === 'edit') {
+331:       this.shadowRoot.innerHTML = `
+332:         <input type="text" value="${this.value.name}" data-key="name">
+333:         <button class="save">Save</button>
+334:       `;
+335:       this.shadowRoot.querySelector('.save')
+336:         .addEventListener('click', () => { this.save(); this.#mode = 'display'; this.render(); });
+337:     } else {
+338:       this.shadowRoot.innerHTML = `
+339:         <h2>${this.value.name}</h2>
+340:         <button class="edit">Edit</button>
+341:       `;
+342:       this.shadowRoot.querySelector('.edit')
+343:         .addEventListener('click', () => { this.#mode = 'edit'; this.render(); });
+344:     }
+345:   }
+346: }
+347: ```
+348: 
+349: `this.save()` is provided by NTTElement — it sends an UPDATE TX. The developer only handles the UX around when to call it.
+350: 
+351: ---
+352: 
+353: ## 6. What Developers Must Always Handle
+354: 
+355: These are responsibilities the framework intentionally leaves to the developer:
+356: 
+357: | Responsibility | Why it's theirs |
+358: |---|---|
+359: | `render()` | Rendering is where opinion and design live. Framework provides a default via NTTItem, but real apps override. |
+360: | Styles (CSS) | Shadow DOM requires explicit stylesheets. `get styles()` hook reduces boilerplate, but design is the dev's domain. |
+361: | `customElements.define()` | Browser API requirement. Cannot be abstracted away. |
+362: | Custom interactions | Click handlers, drag-and-drop, animations, form validation beyond schema types. The framework gives you data; user gestures are yours. |
+363: | Composition & layout | Which components go where on the page, routing between views, responsive layout. |
+364: | Edit UX | The framework provides `save()`. The developer decides *when* and *how* to call it — inline edit, modal, separate page, etc. |
+365: 
+366: ---
+367: 
+368: ## 7. What the Framework Handles (no developer involvement)
+369: 
+370: | Concern | How |
+371: |---|---|
+372: | Schema fetching & parsing | N3TX.ATTACH -> SCHEMA TX -> DynamicClass creation |
+373: | Data fetching (CRUD) | DynamicClass.call('READ') via NetworkAdapter |
+374: | Instance lifecycle | DynamicClass.READ creates/updates N3TX instances |
+375: | Reactivity | Value changes -> signal/observe -> component re-render |
+376: | Collection management | ListElement subscribes to DynamicClass, receives address arrays |
+377: | Network transport | Matrix -> NetworkAdapter -> HTTP/WebSocket |
+378: | Type system | DynamicClass properties are typed from schema, with runtime checks |
+379: 
+380: ---
+381: 
+382: ## 8. Tradeoffs & Downsides
+383: 
+384: ### Two base classes instead of one
+385: 
+386: LitElement has ONE base class. We have two (NTTElement + ListElement) because collections and entities have fundamentally different data lifecycles:
+387: 
+388: | | NTTElement | ListElement |
+389: |---|---|---|
+390: | Data shape | `{}` single object | `[]` array of addresses |

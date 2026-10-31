@@ -1,0 +1,590 @@
+
+### README.md (658 total lines)
+521: | `Actor` | n3tx-actors | class | Base actor with inbox/handler/send/register/spawn |
+522: | `Matrix` | n3tx-actors | class | Root actor and message router |
+523: | `matrix` | n3tx-actors | instance | Module-level Matrix singleton |
+524: | `ActorProxy` | n3tx-actors | class | Actor interface wrapper (no inheritance required) |
+525: | `File` | n3tx-files | class | Actor-backed file metadata model with byte-store methods |
+526: | `FileStore` | n3tx-files | protocol | Byte storage provider contract |
+527: | `FileStat` | n3tx-files | dataclass | Provider byte metadata such as size, checksum, and MIME type |
+528: | `LocalFileStore` | n3tx-files | class | Local filesystem byte provider |
+529: | `configure_file_store` | n3tx-files | function | Set the process-wide file byte provider |
+530: | `get_file_store` | n3tx-files | function | Resolve the active file byte provider |
+531: | `AgentMixin` | n3tx-agents | class | Injected via `__agent__ = True` (ctx/tools/agentic/run) |
+532: | `AgentActor` | n3tx-agents | class | Concrete agent model (config in DB fields) |
+533: | `AgentTool` | n3tx-agents | class | Tool registration model |
+534: | `AgentDeps` | n3tx-agents | dataclass | Dependency injection for pydantic-ai RunContext |
+535: | `ToolSpec` | n3tx-agents | dataclass | Specification for a discovered tool |
+536: | `discover_tools` | n3tx-agents | function | Build tool set from actor addresses |
+537: | `make_tool` | n3tx-agents | function | Create a pydantic-ai tool from a ToolSpec |
+538: 
+539: ### Requires sub-package import
+540: 
+541: These aren't star-exported, so you'll need to import them from the sub-package directly:
+542: 
+543: ```python
+544: from n3tx_core.app import create_app, N3TXApp
+545: from n3tx_core import config
+546: from n3tx_core import authorize
+547: from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+548: from n3tx_core.widgets import CurrencyField, TextareaField, UrlField, DateField
+549: from n3tx_actors.models.actor_model import ActorModel
+550: from n3tx_actors.api.network_api import NetworkAPI
+551: ```
+552: 
+553: ---
+554: 
+555: ## 🛠️ Extending the Application
+556: 
+557: N3TX is built to be extended. Here's how you grow your app.
+558: 
+559: ### Add a New Model
+560: 
+561: 1. Subclass `ProtoModel` (or `ActorModel` for actor capabilities)
+562: 2. Set `__storable__ = True` for persistence
+563: 3. Use `@expose_route()` for custom API endpoints
+564: 4. Register with `register_model(...)` or pass to `create_app(models=[...])`
+565: 
+566: ### Add Relationships
+567: 
+568: ```python
+569: class OwnerModel(ProtoModel):
+570:     __tablename__ = 'owners'
+571:     __storable__ = True
+572:     children: list[SubModel] = Field(default=[])
+573: 
+574: register_model(OwnerModel, storage=backend)
+575: register_model(SubModel, storage=backend)
+576: ```
+577: 
+578: ### Partial Updates
+579: 
+580: Generated direct and actor HTTP `PUT` routes are patch-oriented. Omitted fields
+581: remain unchanged; supplied values are merged with the current entity and the
+582: complete result is validated by the original model before storage.
+583: 
+584: ```python
+585: # Python calls are patch-oriented: children remain unchanged.
+586: OwnerModel.update(owner.id, {'name': 'Renamed'})
+587: ```
+588: 
+589: ```javascript
+590: // HTTP calls may send only the fields being changed.
+591: await fetch(`/OwnerModel/${id}`, {
+592:   method: 'PUT',
+593:   headers: {'Content-Type': 'application/json'},
+594:   body: JSON.stringify({name: 'Renamed'}),
+595: });
+596: ```
+597: 
+598: Updates replace a supplied collection as a whole and are last-write-wins. Use a
+599: domain-specific `@expose_route` method for append/remove/toggle operations when
+600: concurrent writers are possible. See
+601: [CRUD update semantics](docs/API_CRUD_ENDPOINTS.md#update-resource) for the full
+602: compatibility guidance.
+603: 
+604: ### Add a Storage Backend
+605: 
+606: 1. Implement `AbstractStorage` methods (`create_table`, `create`, `get`, `list`, `update`, `delete`)
+607: 2. Inject via `set_storage()` or pass to `register_model()`
+608: 
+609: ---
+610: 
+611: ## 🧪 Testing
+612: 
+613: N3TX comes with a thorough test suite. Run what you need:
+614: 
+615: ```bash
+616: # Framework unit tests
+617: cd packages/n3tx-core && python3 -m pytest src/n3tx_core/tests/unit/
+618: 
+619: # Integration tests (Level 1/2 direct routes)
+620: python3 -m pytest example_api/tests/
+621: 
+622: # Integration tests (Level 3 actor routing)
+623: python3 -m pytest example_actor/tests/
+624: 
+625: # Integration tests (agents/grants app)
+626: python3 -m pytest example_grants/tests/
+627: 
+628: # Frontend tests
+629: cd src/n3tx/static && npm test
+630: ```
+631: 
+632: Test coverage includes: CRUD APIs, schema endpoints, storage backends, custom methods, authorization, social features (like/favorite/toggle), pagination, collection routes, agent system (mixin, tool discovery, CRUD, LLM execution), and frontend components.
+633: 
+634: ---
+635: 
+636: ## 📚 Per-Package Documentation
+637: 
+638: Each sub-package has its own README with API reference, patterns, and deep-dive links:
+639: 
+640: | Package | README | Focus |
+641: |---------|--------|-------|
+642: | n3tx-core | [packages/n3tx-core/README.md](packages/n3tx-core/README.md) | Models, storage, schema pipeline, auth, app bootstrap |
+643: | n3tx-actors | [packages/n3tx-actors/README.md](packages/n3tx-actors/README.md) | Actor/Matrix/TX, ActorModel, interceptors, network adapters |
+644: | n3tx-agents | [packages/n3tx-agents/README.md](packages/n3tx-agents/README.md) | AgentMixin, AgentActor, tool discovery, LLM integration |
+645: | n3tx-ui | [packages/n3tx-ui/README.md](packages/n3tx-ui/README.md) | Web Components, form generators, widgets, themes |
+646: | n3tx-files | [packages/n3tx-files/README.md](packages/n3tx-files/README.md) | File metadata, byte stores, upload/download, typed materialization |
+647: 
+648: For project-level architecture, conventions, and development workflow, see [CLAUDE.md](CLAUDE.md) at the repository root.
+649: 
+650: ---
+
+### README.md (658 total lines)
+651: 
+652: ## 📜 License
+653: 
+654: MIT
+655: 
+656: ---
+657: 
+658: Happy building! 🛠️
+
+### README_pre.md (180 total lines)
+1: # 🛠️ N3TX: Your Modular API Framework with a Twist
+2: 
+3: Welcome to N3TX! This is not just another API framework—it’s a highly modular, storage-flexible, and swagger-drenched ecosystem designed for builders who want to have it all. Whether you’re defining models, crafting endpoints, or swapping storage backends, N3TX has got you covered.
+4: 
+5: ---
+6: 
+7: ## 📚 Table of Contents
+8: 
+9: 1. [What is N3TX?](#what-is-n3tx)
+10: 2. [Features](#features)
+11: 3. [Getting Started](#getting-started)
+12: 4. [How It Works](#how-it-works)
+13: 5. [Storage Backends](#storage-backends)
+14: 6. [Customizing N3TX](#customizing-n3tx)
+15: 7. [Testing the System](#testing-the-system)
+16: 8. [Contributing](#contributing)
+17: 9. [License](#license)
+18: 
+19: ---
+20: 
+21: ## 🌐 What is N3TX?
+22: 
+23: N3TX is a Flask-based API framework that:
+24: - Simplifies CRUD operation generation.
+25: - Supports dynamic model registration.
+26: - Allows flexible integration with storage backends (SQLite, JSON, or your custom implementation).
+27: - Includes Swagger for automatic API documentation.
+28: - Makes it easy to create custom endpoints with decorators.
+29: 
+30: In short: It bends to your will, but stays structured enough to keep everything under control.
+31: 
+32: ---
+33: 
+34: ## ⚙️ Features
+35: 
+36: - **Dynamic Model Management**: Define models once and register them dynamically.
+37: - **Automatic CRUD Endpoints**: Storable models get fully functional endpoints out-of-the-box.
+38: - **Custom Routes**: Add unique functionality with the `@expose_route` decorator.
+39: - **Pluggable Storage**: Switch between SQLite, JSON, or implement your own storage.
+40: - **Swagger Integration**: Auto-generated, interactive API documentation.
+41: - **Test-Driven Development**: Comprehensive test suite included.
+42: 
+43: ---
+44: 
+45: ## 🚀 Getting Started
+46: 
+47: ### Prerequisites
+48: 
+49: - Python 3.9+
+50: - Flask 2.x
+51: - Optional: Docker (for containerized deployment)
+52: 
+53: ### Installation
+54: 
+55: Clone the repository:
+56: ```bash
+57: git clone https://github.com/yourusername/n3tx.git
+58: cd n3tx
+59: ```
+60: 
+61: Install dependencies:
+62: ```bash
+63: pip install -r requirements.txt
+64: ```
+65: 
+66: Run the application:
+67: ```bash
+68: python app/main.py
+69: ```
+70: 
+71: Visit the Swagger UI at `http://localhost:5000/apidocs/` to explore your API.
+72: 
+73: ---
+74: 
+75: ## 🔧 How It Works
+76: 
+77: 1. **Define Models**: Create models in Python using Pydantic for validation.
+78: 2. **Register Models**: Register models using the `register_model` function. If the model is storable, attach a storage backend.
+79: 3. **Start the Server**: Endpoints for registered models are automatically available. Custom routes can be added using decorators.
+80: 4. **Test & Expand**: Write tests, add features, and customize behavior as needed.
+81: 
+82: ---
+83: 
+84: ## 💾 Storage Backends
+85: 
+86: N3TX provides an abstract storage interface, making it easy to use different storage solutions. Supported backends include:
+87: 
+88: - **SQLite**: Reliable, fast, and file-based.
+89: - **JSON**: Lightweight, human-readable, and great for quick setups.
+90: 
+91: To switch backends, simply inject a new storage class during model registration:
+92: 
+93: ```python
+94: from app.storage.json_storage import JSONStorage
+95: from app.storage.sqlite_storage import SQLiteStorage
+96: 
+97: storage_backend = JSONStorage(directory='data')  # Or SQLiteStorage(database='my.db')
+98: register_model(User, storage=storage_backend)
+99: ```
+100: 
+101: ---
+102: 
+103: ## 🛠️ Customizing N3TX
+104: 
+105: ### Adding Models
+106: 
+107: 1. Define your model in `app/models`:
+108:    ```python
+109:    from .proto_model import ProtoModel
+110:    from typing import ClassVar
+111: 
+112:    class Order(ProtoModel):
+113:        __storable__: ClassVar[bool] = True
+114:        __tablename__: ClassVar[str] = 'orders'
+115:        id: int
+116:        product_id: int
+117:        quantity: int
+118:    ```
+119: 
+120: 2. Register the model in `main.py`:
+121:    ```python
+122:    from app.models.order_model import Order
+123:    register_model(Order, storage=storage_backend)
+124:    ```
+125: 
+126: 3. Start the server and use the auto-generated CRUD endpoints!
+127: 
+128: ### Adding Custom Routes
+129: 
+130: Decorate methods with `@expose_route` to create custom endpoints:
+
+### README_pre.md (180 total lines)
+131: ```python
+132: @staticmethod
+133: @expose_route('/stats', methods=['GET'])
+134: def get_stats():
+135:     return jsonify({'message': 'Statistics are fun!'}), 200
+136: ```
+137: 
+138: ---
+139: 
+140: ## 🧪 Testing the System
+141: 
+142: N3TX includes a comprehensive test suite using `pytest` and `pytest-flask`.
+143: 
+144: ### Run Tests
+145: 
+146: To run the tests, simply execute:
+147: ```bash
+148: pytest
+149: ```
+150: 
+151: ### Coverage
+152: 
+153: For a coverage report:
+154: ```bash
+155: pytest --cov=app --cov-report=html
+156: ```
+157: 
+158: Open the HTML report in your browser to explore test coverage.
+159: 
+160: ---
+161: 
+162: ## 🤝 Contributing
+163: 
+164: Contributions are welcome! Here’s how you can help:
+165: 
+166: 1. Fork the repo and clone it.
+167: 2. Create a new branch for your feature or bugfix.
+168: 3. Write your code and tests.
+169: 4. Submit a pull request.
+170: 
+171: ---
+172: 
+173: ## 📜 License
+174: 
+175: This project is licensed under the MIT License. See the LICENSE file for details.
+176: 
+177: ---
+178: 
+179: Happy bending! 🛠️
+180: 
+
+### RELEASE_NOTES.md (402 total lines)
+1: # N3TX Release Notes
+2: 
+3: ## 0.12.0 (2026-07-11)
+4: 
+5: ### n3tx-core / n3tx-actors: Generated PUT routes are now partial updates
+6: 
+7: Generated direct and actor HTTP `PUT` routes now share the same patch contract
+8: as `Model.update(id, patch)`, raw actor update TX messages, and generated agent
+9: update tools.
+10: 
+11: #### New update behavior
+12: 
+13: - Omitted fields remain unchanged, including required fields and fields with
+14:   defaults.
+15: - Supplied fields are merged with the persisted entity and the complete result
+16:   is validated through the original model.
+17: - Only explicitly supplied fields are written to storage.
+18: - Explicit falsey values such as `0`, `false`, `""`, `[]`, and `{}` are retained.
+19: - Explicit collection values replace the complete stored collection; omission
+20:   preserves it.
+21: - Empty or protected-only patches return the unchanged entity without a storage
+22:   write or `after_update` lifecycle event.
+23: - The route ID is authoritative. A body `id` cannot redirect the update.
+24: - Pydantic aliases are normalized before validation and storage. Protected
+25:   fields remain protected when addressed through an alias.
+26: - Invalid owned `list[T]` replacements are rejected instead of silently
+27:   resolving to an empty or partial collection.
+28: 
+29: Validation failures preserve useful downstream diagnostics without logging
+30: submitted values. Model validation errors return `422`; invalid patch shapes or
+31: relationship replacements return `400`. Unexpected actor failures continue to
+32: log traceback context and return an error TX.
+33: 
+34: #### Migration notes
+35: 
+36: 1. **Stop requiring complete objects in PUT clients.**
+37:    - Before:
+38:      `PUT /Product/1 {"name": "Renamed", "price": 25, "comments": [...]}`
+39:    - After: `PUT /Product/1 {"name": "Renamed"}`
+40:    - Existing complete-object requests remain valid, but they still replace
+41:      every collection they explicitly include.
+42: 
+43: 2. **Remove client-side default filling.**
+44:    - Do not copy schema defaults such as `[]` or `{}` into an update merely
+45:      because the field is omitted.
+46:    - Send an empty collection only when the caller intends to clear it.
+47: 
+48: 3. **Expect merged-state validation.**
+49:    - Field and model validators run against the complete persisted entity plus
+50:      the supplied patch.
+51:    - Invalid updates now fail before storage, including raw Python and actor TX
+52:      updates that previously could bypass complete-model validation.
+53: 
+54: 4. **Review update OpenAPI consumers.**
+55:    - Generated PUT request bodies are represented as generic JSON objects rather
+56:      than separate per-model update schemas.
+57:    - `GET /{ClassName}` remains the authoritative model/schema contract.
+58:    - Clients should derive writable fields from that schema instead of expecting
+59:      a generated `ProductUpdate`-style OpenAPI component.
+60: 
+61: 5. **Keep atomic collection mutations in model methods.**
+62:    - Collection replacement remains last-write-wins.
+63:    - Use domain-specific `@expose_route` methods for concurrent append, remove,
+64:      or toggle operations.
+65: 
+66: ### Ref identities are now canonical absolute HTTP(S) URLs
+67: 
+68: N3TX now uses one public identity model across schemas, storage, actors, files,
+69: and the frontend: an entity's absolute HTTP(S) `$id` URL. The framework no
+70: longer translates remote identities through service-name addresses.
+71: 
+72: ```text
+73: https://storage.example.com/api/v1/File/file-12
+74: ```
+75: 
+76: This is a breaking change for applications that stored integer `Ref[T]` values,
+77: stored or transmitted `n3tx://...` values, passed relative entity paths, or
+78: depended on configured remote names as public identity.
+79: 
+80: #### Ref value and schema contract
+81: 
+82: - `Ref[T]` is an immutable, string-like absolute HTTP(S) entity URL.
+83: - A Ref URL must end in `/{ClassName}/{id}` and must not contain a query string
+84:   or fragment.
+85: - `Ref[T]` and `list[Ref[T]]` store and emit URL strings unchanged.
+86: - Raw local ids, relative paths, non-HTTP schemes, and target-class mismatches
+87:   are rejected for explicit Ref fields.
+88: - Local relationships remain separate: `T` and `list[T]` may store compact local
+89:   ids and hydrate into local model objects.
+90: - Ref JSON Schema uses a URL string plus an explicit target marker:
+91: 
+92:   ```json
+93:   {
+94:     "type": "string",
+95:     "format": "uri",
+96:     "x-ref": "File"
+97:   }
+98:   ```
+99: 
+100: `x-ref` identifies the model targeted by a URL pointer. JSON Schema `$ref`
+101: continues to describe embedded/hydrated model structure and is not overloaded
+102: for pointer values.
+103: 
+104: #### New Ref helpers
+105: 
+106: ```python
+107: ref = Ref[File]("https://storage.example.com/api/v1/File/file-12")
+108: 
+109: Ref.url(ref)       # complete validated URL
+110: Ref.base_url(ref)  # https://storage.example.com/api/v1
+111: Ref.schema(ref)    # File
+112: Ref.id(ref)        # file-12
+113: 
+114: file = ref.hydrate(context=resolver)
+115: ```
+116: 
+117: `Ref.hydrate()` is synchronous in this release and may block when its explicit
+118: resolver performs remote I/O. It does not mutate the Ref. Default validation,
+119: storage reads, and response dumps do not dereference refs. Explicit `populate`
+120: or positive depth may still use the configured storage resolver.
+121: 
+122: #### Removed Ref APIs and behavior
+123: 
+124: The previous service-address parsing and canonicalization helpers have been
+125: removed, including:
+126: 
+127: - `canonicalize_ref()`
+128: - `parse_ref_string()`
+129: - `is_distributed_ref()`
+130: - `is_external_link()`
+
+### RELEASE_NOTES.md (402 total lines)
+131: - `public_ref()`
+132: 
+133: Configured `REMOTES` entries may still provide credentials and disambiguate API
+134: base-path prefixes, but they no longer translate or define entity identity.
+135: 
+136: #### Remote actor migration
+137: 
+138: `RemoteRef`, `RemoteMatrix`, and `MatrixReferenceResolver` now route absolute
+139: HTTP(S) targets directly:
+140: 
+141: ```diff
+142: - TX(name="get", target="n3tx://storage/File/12")
+143: + TX(name="get", target="https://storage.example.com/File/12")
+144: 
+145: - Artifact.ref("n3tx://storage/Artifact/42")
+146: + Artifact.ref("https://storage.example.com/Artifact/42")
+147: ```
+148: 
+149: Class-level remote capabilities use the absolute schema URL:
+150: 
+151: ```python
+152: TX(name="reindex", target="https://compute.example.com/Job")
+153: ```
+154: 
+155: Remote response `$id` values remain absolute URLs and are no longer rewritten
+156: into a framework-specific scheme.
+157: 
+158: #### File reference migration
+159: 
+160: `n3tx-files` no longer maintains a parallel `FileAddress` grammar.
+161: `File.resolve(ref)` and File-typed method materialization accept only a
+162: canonical absolute File `$id` on the current API:
+163: 
+164: ```diff
+165: - {"audio": "n3tx://files/42"}
+166: - {"audio": "/File/42"}
+167: + {"audio": "https://api.example.com/File/42"}
+168: ```
+169: 
+170: `FileAddress` and `parse_file_address()` have been removed. Binary transport
+171: routes remain supported and are not entity identity formats:
+172: 
+173: ```text
+174: POST /files/upload
+175: GET  /files/{id}/download
+176: GET  /File/{id}/download
+177: ```
+178: 
+179: #### Frontend migration
+180: 
+181: - Read `properties[field].x-ref` to identify URL pointer fields.
+182: - Treat Ref values as complete URLs; do not prepend a model name, hash route, or
+183:   current origin.
+184: - Edit the complete URL rather than a local id.
+185: - Continue treating `$ref` and `array.items.$ref` as hydrated model shapes.
+186: - Continue treating `list[Ref[T]]` as URL arrays rather than embedded objects.
+187: 
+188: The built-in `ReferenceWidget` follows this contract automatically.
+189: 
+190: #### Stored-data migration
+191: 
+192: There is no automatic production data migration for old Ref values. Migrate
+193: existing scalar Ref columns and JSON `list[Ref[T]]` arrays before deploying this
+194: version.
+195: 
+196: | Previous stored value | Required replacement |
+197: |---|---|
+198: | `n3tx://storage/File/12` | `{REMOTES.storage.url}/File/12` |
+199: | configured remote HTTP URL | Keep the original absolute URL |
+200: | local integer `12` in `Ref[File]` | `{API_URL}/File/12` |
+201: | `/File/12` | `{API_URL}/File/12` |
+202: | JSON array of old values | Map every element using the same rules |
+203: 
+204: Migration procedure:
+205: 
+206: 1. Back up the database and record the old `API_URL` and remote-name-to-base-URL
+207:    configuration used by the stored data.
+208: 2. Inventory every `Ref[T]` and `list[Ref[T]]` field from model annotations.
+209: 3. Rewrite scalar values and each JSON-array element to its absolute class-name
+210:    entity URL.
+211: 4. Reject unknown service names instead of guessing a host.
+212: 5. Validate the rewritten schema segment against `T.__name__`.
+213: 6. Deploy application and client changes together; old values intentionally fail
+214:    validation after this release.
+215: 7. Verify representative reads without populate, then verify explicit populate
+216:    and `Ref.hydrate()` through the configured resolver.
+217: 
+218: Do not rewrite local `T` or `list[T]` relationship ids. Those are local storage
+219: optimizations and are not explicit Ref fields.
+220: 
+221: ### n3tx-core: Generated join models removed
+222: 
+223: The core relationship contract now uses normal model fields instead of generated
+224: join-model machinery. Local owned collections should be declared as `list[T]` on
+225: the owner model and every storable class should be registered explicitly.
+226: 
+227: #### What remains supported
+228: 
+229: | Concern | Supported contract |
+230: |---|---|
+231: | Owned local collections | `comments: list[Comment] = Field(default=[])` |
+232: | Storage shape | Parent row stores ordered child ids as a JSON array |
+233: | API response shape | Read responses hydrate `list[T]` ids into child objects with `$schema` and `$id` |
+234: | Entity identity | Flat class-name URLs such as `/Comment/5` |
+235: | Single local/distributed pointer | `Ref[T]` |
+236: | Pointer arrays | `list[Ref[T]]` |
+237: | Shared relationships | Explicit link models or existing `ManyToMany[T]` helper |
+238: 
+239: #### Removed APIs and behavior
+240: 
+241: - `generate_join_model(...)` has been removed from the core model API.
+242: - `N3TXApp.join(...)` has been removed from the builder.
+243: - `create_app(join_models=...)` now raises `TypeError` so stale bootstrap code
+244:   fails loudly instead of silently creating legacy relationship routes.
+245: - The `join_models` registry has been removed.
+246: - Direct FastAPI routing no longer synthesizes parent-scoped nested routes from
+247:   generated join metadata.
+248: - `list[T]` fields no longer serialize as href arrays backed by generated join
+249:   tables.
+250: 
+251: #### Migration notes
+252: 
+253: Existing apps that used generated joins should migrate in three steps:
+254: 
+255: 1. **Register concrete models directly.**
+256:    - Before: `create_app(models=[Product], join_models=[(Product, Comment)])`
+257:    - After: `create_app(models=[Product, Comment])`
+258: 
+259: 2. **Move relationship ownership into the model field.**
+260:    - Define `comments: list[Comment] = Field(default=[])` on `Product`.

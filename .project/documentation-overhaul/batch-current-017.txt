@@ -1,0 +1,973 @@
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+131:     "id": 1,
+132:     "name": "Alice Johnson",
+133:     "email": "alice@example.com",
+134:     "age": 28
+135:   },
+136:   {
+137:     "$schema": "http://localhost:8000/User",
+138:     "$id": "http://localhost:8000/User/2",
+139:     "id": 2,
+140:     "name": "Bob Smith",
+141:     "email": "bob@example.com",
+142:     "age": 32
+143:   }
+144: ]
+145: ```
+146: 
+147: ### Update User
+148: 
+149: **Request** (partial writable representation):
+150: ```bash
+151: PUT /users/1
+152: Content-Type: application/json
+153: 
+154: {
+155:   "age": 29
+156: }
+157: ```
+158: 
+159: Generated `PUT` routes merge the patch with the current entity and validate the
+160: complete result through the original model. Omitted fields remain unchanged.
+161: 
+162: **Response** (200 OK):
+163: ```json
+164: {
+165:   "$schema": "http://localhost:8000/User",
+166:   "$id": "http://localhost:8000/User/1",
+167:   "id": 1,
+168:   "name": "Alice Johnson",
+169:   "email": "alice@example.com",
+170:   "age": 29
+171: }
+172: ```
+173: 
+174: ### Delete User
+175: 
+176: **Request**:
+177: ```bash
+178: DELETE /users/1
+179: ```
+180: 
+181: **Response** (200 OK):
+182: ```json
+183: {
+184:   "message": "Deleted successfully"
+185: }
+186: ```
+187: 
+188: ### Custom: Login
+189: 
+190: Authenticate user and return user object.
+191: 
+192: **Request**:
+193: ```bash
+194: POST /users/login
+195: Content-Type: application/json
+196: 
+197: {
+198:   "email": "alice@example.com",
+199:   "password": "secret123"
+200: }
+201: ```
+202: 
+203: **Response** (200 OK):
+204: ```json
+205: {
+206:   "$schema": "http://localhost:8000/User",
+207:   "$id": "http://localhost:8000/User/1",
+208:   "id": 1,
+209:   "name": "Alice Johnson",
+210:   "email": "alice@example.com",
+211:   "age": 28
+212: }
+213: ```
+214: 
+215: **Error Response** (401 Unauthorized):
+216: ```json
+217: {
+218:   "detail": [
+219:     {
+220:       "error": "Invalid credentials"
+221:     }
+222:   ]
+223: }
+224: ```
+225: 
+226: ### TypeScript Interface
+227: 
+228: ```typescript
+229: interface User {
+230:   $schema: string;
+231:   $id: string;
+232:   id: number;
+233:   name: string;
+234:   email: string;
+235:   age?: number;
+236: }
+237: 
+238: // API Client
+239: class UserAPI {
+240:   async create(data: Omit<User, 'id' | '$schema' | '$id'>): Promise<User> {
+241:     const response = await fetch('/users', {
+242:       method: 'POST',
+243:       headers: { 'Content-Type': 'application/json' },
+244:       body: JSON.stringify(data)
+245:     });
+246:     return await response.json();
+247:   }
+248:   
+249:   async get(id: number): Promise<User> {
+250:     const response = await fetch(`/users/${id}`);
+251:     return await response.json();
+252:   }
+253:   
+254:   async list(): Promise<User[]> {
+255:     const response = await fetch('/users');
+256:     return await response.json();
+257:   }
+258:   
+259:   async update(id: number, data: Partial<User>): Promise<User> {
+260:     const response = await fetch(`/users/${id}`, {
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+261:       method: 'PUT',
+262:       headers: { 'Content-Type': 'application/json' },
+263:       body: JSON.stringify(data)
+264:     });
+265:     return await response.json();
+266:   }
+267:   
+268:   async delete(id: number): Promise<void> {
+269:     await fetch(`/users/${id}`, { method: 'DELETE' });
+270:   }
+271:   
+272:   async login(email: string, password: string): Promise<User> {
+273:     const response = await fetch('/users/login', {
+274:       method: 'POST',
+275:       headers: { 'Content-Type': 'application/json' },
+276:       body: JSON.stringify({ email, password })
+277:     });
+278:     return await response.json();
+279:   }
+280: }
+281: ```
+282: 
+283: ---
+284: 
+285: ## Product Model
+286: 
+287: Products available in the system.
+288: 
+289: ### Endpoints
+290: 
+291: | Method | Path | Purpose |
+292: |--------|------|---------|
+293: | GET | `/Product` | Get schema |
+294: | POST | `/products` | Create product |
+295: | GET | `/products` | List all products |
+296: | GET | `/products/{id}` | Get product |
+297: | PUT | `/products/{id}` | Update product |
+298: | DELETE | `/products/{id}` | Delete product |
+299: | POST | `/products/{id}/comment` | Custom: Add comment |
+300: | POST | `/products/{id}/favorite` | Custom: Toggle favorite |
+301: | GET | `/products/comments` | Collection: All comments across products |
+302: | GET | `/products/likes` | Collection: All favorites across products |
+303: 
+304: ### Schema
+305: 
+306: ```json
+307: {
+308:   "$schema": "http://localhost:8000/Schema",
+309:   "$id": "http://localhost:8000/Product",
+310:   "type": "object",
+311:   "properties": {
+312:     "id": {
+313:       "type": "integer"
+314:     },
+315:     "name": {
+316:       "type": "string",
+317:       "description": "Product name"
+318:     },
+319:     "price": {
+320:       "type": "number",
+321:       "description": "Price in USD"
+322:     },
+323:     "description": {
+324:       "type": "string",
+325:       "description": "Product description",
+326:       "default": ""
+327:     },
+328:     "comments": {
+329:       "type": "array",
+330:       "items": {
+331:         "$ref": "#/$defs/Comment"
+332:       },
+333:       "default": []
+334:     }
+335:   },
+336:   "required": ["name", "price"],
+337:   "$defs": {
+338:     "Comment": {
+339:       "$id": "http://localhost:8000/Comment"
+340:     }
+341:   }
+342: }
+343: ```
+344: 
+345: ### Field Details
+346: 
+347: | Field | Type | Required | Constraints | Description |
+348: |-------|------|----------|-------------|-------------|
+349: | `id` | integer | No (auto) | Read-only | Unique identifier |
+350: | `name` | string | Yes | - | Product name |
+351: | `price` | float | Yes | Must be positive | Price in USD |
+352: | `description` | string | No | - | Product description |
+353: | `comments` | array | No | `list[Comment]` hydrated objects | Related comments |
+354: | `favorites` | array | No | `list[Like]` hydrated objects | Users who favorited |
+355: 
+356: ### Create Product
+357: 
+358: **Request**:
+359: ```bash
+360: POST /products
+361: Content-Type: application/json
+362: 
+363: {
+364:   "name": "Laptop",
+365:   "price": 999.99,
+366:   "description": "High-performance laptop"
+367: }
+368: ```
+369: 
+370: **Response** (201 Created):
+371: ```json
+372: {
+373:   "$schema": "http://localhost:8000/Product",
+374:   "$id": "http://localhost:8000/Product/1",
+375:   "id": 1,
+376:   "name": "Laptop",
+377:   "price": 999.99,
+378:   "description": "High-performance laptop",
+379:   "comments": []
+380: }
+381: ```
+382: 
+383: ### Update Product Price
+384: 
+385: **Request**:
+386: ```bash
+387: PUT /products/1
+388: Content-Type: application/json
+389: 
+390: {
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+391:   "price": 899.99
+392: }
+393: ```
+394: 
+395: **Response** (200 OK):
+396: ```json
+397: {
+398:   "$schema": "http://localhost:8000/Product",
+399:   "$id": "http://localhost:8000/Product/1",
+400:   "id": 1,
+401:   "name": "Laptop",
+402:   "price": 899.99,
+403:   "description": "High-performance laptop",
+404:   "comments": []
+405: }
+406: ```
+407: 
+408: ### Custom: Add Comment
+409: 
+410: Add a comment to a product. The `user` parameter is injected server-side from the JWT token (not sent in the request body).
+411: 
+412: **Request**:
+413: ```bash
+414: POST /products/1/comment
+415: Content-Type: application/json
+416: x-access-token: <JWT>
+417: 
+418: {
+419:   "comment": {
+420:     "name": "Great product!",
+421:     "description": "Very satisfied with this purchase"
+422:   }
+423: }
+424: ```
+425: 
+426: **Note**: The `comment` parameter is a nested object matching the Comment schema. `user_owner` is auto-injected from the JWT.
+427: 
+428: **Response** (200 OK):
+429: ```json
+430: {
+431:   "$schema": "http://localhost:8000/Comment",
+432:   "$id": "http://localhost:8000/Product/1/Comment/1",
+433:   "id": 1,
+434:   "name": "Great product!",
+435:   "description": "Very satisfied with this purchase",
+436:   "user_owner": 1,
+437:   "product_id": 1
+438: }
+439: ```
+440: 
+441: ### Custom: Toggle Favorite
+442: 
+443: Toggle product favorite status. No request body needed. Requires authentication.
+444: 
+445: **Request**:
+446: ```bash
+447: POST /products/1/favorite
+448: Content-Type: application/json
+449: x-access-token: <JWT>
+450: 
+451: {}
+452: ```
+453: 
+454: **Response** (200 OK):
+455: ```json
+456: {"action": "favorited"}
+457: ```
+458: 
+459: Or if already favorited:
+460: ```json
+461: {"action": "unfavorited"}
+462: ```
+463: 
+464: ### TypeScript Interface
+465: 
+466: ```typescript
+467: interface Product {
+468:   $schema: string;
+469:   $id: string;
+470:   id: number;
+471:   name: string;
+472:   price: number;
+473:   description?: string;
+474:   comments?: number[];  // Array of comment IDs
+475: }
+476: 
+477: interface CommentData {
+478:   name: string;
+479:   description?: string;
+480:   user_owner: number;
+481: }
+482: 
+483: class ProductAPI {
+484:   async create(data: Omit<Product, 'id' | '$schema' | '$id'>): Promise<Product> {
+485:     const response = await fetch('/products', {
+486:       method: 'POST',
+487:       headers: { 'Content-Type': 'application/json' },
+488:       body: JSON.stringify(data)
+489:     });
+490:     return await response.json();
+491:   }
+492:   
+493:   async get(id: number): Promise<Product> {
+494:     const response = await fetch(`/products/${id}`);
+495:     return await response.json();
+496:   }
+497:   
+498:   async list(): Promise<Product[]> {
+499:     const response = await fetch('/products');
+500:     return await response.json();
+501:   }
+502:   
+503:   async update(id: number, data: Partial<Product>): Promise<Product> {
+504:     const response = await fetch(`/products/${id}`, {
+505:       method: 'PUT',
+506:       headers: { 'Content-Type': 'application/json' },
+507:       body: JSON.stringify(data)
+508:     });
+509:     return await response.json();
+510:   }
+511:   
+512:   async addComment(productId: number, comment: CommentData): Promise<Comment> {
+513:     const response = await fetch(`/products/${productId}/comment`, {
+514:       method: 'POST',
+515:       headers: { 'Content-Type': 'application/json' },
+516:       body: JSON.stringify({ comment })
+517:     });
+518:     return await response.json();
+519:   }
+520: }
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+521: ```
+522: 
+523: ---
+524: 
+525: ## Comment Model
+526: 
+527: Comments on products. The Comment model uses `id` as its primary key field (consistent with Product and User).
+528: 
+529: ### Endpoints
+530: 
+531: | Method | Path | Purpose |
+532: |--------|------|---------|
+533: | GET | `/Comment` | Get schema |
+534: | POST | `/products/{parent_id}/comments` | Create comment for product |
+535: | GET | `/products/{parent_id}/comments` | List product's comments |
+536: | GET | `/products/{parent_id}/comments/{id}` | Get specific comment |
+537: | PUT | `/products/{parent_id}/comments/{id}` | Update comment |
+538: | DELETE | `/products/{parent_id}/comments/{id}` | Delete comment |
+539: | POST | `/products/{parent_id}/comments/{id}/like` | Toggle like on comment |
+540: | POST | `/products/{parent_id}/comments/{id}/reply` | Reply to comment |
+541: 
+542: **Note**: Comments are a nested resource under Products. Like and reply are custom methods on comment instances.
+543: 
+544: ### Schema
+545: 
+546: ```json
+547: {
+548:   "$schema": "http://localhost:8000/Schema",
+549:   "$id": "http://localhost:8000/Comment",
+550:   "type": "object",
+551:   "properties": {
+552:     "id": {
+553:       "type": "integer"
+554:     },
+555:     "name": {
+556:       "type": "string",
+557:       "description": "Comment title"
+558:     },
+559:     "description": {
+560:       "type": "string",
+561:       "description": "Comment text",
+562:       "default": ""
+563:     },
+564:     "user_owner": {
+565:       "type": "integer",
+566:       "description": "ID of user who created comment"
+567:     }
+568:   },
+569:   "required": ["name", "user_owner"]
+570: }
+571: ```
+572: 
+573: ### Field Details
+574: 
+575: | Field | Type | Required | Constraints | Description |
+576: |-------|------|----------|-------------|-------------|
+577: | `id` | integer | No (auto) | Read-only | Unique identifier |
+578: | `name` | string | Yes | - | Comment title |
+579: | `description` | string | No | - | Comment text |
+580: | `user_owner` | integer | Yes (protected) | Must be valid User ID | Comment author (auto-injected from JWT) |
+581: | `parent_id` | integer | No | Ref['self'] | Parent comment ID for nesting (replies) |
+582: | `likes` | array | No | `list[Like]` hydrated objects | Users who liked this comment |
+583: | `product_id` | integer | Auto | Set from parent | Product this comment belongs to |
+584: 
+585: **Important**: `product_id` is automatically set from the URL path parameter when creating comments. `user_owner` is a protected field — auto-injected from JWT on create, stripped from update payloads.
+586: 
+587: ### Create Comment for Product
+588: 
+589: **Request**:
+590: ```bash
+591: POST /products/1/comments
+592: Content-Type: application/json
+593: 
+594: {
+595:   "name": "Great product!",
+596:   "description": "Very satisfied",
+597:   "user_owner": 1
+598: }
+599: ```
+600: 
+601: **Response** (201 Created):
+602: ```json
+603: {
+604:   "$schema": "http://localhost:8000/Comment",
+605:   "$id": "http://localhost:8000/Product/1/Comment/1",
+606:   "id": 1,
+607:   "name": "Great product!",
+608:   "description": "Very satisfied",
+609:   "user_owner": 1,
+610:   "product_id": 1
+611: }
+612: ```
+613: 
+614: **Note**: `product_id` is automatically set to `1` from the URL.
+615: 
+616: ### List Product's Comments
+617: 
+618: **Request**:
+619: ```bash
+620: GET /products/1/comments
+621: ```
+622: 
+623: **Response** (200 OK):
+624: ```json
+625: [
+626:   {
+627:     "$schema": "http://localhost:8000/Comment",
+628:     "$id": "http://localhost:8000/Product/1/Comment/1",
+629:     "id": 1,
+630:     "name": "Great product!",
+631:     "description": "Very satisfied",
+632:     "user_owner": 1,
+633:     "product_id": 1
+634:   },
+635:   {
+636:     "$schema": "http://localhost:8000/Comment",
+637:     "$id": "http://localhost:8000/Product/1/Comment/2",
+638:     "id": 2,
+639:     "name": "Fast shipping",
+640:     "description": "Arrived quickly",
+641:     "user_owner": 2,
+642:     "product_id": 1
+643:   }
+644: ]
+645: ```
+646: 
+647: ### Get Specific Comment
+648: 
+649: **Request**:
+650: ```bash
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+651: GET /products/1/comments/1
+652: ```
+653: 
+654: **Response** (200 OK):
+655: ```json
+656: {
+657:   "$schema": "http://localhost:8000/Comment",
+658:   "$id": "http://localhost:8000/Product/1/Comment/1",
+659:   "id": 1,
+660:   "name": "Great product!",
+661:   "description": "Very satisfied",
+662:   "user_owner": 1,
+663:   "product_id": 1
+664: }
+665: ```
+666: 
+667: ### Update Comment
+668: 
+669: **Request**:
+670: ```bash
+671: PUT /products/1/comments/1
+672: Content-Type: application/json
+673: 
+674: {
+675:   "description": "Updated: Very satisfied with this purchase!"
+676: }
+677: ```
+678: 
+679: **Response** (200 OK):
+680: ```json
+681: {
+682:   "$schema": "http://localhost:8000/Comment",
+683:   "$id": "http://localhost:8000/Product/1/Comment/1",
+684:   "id": 1,
+685:   "name": "Great product!",
+686:   "description": "Updated: Very satisfied with this purchase!",
+687:   "user_owner": 1,
+688:   "product_id": 1
+689: }
+690: ```
+691: 
+692: ### Delete Comment
+693: 
+694: **Request**:
+695: ```bash
+696: DELETE /products/1/comments/1
+697: ```
+698: 
+699: **Response** (200 OK):
+700: ```json
+701: {
+702:   "message": "Deleted successfully"
+703: }
+704: ```
+705: 
+706: ### TypeScript Interface
+707: 
+708: ```typescript
+709: interface Comment {
+710:   $schema: string;
+711:   $id: string;
+712:   id: number;
+713:   name: string;
+714:   description?: string;
+715:   user_owner: number;
+716:   product_id: number;  // Set automatically from parent
+717: }
+718: 
+719: class CommentAPI {
+720:   async create(productId: number, data: Omit<Comment, 'id' | 'product_id' | '$schema' | '$id'>): Promise<Comment> {
+721:     const response = await fetch(`/products/${productId}/comments`, {
+722:       method: 'POST',
+723:       headers: { 'Content-Type': 'application/json' },
+724:       body: JSON.stringify(data)
+725:     });
+726:     return await response.json();
+727:   }
+728:   
+729:   async list(productId: number): Promise<Comment[]> {
+730:     const response = await fetch(`/products/${productId}/comments`);
+731:     return await response.json();
+732:   }
+733:   
+734:   async get(productId: number, commentId: number): Promise<Comment> {
+735:     const response = await fetch(`/products/${productId}/comments/${commentId}`);
+736:     return await response.json();
+737:   }
+738:   
+739:   async update(productId: number, commentId: number, data: Partial<Comment>): Promise<Comment> {
+740:     const response = await fetch(`/products/${productId}/comments/${commentId}`, {
+741:       method: 'PUT',
+742:       headers: { 'Content-Type': 'application/json' },
+743:       body: JSON.stringify(data)
+744:     });
+745:     return await response.json();
+746:   }
+747:   
+748:   async delete(productId: number, commentId: number): Promise<void> {
+749:     await fetch(`/products/${productId}/comments/${commentId}`, {
+750:       method: 'DELETE'
+751:     });
+752:   }
+753: }
+754: ```
+755: 
+756: ### Custom: Toggle Like
+757: 
+758: Toggle like on a comment. No request body needed. Requires authentication.
+759: 
+760: **Request**:
+761: ```bash
+762: POST /products/1/comments/3/like
+763: x-access-token: <JWT>
+764: 
+765: {}
+766: ```
+767: 
+768: **Response** (200 OK):
+769: ```json
+770: {"action": "liked"}
+771: ```
+772: 
+773: ### Custom: Reply to Comment
+774: 
+775: Create a reply to a comment. The reply is a child comment with `parent_id` set.
+776: 
+777: **Request**:
+778: ```bash
+779: POST /products/1/comments/3/reply
+780: Content-Type: application/json
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+781: x-access-token: <JWT>
+782: 
+783: {"text": "I agree, great product!"}
+784: ```
+785: 
+786: **Response** (200 OK): Returns the created reply comment as JSON.
+787: 
+788: ---
+789: 
+790: ## Like Model
+791: 
+792: Represents a like/favorite action by a user.
+793: 
+794: ### Endpoints
+795: 
+796: Like is always a nested resource, accessed through join models:
+797: 
+798: | Method | Path | Purpose |
+799: |--------|------|---------|
+800: | GET | `/products/{parent_id}/comments/{id}/likes` | List likes on a comment |
+801: | GET | `/products/likes` | Collection: all product favorites |
+802: 
+803: **Note**: Likes are created/deleted via toggle endpoints (`POST .../like` or `POST .../favorite`), not via direct CRUD.
+804: 
+805: ### Field Details
+806: 
+807: | Field | Type | Required | Constraints | Description |
+808: |-------|------|----------|-------------|-------------|
+809: | `id` | integer | No (auto) | Read-only | Unique identifier |
+810: | `user` | integer | Yes (protected) | Must be valid User ID | User who liked (auto-injected from JWT) |
+811: 
+812: `user` is a protected field — never sent in the request body.
+813: 
+814: ---
+815: 
+816: ## Complete Frontend Integration Example
+817: 
+818: ### React Component with All Models
+819: 
+820: ```typescript
+821: import React, { useState, useEffect } from 'react';
+822: 
+823: interface User {
+824:   $schema: string;
+825:   $id: string;
+826:   id: number;
+827:   name: string;
+828:   email: string;
+829:   age?: number;
+830: }
+831: 
+832: interface Product {
+833:   $schema: string;
+834:   $id: string;
+835:   id: number;
+836:   name: string;
+837:   price: number;
+838:   description?: string;
+839: }
+840: 
+841: interface Comment {
+842:   $schema: string;
+843:   $id: string;
+844:   id: number;
+845:   name: string;
+846:   description?: string;
+847:   user_owner: number;
+848:   product_id: number;
+849: }
+850: 
+851: function ProductDetail({ productId, currentUser }: { productId: number, currentUser: User }) {
+852:   const [product, setProduct] = useState<Product | null>(null);
+853:   const [comments, setComments] = useState<Comment[]>([]);
+854:   const [newComment, setNewComment] = useState({ name: '', description: '' });
+855:   
+856:   useEffect(() => {
+857:     loadProduct();
+858:     loadComments();
+859:   }, [productId]);
+860:   
+861:   async function loadProduct() {
+862:     const data = await fetch(`/products/${productId}`).then(r => r.json());
+863:     setProduct(data);
+864:   }
+865:   
+866:   async function loadComments() {
+867:     const data = await fetch(`/products/${productId}/comments`).then(r => r.json());
+868:     setComments(data);
+869:   }
+870:   
+871:   async function handleAddComment(e: React.FormEvent) {
+872:     e.preventDefault();
+873:     
+874:     const comment = await fetch(`/products/${productId}/comments`, {
+875:       method: 'POST',
+876:       headers: { 'Content-Type': 'application/json' },
+877:       body: JSON.stringify({
+878:         ...newComment,
+879:         user_owner: currentUser.id
+880:       })
+881:     }).then(r => r.json());
+882:     
+883:     setComments([...comments, comment]);
+884:     setNewComment({ name: '', description: '' });
+885:   }
+886:   
+887:   async function handleDeleteComment(commentId: number) {
+888:     await fetch(`/products/${productId}/comments/${commentId}`, {
+889:       method: 'DELETE'
+890:     });
+891:     
+892:     setComments(comments.filter(c => c.id !== commentId));
+893:   }
+894:   
+895:   if (!product) return <div>Loading...</div>;
+896:   
+897:   return (
+898:     <div>
+899:       <h1>{product.name}</h1>
+900:       <p className="price">${product.price}</p>
+901:       <p className="description">{product.description}</p>
+902:       
+903:       <div className="comments">
+904:         <h2>Comments ({comments.length})</h2>
+905:         
+906:         {comments.map(comment => (
+907:           <div key={comment.id} className="comment">
+908:             <h3>{comment.name}</h3>
+909:             <p>{comment.description}</p>
+910:             {comment.user_owner === currentUser.id && (
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+911:               <button onClick={() => handleDeleteComment(comment.id)}>
+912:                 Delete
+913:               </button>
+914:             )}
+915:           </div>
+916:         ))}
+917:         
+918:         <form onSubmit={handleAddComment}>
+919:           <input
+920:             type="text"
+921:             placeholder="Comment title"
+922:             value={newComment.name}
+923:             onChange={e => setNewComment({ ...newComment, name: e.target.value })}
+924:             required
+925:           />
+926:           <textarea
+927:             placeholder="Comment text"
+928:             value={newComment.description}
+929:             onChange={e => setNewComment({ ...newComment, description: e.target.value })}
+930:           />
+931:           <button type="submit">Add Comment</button>
+932:         </form>
+933:       </div>
+934:     </div>
+935:   );
+936: }
+937: ```
+938: 
+939: ---
+940: 
+941: ## Working with Foreign Keys
+942: 
+943: ### Understanding Foreign Key Fields
+944: 
+945: When a model has a foreign key:
+946: 
+947: ```python
+948: class Comment(ProtoModel):
+949:     user_owner: Ref[User]
+950: ```
+951: 
+952: **In the API**:
+953: - Requests send the **integer ID**: `"user_owner": 1`
+954: - Responses return the **integer ID**: `"user_owner": 1`
+955: 
+956: **To get the full related object**, make a separate request:
+957: 
+958: ```typescript
+959: // 1. Get comment
+960: const comment = await fetch('/products/1/comments/1').then(r => r.json());
+961: // { $schema: "...", $id: "...", id: 1, user_owner: 1, ... }
+962: 
+963: // 2. Get the user
+964: const user = await fetch(`/users/${comment.user_owner}`).then(r => r.json());
+965: // { $schema: "...", $id: "...", id: 1, name: "Alice", email: "alice@example.com" }
+966: ```
+967: 
+968: ### Helper Function for Resolving Foreign Keys
+969: 
+970: ```typescript
+971: async function resolveRelations<T>(
+972:   obj: T, 
+973:   relations: Record<string, string>
+974: ): Promise<T> {
+975:   const resolved = { ...obj };
+976:   
+977:   for (const [field, endpoint] of Object.entries(relations)) {
+978:     const id = (obj as any)[field];
+979:     if (id) {
+980:       (resolved as any)[`${field}_obj`] = await fetch(`${endpoint}/${id}`)
+981:         .then(r => r.json());
+982:     }
+983:   }
+984:   
+985:   return resolved;
+986: }
+987: 
+988: // Usage
+989: const comment = await fetch('/products/1/comments/1').then(r => r.json());
+990: 
+991: const enriched = await resolveRelations(comment, {
+992:   user_owner: '/users'
+993: });
+994: 
+995: console.log(enriched.user_owner); // 1
+996: console.log(enriched.user_owner_obj); // { $schema: "...", $id: "...", id: 1, name: "Alice", ... }
+997: ```
+998: 
+999: ---
+1000: 
+1001: ## Schema Discovery
+1002: 
+1003: ### Dynamically Generate Forms
+1004: 
+1005: ```typescript
+1006: async function generateForm(modelName: string): Promise<HTMLFormElement> {
+1007:   // Get schema
+1008:   const schema = await fetch(`/${modelName}`).then(r => r.json());
+1009:   
+1010:   const form = document.createElement('form');
+1011:   
+1012:   // Create input for each field
+1013:   for (const [fieldName, fieldSchema] of Object.entries(schema.properties)) {
+1014:     if (fieldName === 'id') continue; // Skip ID
+1015:     
+1016:     const isRequired = schema.required?.includes(fieldName);
+1017:     
+1018:     const label = document.createElement('label');
+1019:     label.textContent = fieldName;
+1020:     
+1021:     let input: HTMLInputElement | HTMLTextAreaElement;
+1022:     
+1023:     switch (fieldSchema.type) {
+1024:       case 'string':
+1025:         input = document.createElement('input');
+1026:         input.type = 'text';
+1027:         break;
+1028:       case 'integer':
+1029:       case 'number':
+1030:         input = document.createElement('input');
+1031:         input.type = 'number';
+1032:         break;
+1033:       case 'boolean':
+1034:         input = document.createElement('input');
+1035:         input.type = 'checkbox';
+1036:         break;
+1037:       default:
+1038:         input = document.createElement('textarea');
+1039:     }
+1040:     
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+1041:     input.name = fieldName;
+1042:     input.required = isRequired;
+1043:     
+1044:     form.appendChild(label);
+1045:     form.appendChild(input);
+1046:   }
+1047:   
+1048:   const submit = document.createElement('button');
+1049:   submit.type = 'submit';
+1050:   submit.textContent = 'Create';
+1051:   form.appendChild(submit);
+1052:   
+1053:   return form;
+1054: }
+1055: 
+1056: // Usage
+1057: const userForm = await generateForm('User');
+1058: document.body.appendChild(userForm);
+1059: ```
+1060: 
+1061: ---
+1062: 
+1063: ## Next Steps
+1064: 
+1065: - [Standard CRUD Endpoints](./API_CRUD_ENDPOINTS.md) - Complete CRUD reference
+1066: - [Custom Endpoints](./API_CUSTOM_ENDPOINTS.md) - Custom method documentation
+1067: - [API Overview](./API_OVERVIEW.md) - General conventions and setup
+1068: 
+1069: ---
+1070: 
+1071: ## Getting Your Own Model Schemas
+1072: 
+1073: For any model in your N3TX application:
+1074: 
+1075: ```bash
+1076: GET /{ModelName}
+1077: ```
+1078: 
+1079: This returns the complete schema including:
+1080: - `$schema` pointing to `{API_URL}/Schema`
+1081: - `$id` pointing to `{API_URL}/{ModelName}`
+1082: - All fields with types and constraints
+1083: - Required fields
+1084: - Custom methods and their parameters
+1085: - Referenced models in `$defs` (each with their own `$id`)
+1086: 
+1087: Use this to build dynamic frontends that adapt to backend changes automatically.

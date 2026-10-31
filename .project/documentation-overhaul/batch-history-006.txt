@@ -1,0 +1,442 @@
+
+### .project/features/notion-block-tree/05-notion-blocks-analysis.md (1149 total lines)
+1: # Notion-Style Recursive Block Models: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: March 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: > *For the standalone executive summary, see [Notion-Blocks-summary.md](../../vision/Notion-Blocks-summary.md).*
+8: 
+9: ---
+10: 
+1147: | Drag-and-drop reorder persists correctly | Pass/Fail | Drag node, refresh page, verify order persisted |
+1148: | Move operation rejects circular references | Pass/Fail | Attempt move A under descendant of A, expect error |
+1149: | Keyboard navigation follows WAI-ARIA tree pattern | Pass/Fail | Manual testing with screen reader + keyboard only |
+
+### .project/features/notion-block-tree/Notion-blocks-propositions.md (383 total lines)
+1: # :wrench: Recursive Block Models x N3TX: Technical Propositions
+2: 
+3: > *How Notion-style tree primitives can extend our schema-driven architecture.*
+4: > *Based on research in `.traces/research/notion-blocks/` and codebase analysis.*
+5: 
+6: ---
+7: 
+8: ## :dart: The Bridge
+9: 
+10: N3TX's core philosophy -- "the model is the app" -- already implies that any
+381: If validation succeeds, proceed to P3 (auto routes) and P6 (ntx-tree component) in parallel -- one engineer on backend, one on frontend.
+382: 
+383: **Decision gate:** After P1-P3 are complete, the team should evaluate whether P6 (ntx-tree) is worth building in-house or whether exposing the tree API is sufficient for developers to build their own tree UIs. The answer depends on how many of our target use cases actually need a tree UI vs. just tree data operations.
+
+### .project/features/notion-block-tree/Notion-blocks-summary.md (242 total lines)
+1: # :clipboard: Notion-Style Recursive Block Models: Executive Summary
+2: 
+3: > *This is a standalone summary of the full strategic analysis report.*
+4: > *For the complete analysis with technical details, case studies, and*
+5: > *appendices, see [05-notion-blocks-analysis.md](../research/notion-blocks/05-notion-blocks-analysis.md).*
+6: >
+7: > *See also: [Notion-blocks-propositions.md](Notion-blocks-propositions.md) | [Notion-blocks-whitepaper.md](Notion-blocks-whitepaper.md)*
+8: 
+9: ---
+10: 
+240: Gutenberg, Coda, Craft, Roam Research, AppFlowy, AFFiNE, Directus,
+241: Payload CMS, Sanity, and BlockSuite -- with code-level analysis of
+242: the N3TX v0.9/v0.10 codebase.*
+
+### .project/features/notion-block-tree/Notion-blocks-whitepaper.md (403 total lines)
+1: # From Flat to Nested: A Tree Primitive for N3TX
+2: 
+3: > *How principles from Notion-style recursive block models can reshape our architecture -- and where they cannot.*
+4: > *Companion to the [propositions document](Notion-blocks-propositions.md).*
+5: 
+6: ---
+7: 
+8: ## Abstract
+9: 
+10: N3TX's schema-driven architecture derives a complete application from a Python model definition -- API, schema, storage, UI. This works for flat entities and one-to-many collections, but **tree-shaped data** (comment threads, wiki hierarchies, nested menus, outline documents) falls through the gaps. The framework detects self-referential models (`Ref['self']`) at every layer but provides no operations, routes, or rendering for the parent-child structure they imply. This paper argues that adding a first-class **tree primitive** -- a `TreeMixin` triggered by `__tree__ = True` -- closes this gap using the same injection machinery as `StorableMixin` and `AgentMixin`, without expanding the framework's conceptual surface area. The adjacency list model N3TX already uses is the right storage strategy; what is missing is the convenience layer that makes tree operations zero-config. We propose a phased approach: tree mixin and schema extension (weeks 1-2), auto-registered API routes (weeks 2-3), and a recursive `<ntx-tree>` Web Component (weeks 3-5).
+401: 
+402: ### Companion Document
+403: - [Technical Propositions](Notion-blocks-propositions.md) -- Numbered implementation proposals with effort/impact ratings
+
+### .project/features/pyrofunc/00-integration-analysis.md (92 total lines)
+1: # Pyrofunc x N3TX Actor — Integration Analysis
+2: 
+3: **Date:** 2026-03-08
+4: **Status:** Vision / Exploration
+5: **Repo:** https://github.com/matthieupi/pyrofunc
+6: **Package name:** `protofunc` (Monad, Functor, functor, staticfunctor, MonadWithLogs)
+7: 
+8: ---
+9: 
+10: ## Context
+90: Each proposition highlights a different center of gravity -- where the
+91: intelligence lives, where the programmer's attention goes, what the system
+92: optimizes for.
+
+### .project/features/pyrofunc/01-proposition-reactive.md (338 total lines)
+1: # Proposition 1: Reactive — Compose Like Functors, Execute Like Actors
+2: 
+3: **Motto:** *Compose like functors, execute like actors.*
+4: **Core metaphor:** Railroad tracks
+5: **The program is:** The composed pipeline
+6: **Primary operator:** `>>` (compose)
+7: 
+8: ---
+9: 
+10: ## The Core Insight
+336: - No topology-level reasoning -- can't analyze the full system graph
+337: 
+338: These limitations are addressed by Propositions 2 (Journey) and 3 (Mesh).
+
+### .project/features/pyrofunc/02-proposition-journey.md (399 total lines)
+1: # Proposition 2: Journey — The Message Knows Its Own Destiny
+2: 
+3: **Motto:** *The message knows its own destiny.*
+4: **Core metaphor:** Self-driving car with a GPS plan
+5: **The program is:** The message's processing plan
+6: **Primary operator:** `tx.through()` (plan)
+7: 
+8: ---
+9: 
+10: ## The Core Insight
+397: - Sender-defined processing requires trust -- the sender controls execution
+398: 
+399: These limitations are addressed by Propositions 1 (Reactive) and 3 (Mesh).
+
+### .project/features/pyrofunc/03-proposition-mesh.md (607 total lines)
+1: # Proposition 3: Mesh — The Wiring IS the Program
+2: 
+3: **Motto:** *The wiring IS the program.*
+4: **Core metaphor:** Circuit board
+5: **The program is:** The wiring graph
+6: **Primary operator:** `flow()` / `wire()` (connect)
+7: 
+8: ---
+9: 
+10: ## The Core Insight
+605:   (mitigated by validation in `flow()`, but not as strong as `>>` type checking)
+606: 
+607: These limitations are addressed by Propositions 1 (Reactive) and 2 (Journey).
+
+### .project/features/streaming/end-to-end-addressing.md (479 total lines)
+1: # End-to-End TX Addressing: Deep Analysis
+2: 
+3: ## The Question
+4: 
+5: Should the actor system use the **same addresses** from frontend component to backend actor instance and back? What does that mean concretely, what does it buy us, what does it cost, and what happens when hundreds of frontends connect simultaneously?
+6: 
+7: ---
+8: 
+9: ## The Two Address Spaces Today
+10: 
+477: Backend TX:          TX(source='ws', target='products', meta={ws_source: 'NTTStream-abc', ...})
+478: Backend → Frontend:  {source: 'http://localhost:5000/products/42', target: 'NTTStream-abc', name: 'ASK'}
+479: ```
+
+### .project/features/streaming/sse-streaming-fix.md (285 total lines)
+1: # SSE Streaming Bug: Deep Analysis of Option B vs Option C
+2: 
+3: ## Context
+4: 
+5: When using Level 3 (actor routing) SSE streaming (e.g., `Product.ask`), events arrive correctly but nothing is displayed in `<ntx-stream>`. Three interacting bugs cause this:
+6: 
+7: 1. **Double-wrapping**: `_sse_from_stream()` sends full TX envelope; `httpCallback()` wraps it again as `reply.data`
+8: 2. **Lost meta**: Reply uses original request's meta, not the SSE chunk's meta (stream_end/error invisible)
+9: 3. **Same callback**: `HTTP.stream(url, data, callback, callback, onError)` — chunk/done distinction lost
+10: 
+283: 5. Double-done guard (reader close after SSE done)
+284: 
+285: Option C additionally needs backend tests for `_translate_outgoing()` and `X-TX-Source` header preservation.
+
+### .project/handoffs/handoff-20260617-161005.md (449 total lines)
+1: # Handoff — N3TX Remote Streaming Primitive for Three-Node Upload-to-Splat Stack
+2: 
+3: Generated: 2026-06-17 16:10:05 UTC
+4: Session focus: Continue the Gaussian Splat Capture Portal from a working three-node test tracer bullet through real PyCOLMAP/Nerfstudio pipeline wiring, then pivot to replacing the app→compute ad hoc SSE bridge with a first-class N3TX remote streaming primitive.
+5: 
+6: ## ✅ Executive Snapshot
+7: 
+8: - ✅ The app/storage/compute Docker tracer bullet worked with `SPLAT_COMPUTE_BACKEND=test`: browser upload → storage `File` → app `Media`/`Run` → compute materialization → test outputs → storage `Artifact` → Run UI artifacts.
+9: - ✅ The real backend scaffold now exists as `pipeline/exhaustive_colmap_splatfacto_big`, with compose/start scripts defaulting to that backend unless overridden.
+10: - ✅ Compute now has lazy, CPU-safe PyCOLMAP geometry and Nerfstudio `splatfacto-big` train/export modules wired into `upload_to_splat.py`.
+447: - User/browser JWT/session state: `[REDACTED]` and local-only.
+448: 
+449: Do not print, commit, or copy real tokens, passwords, cookies, private keys, or production credentials. Runtime DBs/blobs under deploy data directories, Docker volumes, browser state, `.cache/`, and uploaded captures are local artifacts, not source truth.
+
+### .project/handoffs/handoff-20260620-052223-agent-persona.md (125 total lines)
+1: # Handoff — Reusable Agent Persona Sections
+2: 
+3: Generated: 2026-06-20 05:22:23 UTC
+4: 
+5: Session focus: Extract and expand the reusable **agent identity** and **team framing** sections from `AGENTS.md` so they can be integrated into other projects without N3TX-specific context.
+6: 
+7: ## ✅ Executive Snapshot
+8: 
+9: - ✅ This handoff contains two reusable persona versions:
+10:   - **Compressed version** — concise, suitable for compact `AGENTS.md`, system prompts, or project bootstrap docs.
+123: For projects where the agent will perform broad codebase changes, architectural reviews, refactors, planning, or high-risk implementation work, use the **exhaustive version** as the canonical persona.
+124: 
+125: If token budget allows, keep both: use the compressed version in active prompts and keep the exhaustive version as a reference appendix in the project’s agent guide.
+
+### .project/handoffs/handoff-20260628-213910.md (442 total lines)
+1: # Handoff — N3TX Actor ERROR Catch Semantics for RemoteMatrix Failures
+2: 
+3: Generated: 2026-06-28 21:39:10 UTC
+4: Session focus: Prepare a framework-team handoff for evaluating and implementing actor-level `ERROR` catch semantics that stop recursive TX forwarding while preserving observable Task/Scene failure state.
+5: 
+6: ## ✅ Executive Snapshot
+7: 
+8: - The user reported an infinite loop after `GENERATE()` → `STOP()` → `STOP()` again → `GENERATE()` again in a Gaussian Splat Capture Portal app built on N3TX.
+9: - The loop logs repeatedly show `Remote target requires an id for ERROR: n3tx://compute/Process`, followed by `Error in ERROR: maximum recursion depth exceeded`.
+10: - The app intentionally defines a domain `Task.ERROR(...)` method to behave like actor-level `try/catch`; the user wants to preserve that concept, not remove it.
+440: ## 🔐 Sensitive Content Handling
+441: 
+442: No secrets, API keys, private credentials, session cookies, or sensitive personal data were present in this session. Runtime logs included internal service names and local actor addresses only. No redaction was required.
+
+### .project/handoffs/handoff-20260628-232603-n3tx-error-terminal-followup.md (185 total lines)
+1: # Handoff — N3TX ERROR Terminal Semantics Follow-up
+2: 
+3: Generated: 2026-06-28 23:26:03 UTC
+4: Session focus: Follow-up bug report for the N3TX team after validating that the current ERROR recursion fix is incomplete.
+5: 
+6: ## ✅ Executive Snapshot
+7: 
+8: - The N3TX 0.11.3-side fix appears to only stop recursive forwarding when an `ERROR` handler **raises**.
+9: - The production bug still reproduces when an `ERROR` handler **succeeds and returns a value**: the actor system sends `ERROR_RESPONSE` back to the original remote source.
+10: - That `ERROR_RESPONSE` targets the id-less remote class actor `n3tx://compute/Process`, causing `RemoteMatrix` to fail with `Remote target requires an id for ERROR: n3tx://compute/Process` and recurse.
+183: ## 🔐 Sensitive Content Handling
+184: 
+185: No secrets or credentials are included. Service names and local actor refs are non-secret runtime identifiers.
+
+### .project/handoffs/handoff-20260702-231647.md (370 total lines)
+1: # Handoff — N3TX Relationship Simplification / Join Model Removal
+2: 
+3: Generated: 2026-07-02 23:16:47 UTC
+4: Session focus: Continue the N3TX relationship cleanup by fixing partial update semantics and local `list[T]` delete cleanup after removing generated join-model infrastructure.
+5: 
+6: ## ✅ Executive Snapshot
+7: 
+8: - ✅ The repo is mid-migration from generated join models / `ListRef` / href-array collections to flat first-class entities plus JSON-backed `list[T]` owned collections.
+9: - ✅ Python source grep is clean for `generate_join_model`, `ListRef[...]`, and `from n3tx_core.models.ref import ListRef`; `join_models` remains only in the intentional `create_app(join_models=...)` rejection test and app error path.
+10: - ✅ Core route/model/registrar/dump unit tests passed after the cleanup; a targeted example test batch mostly passed with one expected identity-contract assertion failure (`/users/` vs `/User/`).
+368: - No production secrets, API keys, private tokens, or credentials were exposed in this session.
+369: - Test credentials appear in repo docs/fixtures (example users/passwords) and are public test data, not sensitive operational secrets.
+370: - Do not copy local tokens/cookies/runtime secrets into future artifacts. If encountered, redact as `[REDACTED]`.
+
+### .project/handoffs/handoff-20260702-232028.md (373 total lines)
+1: # Handoff — N3TX Ref System Phase 0 / ListRef Removal
+2: 
+3: Generated: 2026-07-02 23:20:28 local time  
+4: Session focus: Continue Phase 0 of the N3TX reference-system overhaul by finishing stale actor/example test cleanup and verification after core backend tests were made green.
+5: 
+6: ## ✅ Executive Snapshot
+7: 
+8: - ✅ Core backend example tests are green after this session: `415 passed, 5 warnings` for `examples/core/tests/*.py`.
+9: - ✅ Phase 0 contract is now implemented/locked more deeply in core: `list[T]` responses hydrate to embedded objects with `$schema`/`$id`, and local `Ref[T]` hrefs now use flat class-name identity like `/User/2`.
+10: - ✅ Python Playwright package was installed into `/workspace/.venv-agents` at the user's request; browser binaries were **not** installed yet.
+371: - Test JWT tokens appeared in pytest failure output. They are short-lived/generated test tokens and should be treated as sensitive; this handoff does not reproduce them.
+372: - No production secrets, API keys, private keys, or credentials were intentionally handled.
+373: - Test user credentials exist in project docs/fixtures, but no additional sensitive material is needed for continuation.
+
+### .project/handoffs/handoff-n3tx-remote-classmethod-stream-route-405.md (225 total lines)
+1: # Handoff: RemoteMatrix streams classmethod capability to instance URL and gets 405
+2: 
+3: Date: 2026-06-17
+4: Repo: Gaussian Splat Capture Portal / N3TX app
+5: Audience: N3TX framework team
+6: 
+7: ## ✅ Summary
+8: 
+9: The app now correctly uses N3TX `RemoteMatrix.stream()` instead of a raw HTTP/SSE bridge for app → compute streaming. That fixed the previous `IncompleteRead(0 bytes read)` failure.
+10: 
+223: ## ⚠️ Runtime impact
+224: 
+225: This blocks the production upload-to-splat flow after clicking “Start pipeline” on the Run page. Upload and storage handoff are working; the failure occurs when streaming the compute actor capability remotely.
+
+### .project/handoffs/n3tx-actor-custom-method-resource-auth.md (856 total lines)
+1: # N3TX Backend Handoff — Resource-Aware Authorization for Actor-Routed Instance Custom Methods
+2: 
+3: ✅ **Request type:** Security-sensitive framework bug fix / backend feature request  
+4: 📍 **Subsystem:** `n3tx-actors` HTTP actor routing + `n3tx-core` authorization integration  
+5: ⚠️ **Severity:** High for apps that rely on `OWNER`/resource rules on actor-routed instance methods  
+6: 🧭 **Desired outcome:** Actor-routed instance `@expose_route` methods evaluate method access against the target resource instance before method execution, matching direct-route behavior.
+7: 
+8: ---
+9: 
+10: ## 1. Executive Summary
+854: Fix this in the N3TX backend rather than app code.
+855: 
+856: The correct abstraction is framework-level: `access=OWNER | ROLE("admin")` on an instance custom method should mean the same thing under direct and actor routing. App-level guards are acceptable as temporary mitigations, but they duplicate authorization logic and weaken N3TX’s “model is the app” contract.
+
+### .project/handoffs/n3tx-remote-matrix-static-stream-route-405.md (529 total lines)
+1: # Bug Report: `RemoteMatrix.stream()` uses `/Class/id/method_name` fallback instead of schema route for static/class streaming methods
+2: 
+3: ## ✅ Summary
+4: 
+5: `RemoteMatrix.stream()` can produce an incorrect remote URL for a schema-declared streaming actor method.
+6: 
+7: For a static service capability exposed as:
+8: 
+9: ```python
+10: @staticmethod
+527: ```text
+528: POST /ComputePipeline/0/upload_to_splat
+529: ```
+
+### .project/orchestration/orchestration-dependency-20261019T000000Z-b73e91.jsonl (5 total lines)
+1: {"id":"ROOT","kind":"coordination","status":"running","title":"Documentation overhaul","acceptance_criteria":["AC01","AC02","AC03","AC04","AC05","AC06","AC07"],"depends_on":[],"reviews":[],"agreement":{"outcome":"Documentation alone enables architecturally aligned application development","scope":"All repository documentation assessed; current guides rewritten as needed; historical records classified and preserved; no framework implementation changes","criteria":{"AC01":"Every documentation file inventoried with assessment and disposition","AC02":"Retained claims checked against implementation and tests","AC03":"Coherent documentation-only application-building path","AC04":"Native mechanisms and architectural choices taught accurately","AC05":"Consistent navigation, terminology and canonical ownership","AC06":"Examples and links checked with actual results and explicit gaps","AC07":"Direct information-only prose with scan-friendly tables and purposeful diagrams"}},"baseline":"a189f755153558cdaf472764f9abc78a50929eaa","review_route":"Independent reviewer after production; orchestrator inspects artifacts and evidence","next_action":"Dispatch audit"}
+2: {"id":"T01","kind":"execution","status":"running","title":"Inventory and source-grounded audit","assigned_agent":"general","attempt":1,"acceptance_criteria":["AC01","AC02","AC04","AC05","AC07"],"depends_on":[],"reviews":[],"contract":{"objective":"Assess all documentation and propose exact rewrite scope","owns":[".project/documentation-overhaul/"],"must_not_change":["current documentation","framework code","orchestration ledger"],"verification":["Enumerate documentation and account for every path","Read current guides and validate significant claims against source"]},"next_action":"Produce audit and rewrite manifest"}
+3: {"id":"T02","kind":"execution","status":"blocked","title":"Rewrite documentation","acceptance_criteria":["AC02","AC03","AC04","AC05","AC07"],"depends_on":["T01"],"reviews":[],"next_action":"Consume accepted audit"}
+4: {"id":"R01","kind":"review","status":"blocked","title":"Independent documentation review","acceptance_criteria":["AC01","AC02","AC03","AC04","AC05","AC06","AC07"],"depends_on":[],"reviews":["T02"],"next_action":"Review rewritten artifacts when available"}
+5: {"id":"T03","kind":"integration","status":"blocked","title":"Verify complete documentation outcome","acceptance_criteria":["AC01","AC02","AC03","AC04","AC05","AC06","AC07"],"depends_on":["T02","R01"],"reviews":[],"next_action":"Inspect integrated documentation and verification evidence"}
+
+### .project/plans/10-ref-system-current-state-and-overhaul-plan.md (734 total lines)
+1: # N3TX Ref System Overhaul Plan
+2: 
+3: ✅ **Finalized direction**
+4: 
+5: N3TX should collapse its reference system into one web-native mental model:
+6: 
+7: > **`$id` is the canonical absolute HTTP(S) identity URL. Local storage may use compact DB ids, but every public reference should be directly resolvable without `n3tx://` translation, service-name registries, or parallel address concepts.**
+8: 
+9: This plan supersedes the earlier distributed-ref direction. The new refactor is deliberately removal-first:
+10: 
+732: ```
+733: 
+734: The expected result is fewer concepts, fewer hydration paths, fewer route-specific identity shapes, and a reference model that works naturally across backend, frontend, agents, and remote services.
+
+### .project/plans/12-ref-owned-relationship-lifecycle.md (413 total lines)
+1: # Owned `T` / `list[T]` Relationship Lifecycle
+2: 
+3: ## ✅ Refined outcome
+4: 
+5: Make exact scalar `T` and exact `list[T]` one SQLite-backed, owned-local-
+6: relationship primitive. Keep `Ref[T]` and `list[Ref[T]]` non-owning identity
+7: pointers.
+8: 
+9: | Declaration | SQLite form | Read form | Removal behavior |
+10: |---|---|---|---|
+411: - `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py`
+412: - `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py`
+413: - `packages/n3tx-core/src/n3tx_core/tests/unit/test_sqlite_storage.py`
+
+### .project/plans/13-proto-model-update-and-collection-semantics.md (554 total lines)
+1: # ProtoModel Update and Collection Semantics Plan
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Make **partial update** the single N3TX contract across Python, direct HTTP, actor HTTP/TX, agent tools, OpenAPI, frontend documentation, and tests:
+6: 
+7: ```text
+8: update(id, patch) -> validate patch against current entity -> persist only supplied fields -> return full entity
+9: ```
+10: 
+552: ## Saved Plan
+553: 
+554: - `.project/plans/proto-model-update-and-collection-semantics.md`
+
+### .project/plans/fix-list-relationship-regressions.md (283 total lines)
+1: # ✅ Fix Plan: `list[T]` Relationship Regression Hardening
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Ship this as a **stabilization patch in three thin slices** before merging the `list[T]` refactor:
+6: 
+7: 1. **Make flat child identity the only frontend action-response URL shape**.
+8: 2. **Restore strict relationship validation** for inline `list[T]` payloads and hydration failures.
+9: 3. **Preserve caller serialization constraints** when overlaying hydrated relationship responses.
+10: 
+281: ## Saved Plan
+282: 
+283: - `.project/plans/fix-list-relationship-regressions.md`
+
+### .project/plans/full-graph-relationship-migration.md (1489 total lines)
+1: # Full Graph Relationship Migration Plan
+2: 
+3: ## ✅ Executive Recommendation
+4: 
+5: Migrate N3TX relationships to a **first-class graph edge system** centered on a real `Relationship` model:
+6: 
+7: ```python
+8: class Relationship(ProtoModel):
+9:     """Instances are edges; static/class methods are the relationship store API."""
+10: ```
+1487: packages/n3tx-core/docs/storage.md
+1488: BACKEND.md
+1489: ```
+
+### .project/plans/ref-frontend-hydrated-relationships.md (269 total lines)
+1: # Frontend Hydrated Relationship Migration
+2: 
+3: ## ✅ Outcome
+4: 
+5: Align the frontend with the simplified backend relationship contract:
+6: 
+7: - Scalar `T` remains a hydrated child object.
+8: - `list[T]` remains an ordered array of hydrated child objects.
+9: - Child identity always comes from its flat backend `$id`, such as `/Comment/2`.
+10: - The frontend never synthesizes parent-scoped entity URLs.
+267: - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js`
+268: - `tests/frontend/tests/integration/nested-entities.test.js`
+269: - `tests/frontend/tests/components/ntx-agent.test.js`
+
+### .project/plans/ref-update-auth-and-deprecation.md (240 total lines)
+1: # Relationship Update, Authorization, and Deprecation Contracts
+2: 
+3: ## ✅ Outcome
+4: 
+5: Complete three backend-facing contracts:
+6: 
+7: 1. Direct and actor updates preserve omitted fields through an `exclude_unset` chain.
+8: 2. Parent reads authorize owned `T`/`list[T]` children as part of the parent aggregate; direct child routes continue to enforce child rules.
+9: 3. `ManyToMany[T]` is deprecated without expanding or rewriting its behavior.
+10: 
+238: - `packages/n3tx-actors/src/n3tx_actors/api/network_api.py`
+239: - `packages/n3tx-actors/src/n3tx_actors/models/actor_model.py`
+240: - `packages/n3tx-core/src/n3tx_core/models/relationships.py`
+
+### .project/plans/unified-relationship-defaults.md (1772 total lines)
+1: # Unified Relationship Edge Architecture — Full Implementation Plan
+2: 
+3: ## ✅ Executive Summary
+4: 
+5: N3TX should replace its relationship surface area with a simpler semantic type contract backed by a unified **relationship-edge engine**.
+6: 
+7: Developer-facing contract:
+8: 
+9: ```python
+10: class Project(ActorModel):
+1770: ## Saved Plan
+1771: 
+1772: - `.project/plans/unified-relationship-defaults.md`
+
+### .project/refactor/1-routes-grammar/0-hypermedia-representation-architecture-plan.md (1627 total lines)
+1: # Hypermedia Route Grammar Architecture Plan
+2: 
+3: ## 0. Executive Summary
+4: 
+5: This plan defines N3TX's next route grammar for model-centric APIs and HTML/view entrypoints while preserving current table-name API routes.
+6: 
+7: The new design is an **incremental dual grammar**:
+8: 
+9: ```text
+10: /{tablename}/...       legacy/current data API, unchanged for compatibility
+1625: 5. Router grammar lands before backend HTML entrypoints.
+1626: 
+1627: This design is not the purest possible HTTP representation model, but it is the best practical fit for the current N3TX architecture. It gives the project a clear migration path toward model-centric hypertext while preserving existing apps and APIs.
+
+### .project/refactor/1-routes-grammar/1-hypermedia-regression-testing.md (961 total lines)
+1: # Hypermedia Route Grammar Regression Testing Plan
+2: 
+3: ## 0. Purpose
+4: 
+5: This artifact defines the complete regression test strategy for the hypermedia route grammar refactor described in:
+6: 
+7: ```text
+8: .project/plans/6-hypermedia-representation-architecture-plan.md
+9: ```
+10: 
+959: - `tests/frontend/tests/components/ntx-router.test.js`
+960: - `packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py`
+961: - `packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py`

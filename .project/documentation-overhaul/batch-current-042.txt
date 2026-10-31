@@ -1,0 +1,526 @@
+
+### packages/n3tx-core/docs/app-bootstrap.md (278 total lines)
+131: |---------|-----------|---------|
+132: | `N3TX_BACKEND` | `BACKEND` | `"fastapi"` |
+133: | `N3TX_HOST` | `HOST` | `"0.0.0.0"` |
+134: | `N3TX_PORT` | `PORT` | `5000` |
+135: | `N3TX_API_URL` | `API_URL` | `"http://localhost:{PORT}"` |
+136: | `N3TX_SQLITE_DB` | `SQLITE_DB_FILE` | `"n3tx.db"` |
+137: | `N3TX_JWT_SECRET` | `JWT_SECRET` | dev default |
+138: | `N3TX_DEBUG` | `DEBUG` | `false` |
+139: | `N3TX_SSR` | `SSR` | `"off"` |
+140: | `N3TX_LOG_LEVEL` | `LOG_LEVEL` | `"WARNING"` (or `"DEBUG"` if DEBUG) |
+141: 
+142: ### SSR Modes
+143: 
+144: | Mode | Behavior |
+145: |------|----------|
+146: | `"off"` | Serve static index.html as-is |
+147: | `"schema"` | Inject model schema `<script>` tags + CSS preloads into HTML |
+148: | `"bundle"` | Replace module imports with a single bundled JS file |
+149: | `"full"` | Both schema injection and JS bundling |
+150: 
+151: ### Discovery Endpoints
+152: 
+153: Automatically mounted by `build()`:
+154: 
+155: - `GET /_meta` -- Model registry, capabilities, health status
+156: - `GET /.well-known/agent.json` -- A2A Agent Card for agent discovery
+157: 
+158: ### Optional App Assistant Provisioning
+159: 
+160: `create_app()` and `N3TXApp` accept an optional `app_agent` dict that can
+161: provision a static `AgentActor` during bootstrap. This is additive: existing
+162: seed scripts and runtime-created agents continue to work unchanged.
+163: 
+164: When any registered model is agent-enabled (`__agent__ = True`, including
+165: `AgentActor`), bootstrap also registers the agents package's `Thread` model as
+166: framework infrastructure. Agent `run()` / `run_stream()` use `Thread` for
+167: persistent conversation history, so applications do not need to list it in
+168: `models=[...]` manually.
+169: 
+170: ```python
+171: app = create_app(
+172:     models=[Grant, Source, AgentTool, AgentActor],
+173:     storage="sqlite:///app.db",
+174:     app_agent={
+175:         "key": "assistant",
+176:         "name": "Assistant",
+177:         "prompt": "Help operators understand the system.",
+178:         "llm": "ollama:qwen3.5:9b",
+179:         "constraints": {"max_iterations": 12},
+180:         "tools": [
+181:             {"target": "grants", "description": "Grant CRUD"},
+182:             {"target": "sources", "description": "Source management"},
+183:         ],
+184:     },
+185: )
+186: ```
+187: 
+188: Bootstrap looks up the agent by `system_key` first, then falls back to `name`
+189: for compatibility. Tool links are reconciled idempotently on each startup.
+190: 
+191: ### Static File Resolution
+192: 
+193: Multiple packages can contribute static assets. Resolution order (highest priority first):
+194: 
+195: 1. App-specific directories (via `static_dir` / `.static()`)
+196: 2. `n3tx-agents` static (if installed)
+197: 3. `n3tx-ui` static (if installed)
+198: 4. `n3tx-core` static (always present, catch-all)
+199: 
+200: When multiple directories exist, a `_CascadingStaticFiles` ASGI handler searches all of them. First file match wins.
+201: 
+202: ### Generated Route Grammar
+203: 
+204: Direct routing registers table-name data routes, class-name schema/CRUD mirror
+205: routes, optional model view routes, and optional package-owned capability routes:
+206: 
+207: ```text
+208: GET    /{ClassName}                  # schema
+209: GET    /{ClassName}/_                # JSON collection mirror
+210: POST   /{ClassName}                  # create mirror
+211: GET    /{ClassName}/{id:int}         # read mirror
+212: PUT    /{ClassName}/{id:int}         # update mirror
+213: DELETE /{ClassName}/{id:int}         # delete mirror
+214: POST   /{ClassName}/{id:int}/method  # literal custom method mirror
+215: GET    /{ClassName}/@                # collection default HTML view, if viewable
+216: GET    /{ClassName}/@{view}          # collection named HTML view, if viewable
+217: GET    /{ClassName}/{id:int}/@       # member default HTML view, if viewable
+218: GET    /{ClassName}/{id:int}/@{view} # member named HTML view, if viewable
+219: 
+220: POST   /files/upload                 # n3tx-files multipart upload, if File is registered
+221: GET    /files/{id:int}/download      # n3tx-files binary download, if File is registered
+222: GET    /File/{id:int}/download       # n3tx-files class-name download mirror
+223: 
+224: GET    /{tablename}                  # list
+225: POST   /{tablename}                  # create
+226: GET    /{tablename}/{id:int}         # read
+227: PUT    /{tablename}/{id:int}         # update
+228: DELETE /{tablename}/{id:int}         # delete
+229: POST   /{tablename}/{id:int}/method  # custom instance methods
+230: ```
+231: 
+232: The class-name mirrors delegate to table-name handlers, so authorization,
+233: population, error handling, and `$id` generation stay identical. `GET
+234: /{ClassName}` remains schema; `GET /{ClassName}/_` is the explicit JSON
+235: collection marker. HTML routes are registered through `register_view_routes()`
+236: when a model capability provides it. Package-owned API routes such as
+237: `n3tx-files` upload/download adapters are registered through
+238: `register_extra_routes()`. `n3tx-core` only depends on these small hooks and
+239: remains optional-package neutral.
+240: 
+241: Local owned collections are not represented as generated nested routes. Declare
+242: them as `list[T]` fields on the owner model. SQLite stores the ordered child ids
+243: in the parent row as JSON, then the read path hydrates those ids into
+244: self-describing child objects. Child identity remains flat and class-name based,
+245: for example `GET /Comment/5` and `$id: "http://localhost:5000/Comment/5"`.
+246: 
+247: ### Optional capability route hook
+248: 
+249: Models can expose package-owned routes that cannot be expressed as normal JSON
+250: CRUD/custom-method routes:
+251: 
+252: ```python
+253: class File(ActorModel):
+254:     @classmethod
+255:     def register_extra_routes(cls, router, *, tag: str) -> None:
+256:         from .routes import register_file_routes
+257:         register_file_routes(router, cls, tag=tag)
+258: ```
+259: 
+260: The hook is invoked by both direct routing and actor routing. It is intended for
+
+### packages/n3tx-core/docs/app-bootstrap.md (278 total lines)
+261: capabilities like file upload/download where the wire format is multipart or
+262: binary. The package-owned route must still enforce the same model authorization
+263: contract before changing metadata or streaming bytes.
+264: 
+265: ## Gotchas
+266: 
+267: - **`build()` clears global registries.** `registered_models.clear()` is called at the start of `build()` to support uvicorn `--reload`. This means multiple `build()` calls do not accumulate models.
+268: - **`join_models` and `N3TXApp.join()` are removed.** Declare owned collections as `list[T]` fields and register both model classes. `create_app(join_models=...)` now raises `TypeError` so stale bootstrap code fails loudly.
+269: - **Legacy join-backed data needs an explicit migration.** The framework no longer reads generated join tables to populate `list[T]` fields. Move old relationship rows into the parent's JSON id-array column before deploying this contract to an existing database.
+270: - **Actor routing re-registers finalized actor models into Matrix.** Actor subclasses may auto-register with the root Matrix at import time, before storage/test bootstrap is finalized. During `build(routing='actor')`, the finalized `registered_models` actor classes are re-registered into Matrix so routing uses the same live classes that storage was attached to.
+271: - **Storage URI parsing is limited.** Only `sqlite:///path` is currently supported. Passing an unrecognized URI raises `ValueError`.
+272: - **SSR parameter accepts multiple types.** `None` reads from config, `True` maps to `"schema"`, `False` maps to `"off"`, strings are validated against `('off', 'schema', 'bundle', 'full')`.
+273: - **JWT middleware is pure ASGI.** It does not use `BaseHTTPMiddleware` (which buffers response bodies and breaks SSE streaming). The token is extracted from the `x-access-token` header, not `Authorization: Bearer`.
+274: - **Streaming routes emit anti-buffered SSE frames.** Each frame includes a comment padding line so proxy/browser buffers flush progressive chunks instead of waiting for the stream to complete.
+275: - **CORS defaults to `["*"]`.** This is intentional for development. Set explicit origins in production. When `"*"` is in the origins list, `allow_credentials` is automatically set to `False`.
+276: - **Static files are mounted last.** `get_app()` mounts the framework static directory as a catch-all ASGI mount. All API routes and explicit file routes take precedence.
+277: - **Dynamic user files are not static assets.** `n3tx-files` download routes are explicit API routes with authorization and byte/range handling. Do not mount user upload directories through `static_dir`.
+278: - **`@` routes are HTML/view routes.** `/Product/@table` is a view shell, not a JSON data route. Invalid or unknown view names should fail before renderer tags are injected into HTML.
+
+### packages/n3tx-core/docs/authorization.md (157 total lines)
+1: # Authorization
+2: 
+3: > Part of [n3tx-core](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The `authorize` subpackage: access rules, the resolver protocol, JWT auth, SQL pushdown, and how rules flow into JSON Schema. This package has zero N3TX imports -- it is standalone by design.
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: Model __access__ dict
+13:   |
+14:   v
+15: DefaultResolver.resolve_rule(model_class, action)
+16:   |
+17:   +-- __access__[action]       -- Exact match
+18:   +-- __access__['*']          -- Wildcard fallback
+19:   +-- AUTHENTICATED            -- Global fallback (no __access__)
+20:   |
+21:   v
+22: AccessRule.evaluate(ctx)       -- Boolean: grant or deny
+23: AccessRule.sql_filter(ctx)     -- SQL WHERE clause for list pushdown
+24: AccessRule.to_dict()           -- JSON serialization for schema
+25: ```
+26: 
+27: The route layer constructs an `AccessContext` from the HTTP request, then calls the resolver. For list endpoints, `sql_filter_for()` returns a WHERE clause that the storage layer appends to the SELECT query -- authorization is pushed down to the database.
+28: 
+29: ## Interface
+30: 
+31: ### Access Rules
+32: 
+33: | Rule | Constructor | Behavior |
+34: |------|-------------|----------|
+35: | `ANYONE` | singleton | Always grants. SQL: `1=1` |
+36: | `NEVER` | singleton | Always denies. SQL: `1=0` |
+37: | `AUTHENTICATED` | singleton | Grants if `user_id` present in JWT |
+38: | `OWNER` | singleton | Grants if `user_id == resource.__owner_field__` |
+39: | `ROLE('admin')` | factory | Grants if `user.role` in allowed set |
+40: | `Where(status='published')` | factory | Grants if `resource.status == 'published'` |
+41: | `FEDERATED` | singleton | Grants for federated (non-local) actors |
+42: | `LOCAL` | singleton | Grants for local (non-federated) users |
+43: | `FOLLOWER` | singleton | Grants if user follows resource owner |
+44: 
+45: ### Rule Composition
+46: 
+47: ```python
+48: OWNER | ROLE('admin')                    # OR: owner or admin
+49: AUTHENTICATED & Where(status='published') # AND: authenticated + published
+50: ~ANYONE                                  # NOT: equivalent to NEVER
+51: 
+52: # Algebraic properties:
+53: # A & NEVER == NEVER  (annihilation)
+54: # A | NEVER == A      (identity)
+55: # A | ANYONE == ANYONE (absorption)
+56: ```
+57: 
+58: ### Where Operators
+59: 
+60: ```python
+61: Where(status='published')       # field = value
+62: Where(price__gt=10)             # field > value
+63: Where(price__lt=100)            # field < value
+64: Where(price__gte=10)            # field >= value
+65: Where(price__lte=100)           # field <= value
+66: Where(status__ne='draft')       # field != value
+67: Where(role__in=['admin','mod']) # field IN (...)
+68: ```
+69: 
+70: ### AccessContext
+71: 
+72: ```python
+73: @dataclass(frozen=True)
+74: class AccessContext:
+75:     user: dict           # JWT payload: {user_id, email, role}
+76:     action: str          # 'read', 'create', 'update', 'delete', or method name
+77:     model_class: Type    # The model class being accessed
+78:     resource: Any = None # The specific instance (None for create/list)
+79:     parent_id: int = None
+80: 
+81:     # Properties:
+82:     user_id -> int | None
+83:     user_role -> str | None
+84:     is_authenticated -> bool
+85: ```
+86: 
+87: ### DefaultResolver
+88: 
+89: ```python
+90: class DefaultResolver:
+91:     def resolve_rule(self, model_class, action) -> AccessRule: ...
+92:     def authorize(self, ctx: AccessContext) -> None: ...        # Raises AccessDenied
+93:     def sql_filter_for(self, ctx: AccessContext) -> tuple: ...  # (WHERE, params)
+94: ```
+95: 
+96: ### Auth Functions
+97: 
+98: ```python
+99: from n3tx_core.authorize import configure, hash_password, verify_password, create_token, decode_token
+100: 
+101: configure(jwt_secret='...', jwt_expiry_hours=24)  # Call once at startup
+102: hashed = hash_password('plain')
+103: ok = verify_password('plain', hashed)
+104: token = create_token(user_id=1, email='a@b.com', role='user')
+105: payload = decode_token(token)  # -> {user_id, email, role, exp, iat}
+106: ```
+107: 
+108: ## Usage Patterns
+109: 
+110: ### Model-Level Access
+111: 
+112: ```python
+113: class Product(ProtoModel):
+114:     __tablename__ = 'products'
+115:     __storable__ = True
+116:     __owner_field__ = 'user_owner'  # Field checked by OWNER rule (default: 'user_owner')
+117:     __access__ = {
+118:         'read': ANYONE,
+119:         'create': AUTHENTICATED,
+120:         'update': OWNER | ROLE('admin'),
+121:         'delete': ROLE('admin'),
+122:     }
+123:     user_owner: int = Field(default=0)
+124: ```
+125: 
+126: ### Method-Level Access
+127: 
+128: ```python
+129: @expose_route('/publish', methods=['POST'], access=OWNER & Where(status='draft'))
+130: def publish(self) -> str:
+
+### packages/n3tx-core/docs/authorization.md (157 total lines)
+131:     self.status = 'published'
+132:     return 'Published'
+133: ```
+134: 
+135: ### Custom Resolver
+136: 
+137: ```python
+138: from n3tx_core.authorize import AuthorizationResolver, AccessRule, AccessContext
+139: 
+140: class TenantResolver:
+141:     def resolve_rule(self, model_class, action) -> AccessRule:
+142:         # Custom resolution logic
+143:         ...
+144:     def authorize(self, ctx: AccessContext) -> None:
+145:         ...
+146:     def sql_filter_for(self, ctx: AccessContext) -> tuple:
+147:         ...
+148: ```
+149: 
+150: ## Gotchas
+151: 
+152: - **No `__access__` defaults to `AUTHENTICATED` for all actions.** This is backward compatible -- unauthenticated users cannot access models without explicit `ANYONE` rules.
+153: - **OWNER rule returns True for create actions** when no resource exists yet (ownership is established at creation time). The `user_owner` field is auto-injected from the JWT by the route layer.
+154: - **OWNER checks href-hydrated values.** If `user_owner` is stored as `3` but hydrated to `http://localhost:5000/users/3`, the OWNER rule extracts the trailing ID from the href string.
+155: - **`sql_filter` returns None for non-filterable rules.** When a rule cannot produce a SQL clause (e.g., requires resource-level data), it returns `None`. OrRule/AndRule return `None` if any child returns `None`.
+156: - **Insecure JWT secrets trigger warnings.** The auth module checks against a known list of default secrets and emits a `UserWarning` at startup. Always set `N3TX_JWT_SECRET` in production.
+157: - **The authorize package is imported as `n3tx_core.authorize`** in the split-package layout. The old import `from authorize import ...` no longer works.
+
+### packages/n3tx-core/docs/schema-pipeline.md (209 total lines)
+1: # Schema Pipeline
+2: 
+3: > Part of [n3tx-core](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The composable pipeline that generates JSON Schema from model classes. Covers the default stages, the extension mechanism, and how external packages add stages without modifying core. Does not cover the dump pipeline (see [storage.md](storage.md)) or the frontend schema consumption (see n3tx-ui docs).
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: ProtoModel.schema()
+13:   |
+14:   v
+15: proto_schema.run_pipeline(cls, pipeline='default')
+16:   |
+17:   v
+18: Stage 1: base(cls)           -- Pydantic model_json_schema() + Ref patching
+19: Stage 2: strip_hidden(cls,s)  -- Remove __hidden_fields__
+20: Stage 3: methods(cls,s)       -- Inject @expose_route signatures + stream events
+21: Stage 4: defs(cls,s)          -- Collect referenced models into $defs
+22: Stage 5: access(cls,s)        -- Serialize __access__ ABAC rules
+23: Stage 6: widget(cls,s)        -- Inject ui.widget from Widget annotations [via @schema_extension, n3tx-core.widgets]
+24: Stage 7: ui(cls,s)            -- Field exclusion, __protected_fields__ [field-level only — core]
+25: Stage 8: viewable(cls,s)      -- Emit __ui__ class config into schema['ui'] [via @schema_extension, n3tx-ui]
+26: Stage 9: agent(cls,s)         -- Emit agent metadata into schema['agent'] [via @schema_extension, n3tx-agents]
+27: Stage N: metadata(cls,s)      -- Stamp $schema and $id
+28:   |
+29:   v
+30: dict (JSON Schema with N3TX extensions)
+31: ```
+32: 
+33: Stages 8 (`viewable`), 9 (`agent`), and any widget stage are registered by their respective packages at import time. Only the 7 core stages (`base` through `ui`, `metadata`) are guaranteed present when running core alone.
+34: 
+35: Each stage is a pure `dict -> dict` function. The first stage (`base`) takes only `cls` and returns the seed dict. All subsequent stages take `(cls, schema)` and return the modified schema.
+36: 
+37: Results are cached per model class in `ProtoModel._schema_cache`. Call `cls.invalidate_schema_cache()` to clear (tests only -- schemas are immutable at runtime).
+38: 
+39: ## Interface
+40: 
+41: ### Pipeline Registration
+42: 
+43: ```python
+44: from n3tx_core.models.proto_schema import register_stage, schema_extension
+45: 
+46: # Imperative registration
+47: register_stage('federation', federation_stage, after='methods')
+48: 
+49: # Decorator registration (stage name = function name)
+50: @schema_extension(after='methods')
+51: def federation(cls, schema: dict) -> dict:
+52:     if getattr(cls, '__federated__', False):
+53:         schema['federation'] = {'inbox': f'/api/{cls.__tablename__}/inbox'}
+54:     return schema
+55: ```
+56: 
+57: **`register_stage(name, func, *, after=None, before=None, pipeline='default')`**
+58: 
+59: | Param | Type | Description |
+60: |-------|------|-------------|
+61: | `name` | str | Unique stage name within the pipeline |
+62: | `func` | callable | `(cls) -> dict` for seed, `(cls, schema) -> dict` for transforms |
+63: | `after` | str | Insert after this named stage |
+64: | `before` | str | Insert before this named stage |
+65: | `pipeline` | str | Pipeline name (default: `'default'`) |
+66: 
+67: Raises `ValueError` if: duplicate stage name, both `after` and `before` specified, or referenced stage not found.
+68: 
+69: **`schema_extension(*, after=None, before=None, pipeline='default')`** -- Decorator form. Function name becomes the stage name.
+70: 
+71: ### Pipeline Introspection
+72: 
+73: ```python
+74: from n3tx_core.models.proto_schema import get_pipeline, clear_pipeline, remove_stage
+75: 
+76: get_pipeline()          # -> ['base', 'strip_hidden', 'methods', ...]
+77: get_pipeline('llm')     # -> stages for a custom pipeline
+78: remove_stage('widget')  # Remove a stage by name
+79: clear_pipeline()        # Clear all pipelines (testing only)
+80: ```
+81: 
+82: ### Named Pipelines
+83: 
+84: Multiple pipelines can coexist. The `'default'` pipeline produces the full frontend schema. A separate `'llm'` pipeline could produce a stripped-down schema for AI consumption.
+85: 
+86: ```python
+87: register_stage('base', llm_base, pipeline='llm')
+88: register_stage('fields', llm_fields, pipeline='llm')
+89: result = run_pipeline(cls, pipeline='llm')
+90: ```
+91: 
+92: ## Mixin Registry
+93: 
+94: ### `register_mixin(flag, mixin_cls, *, also_if=None)`
+95: 
+96: External packages register mixins for auto-injection into `ProtoModel` subclasses. Called at import time (typically in the package `__init__.py`).
+97: 
+98: ```python
+99: from n3tx_core.models.proto_model import register_mixin
+100: from my_package.mixin import MyMixin
+101: 
+102: register_mixin('__my_flag__', MyMixin)
+103: ```
+104: 
+105: When a model class is defined with the flag set, `__init_subclass__` injects the mixin automatically:
+106: 
+107: ```python
+108: class Widget(ProtoModel):
+109:     __my_flag__ = True
+110:     # → MyMixin is prepended to Widget.__bases__ automatically
+111: ```
+112: 
+113: **`also_if`** — additional ClassVar names that also trigger injection, with flag normalization:
+114: 
+115: ```python
+116: # __ui__ = {...} is a guardrail: auto-sets __viewable__ = True and injects ViewableMixin
+117: register_mixin('__viewable__', ViewableMixin, also_if=['__ui__'])
+118: ```
+119: 
+120: **Timing requirement**: `register_mixin()` must be called **before** any model with that flag is defined. Both `n3tx-ui` and `n3tx-agents` register at their `__init__.py` import time. Applications using `__agent__ = True` must `import n3tx_agents` before importing model files.
+121: 
+122: **Built-in registrations:**
+123: - `n3tx_ui.__init__` registers `ViewableMixin` for `__viewable__` (also fires on `__ui__`)
+124: - `n3tx_agents.__init__` registers `AgentMixin` for `__agent__`
+125: 
+126: `StorableMixin` is **not** in the registry — it's special-cased in `__init_subclass__` because it rewrites FK annotations at injection time.
+127: 
+128: ---
+129: 
+130: ## Typed Argument Materialization Registry
+
+### packages/n3tx-core/docs/schema-pipeline.md (209 total lines)
+131: 
+132: Optional packages can register runtime method-argument materializers without
+133: making core depend on those packages.
+134: 
+135: **File**: `n3tx_core.utils.materialize`
+136: 
+137: ```python
+138: from n3tx_core.utils.materialize import register_materializer
+139: 
+140: @register_materializer
+141: async def materialize_file(value, expected_type, *, user=None, context=None):
+142:     if expected_type is File and isinstance(value, str):
+143:         return True, await File.resolve(value, user=user)
+144:     return False, value
+145: ```
+146: 
+147: `materialize_arg()` is called by direct custom-method routing, actor HTTP
+148: method routing, and actor exposed-method dispatch. This keeps Level 1/2 and
+149: Level 3 behavior aligned for typed capabilities.
+150: 
+151: Current built-in optional registration:
+152: 
+153: - `n3tx_files.__init__` imports `n3tx_files.materialize`, which registers a
+154:   materializer for parameters annotated as `File`.
+155: 
+156: Rules:
+157: 
+158: - Registration happens only when the optional package is imported.
+159: - Materializers are type-gated and should leave unrelated parameters untouched.
+160: - Materializers may enforce authorization using the supplied `user` context.
+161: 
+162: ---
+163: 
+164: ## Usage Patterns
+165: 
+166: ### Adding a ClassVar-Driven Feature
+167: 
+168: The canonical extension pattern: a model sets a ClassVar flag, the schema stage reads it.
+169: 
+170: ```python
+171: # In your package's schema_ext.py
+172: from n3tx_core.models.proto_schema import schema_extension
+173: 
+174: @schema_extension(after='methods')
+175: def agent(cls, schema: dict) -> dict:
+176:     agent_config = getattr(cls, '__agent__', False)
+177:     if not agent_config:
+178:         return schema
+179:     schema['agent'] = {
+180:         'enabled': True,
+181:         'config': agent_config if isinstance(agent_config, dict) else {},
+182:     }
+183:     return schema
+184: ```
+185: 
+186: The import of this module triggers registration. Ensure it is imported before any `schema()` call (typically via your package's `__init__.py`).
+187: 
+188: ### Injecting Into $defs
+189: 
+190: The `defs` stage collects all referenced models. To enrich $defs entries, insert your stage after `defs`:
+191: 
+192: ```python
+193: @schema_extension(after='defs')
+194: def enrich_defs(cls, schema: dict) -> dict:
+195:     for name, def_schema in schema.get('$defs', {}).items():
+196:         def_schema['custom'] = 'value'
+197:     return schema
+198: ```
+199: 
+200: ## Gotchas
+201: 
+202: - **Stage names must be unique per pipeline.** Duplicate registration raises `ValueError`. Check `get_pipeline()` before registering if your package might be imported multiple times.
+203: - **Import order matters.** Extensions registered via `@schema_extension` run at import time. If your extension module is not imported before `ProtoModel.schema()` is called, the stage will be missing. Put the import in your package `__init__.py`.
+204: - **Schemas are cached.** Once `schema()` is called for a model class, the result is cached. Extensions registered after the first call will not affect cached schemas. Call `cls.invalidate_schema_cache()` in tests.
+205: - **The `base` stage patches Ref fields.** Pydantic serializes `Ref[T]` as `{"type": "integer"}`. The `base` stage patches these back to `{"type": "$ref", "$ref": "#/$defs/{TargetName}"}`. If you add a stage that reads field types, account for this patching.
+206: - **`_apply_field_exclusion` auto-hides `id`, `image`, `created_at`, `updated_at`, and `*_id` fields** by setting `ui.display = false`. Existing `display` values are preserved -- only unset fields get the default.
+207: - **The `widget` stage is registered by `n3tx_core.widgets`** (via `@schema_extension(before='ui')`). It runs only if the widgets package is imported. The default pipeline includes it because `n3tx_core.widgets.__init__` imports `schema_ext`.
+208: - **`__ui__` config (`field_order`, `groups`, `renderer`, etc.) lives in the `viewable` stage** (n3tx-ui), not the `ui` stage (core). If you call `schema()` without importing `n3tx_ui`, the `ui` key will be absent from the schema. This is intentional — core has zero dependency on n3tx-ui.
+209: - **`register_mixin()` requires pre-import.** If a model is defined before its mixin package is imported, the flag fires with an empty registry and injection is skipped silently. Always import external packages (e.g., `n3tx_agents`, `n3tx_ui`) before importing model files that use their flags.

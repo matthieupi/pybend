@@ -1,0 +1,748 @@
+
+### docs/AGENTS.md (736 total lines)
+391: Creates an async function with a proper Python signature from a `ToolSpec`.
+392: Uses `exec()` for dynamic signature generation — same approach as
+393: `dataclasses`, `namedtuple`, and `attrs`. All input comes from trusted
+394: model schemas.
+395: 
+396: The generated function:
+397: 
+398: 1. Collects parameters into a dict
+399: 2. Calls `_route_tool_call(ctx, target, method, data)`
+400: 3. Which creates a TX and sends it through `Actor.root().request()` or
+401:    `Actor.root().stream()` for correlation
+402: 4. Streaming tool calls are consumed to completion server-side and collapsed
+403:    into one final JSON string for the LLM
+404: 5. Returns the response as a JSON string (tool results are text for the LLM)
+405: 6. Raises `pydantic_ai.ModelRetry` on error TXs (lets the LLM retry)
+406: 
+407: #### `make_tool(spec) -> pydantic_ai.Tool`
+408: 
+409: Wraps `create_tool_function()` output in a `pydantic_ai.tools.Tool`
+410: with `takes_ctx=True`.
+411: 
+412: ---
+413: 
+414: ### AgentDeps (`deps.py`)
+415: 
+416: Dependency context passed to every Pydantic AI tool function via
+417: `RunContext[AgentDeps]`.
+418: 
+419: ```python
+420: @dataclass
+421: class AgentDeps:
+422:     adapter: NetworkAdapter   # For request/response correlation
+423:     user: Optional[dict]      # JWT user dict for auth context
+424:     agent_addr: str           # Agent's actor address (TX.source)
+425: ```
+426: 
+427: ---
+428: 
+429: ### Schema Extension (`schema_ext.py`)
+430: 
+431: Registered via `@schema_extension(after='methods')`. Adds an `agent`
+432: section to JSON Schema for models with `__agent__ = True`.
+433: 
+434: **For `AgentActor` subclasses:**
+435: 
+436: ```json
+437: {
+438:     "agent": {
+439:         "enabled": true,
+440:         "run_endpoint": "/agents/{id}/run"
+441:     }
+442: }
+443: ```
+444: 
+445: **For other `__agent__ = True` models:**
+446: 
+447: ```json
+448: {
+449:     "agent": {
+450:         "enabled": true
+451:     }
+452: }
+453: ```
+454: 
+455: **For non-agent models:** No `agent` key in schema.
+456: 
+457: ---
+458: 
+459: ## Streaming
+460: 
+461: Agent reasoning can stream progressive results to the frontend via SSE.
+462: 
+463: ### Stream Event Models
+464: 
+465: Streaming methods declare their event vocabulary using non-storable `ProtoModel` subclasses. These serve as the schema contract between backend and frontend — the frontend knows exactly what shape each event carries.
+466: 
+467: ```python
+468: # Defined in n3tx_agents/actor.py (shipped with the package)
+469: class TextChunk(ProtoModel):
+470:     text: str = Field(default='')
+471: 
+472: class ToolCallEvent(ProtoModel):
+473:     tool: str = Field(default='')
+474:     args: dict = Field(default={})
+475:     call_id: str = Field(default='')
+476: 
+477: class ToolResultEvent(ProtoModel):
+478:     tool: str = Field(default='')
+479:     result: str = Field(default='')
+480:     call_id: str = Field(default='')
+481: 
+482: class ThinkingChunk(ProtoModel):
+483:     text: str = Field(default='')
+484: 
+485: class DoneChunk(ProtoModel):
+486:     answer: str = Field(default='')
+487:     usage: dict = Field(default={})
+488:     tool_calls: int = Field(default=0)
+489: ```
+490: 
+491: These models are not storable — they exist purely for validation and JSON Schema generation. The schema pipeline serializes them into the method schema so the frontend can validate and type-check events at runtime.
+492: 
+493: ### `events=` Parameter on `@expose_route`
+494: 
+495: Streaming methods declare their event types via the `events=` parameter:
+496: 
+497: ```python
+498: @expose_route('/agentic_stream', methods=['POST'], stream=True,
+499:               events={
+500:                   'text': TextChunk, 'tool_call': ToolCallEvent,
+501:                   'tool_result': ToolResultEvent, 'thinking': ThinkingChunk,
+502:                   'done': DoneChunk,
+503:               })
+504: async def agentic_stream(self, task: str, **kwargs):
+505:     ...
+506: ```
+507: 
+508: The schema pipeline (`methods` stage in `proto_model.py`) serializes this into:
+509: 
+510: ```json
+511: {
+512:   "methods": {
+513:     "agentic_stream": {
+514:       "route": "/agentic_stream",
+515:       "stream": true,
+516:       "events": {
+517:         "text": {"type": "object", "properties": {"text": {"type": "string"}}},
+518:         "tool_call": {"type": "object", "properties": {"tool": {...}, "args": {...}, "call_id": {...}}},
+519:         ...
+520:       }
+
+### docs/AGENTS.md (736 total lines)
+521:     }
+522:   }
+523: }
+524: ```
+525: 
+526: ### Frontend: NTTStreamAgent
+527: 
+528: **File**: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js`
+529: 
+530: `NTTStreamAgent` extends `NTTStream` with rich agent output rendering — typed entries (thinking, tool calls, text), markdown rendering, and tool result cards. All agent-style streaming components extend `NTTStreamAgent` (or `NTTStream` directly for simpler cases).
+531: 
+532: **Component hierarchy:**
+533: 
+534: ```
+535: Component → NTTMethod → NTTStream → NTTStreamAgent → (app subclasses)
+536: ```
+537: 
+538: ```javascript
+539: import { NTTStreamAgent } from './ntx-stream-agent.js';
+540: 
+541: class MyComponent extends NTTStreamAgent {
+542:     // UPPERCASE methods = TX inbox handlers (actor convention)
+543:     TEXT(data, meta)       { /* data.text */ }
+544:     TOOL_CALL(data, meta)  { /* data.tool, data.args, data.call_id */ }
+545:     TOOL_RESULT(data, meta){ /* data.tool, data.result */ }
+546:     THINKING(data, meta)   { /* data.text */ }
+547:     DONE(data, meta)       { /* data.answer, data.usage */ }
+548: 
+549:     // Lifecycle hooks
+550:     STREAM_END(data)       { /* stream completed */ }
+551:     STREAM_ERROR(err)      { /* stream failed */ }
+552: }
+553: ```
+554: 
+555: **Key methods:**
+556: 
+557: | Method | Purpose |
+558: |--------|---------|
+559: | `prerender()` | Structural DOM created before schema loads. Never wiped by render(). |
+560: | `callMethod()` | Start stream via TX with `meta: {stream: true, req: reqId}`. |
+561: | `cancel()` | Client-side cancel: sets `#cancelled` flag, sends `STREAM_CANCEL` TX. |
+562: 
+563: **How dispatch works:**
+564: 
+565: 1. `callMethod()` sends TX with `meta: {stream: true}` via the Actor system.
+566: 2. Backend sends stream chunks as TX messages.
+567: 3. `NTTStream.STREAM()` handler receives chunks, skips if `#cancelled`.
+568: 4. Dispatches to UPPERCASE handlers: `THINKING()`, `TOOL_CALL()`, `TEXT()`, `DONE()`, etc.
+569: 
+570: **UPPERCASE convention**: All methods that handle TX messages are UPPERCASE. This mirrors the backend actor handler pattern and visually separates inbox handlers from internal component logic (lowercase/camelCase).
+571: 
+572: ### Frontend: `ntx-agent`
+573: 
+574: **File**: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js`
+575: 
+576: `ntx-agent` is the default `AgentActor` entity renderer for both list rows and
+577: detail views. `AgentActor.__ui__.renderer` points `item` and `detail` at this
+578: component, so any shell that loads `ntx-agent.js` automatically gets the custom
+579: agent UI when navigating to `AgentActor` routes.
+580: 
+581: It extends `NTTItem`, keeps Formidable edit mode via `super.md()`, and adds
+582: agent-specific display sections for prompt preview, tool chips, provider/model
+583: badges, and an embedded `ntx-agent-live` activity panel.
+584: 
+585: ### Frontend: `ntx-agents`
+586: 
+587: **File**: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agents.js`
+588: 
+589: `ntx-agents` is the hybrid agents collection surface for apps that need more
+590: than raw `AgentActor` CRUD rows. It extends `NTTList`, keeps the normal stored
+591: collection flow for real `AgentActor` records, and can also render app-provided
+592: built-in workflow entries from `window.NTX_AGENT_CATALOGS[catalog]`.
+593: 
+594: Those built-ins are workflow launchers, not fake database records: they carry
+595: their own copy, icons, and navigation targets while stored entries still render
+596: through the normal `ntx-agent` child flow.
+597: 
+598: ### Concrete Streaming Components
+599: 
+600: `<ntx-agent-live>` and `<ntx-chat>` extend `NTTStream` directly:
+601: 
+602: - **`<ntx-agent-live>`** — Real-time agent activity view. Shows structured event log (thinking → tool calls → text → done) with collapsible entries and JSON rendering.
+603: - **`<ntx-chat>`** — Agent chat panel. Floating chat widget for conversational agent interaction.
+604: 
+605: Both use `prerender()` for structural UI and auto-cancel streams in `disconnectedCallback()`.
+606: 
+607: ---
+608: 
+609: ## Message Flow
+610: 
+611: Complete lifecycle of an agent tool call:
+612: 
+613: ```
+614: 1. POST /agents/1/run {"task": "Scan grants.gov for new grants"}
+615:         |
+616: 2. AgentActor(id=1).run(task)
+617:    --> calls self.agent_run(self.prompt, self.tools, task)
+618:         |
+619: 3. AgentMixin.run():
+620:    a. Resolves LLM from config cascade
+621:    b. discover_tools(["grants", "web_tools"], matrix)
+622:       --> Gets schema.methods from each actor
+623:       --> Builds ToolSpec list: grants_create, grants_list, ...,
+624:                                 web_tools_scrape, web_tools_extract
+625:    c. Creates pydantic_ai.Agent(llm, system_prompt, tools=[...])
+626:    d. Runs ai_agent.run(task, deps=AgentDeps(user, agent_addr))
+627:         |
+628: 4. Pydantic AI loop (internal):
+629:    a. Sends messages + tool specs to LLM
+630:    b. LLM responds: tool_use("web_tools_scrape", {url: "https://..."})
+631:    c. Pydantic AI validates args, calls generated tool function
+632:    d. Tool function creates TX(name='scrape', target='web_tools', data={...})
+633:    e. adapter.request(tx) --> Matrix routes --> WebTools.handler()
+634:       --> scrape() method executes
+635:       --> Response TX returns via Future correlation
+636:    f. Tool result (JSON string) sent back to LLM
+637:    g. LLM calls more tools or produces final answer
+638:         |
+639: 5. agent_run() returns {answer, usage, messages}
+640: 6. Transient adapter cleaned up (finally block)
+641: 7. run() returns JSON to HTTP response
+642: ```
+643: 
+644: ---
+645: 
+646: ## Dynamic Tool Extension
+647: 
+648: Any agentic method can accept extra tool addresses at call time:
+649: 
+650: ```python
+
+### docs/AGENTS.md (736 total lines)
+651: class Product(ActorModel):
+652:     __agent__ = True
+653: 
+654:     @expose_route('/create_from_text', methods=['POST'])
+655:     async def create_from_text(self, text: str, tools: list = []) -> str:
+656:         result = await self.agent_run(
+657:             prompt="Parse freeform text into a Product.",
+658:             tools=["products"] + tools,    # own model + caller-provided
+659:             task=text,
+660:         )
+661:         return result['answer']
+662: ```
+663: 
+664: The caller can extend the agent's capabilities at call time:
+665: 
+666: ```python
+667: # Via TX
+668: TX(name="create_from_text", target="products",
+669:    data={"text": "Red sneakers, $89", "tools": ["suppliers", "pricing"]})
+670: 
+671: # Via API
+672: POST /products/1/create_from_text
+673: {"text": "Red sneakers, $89", "tools": ["suppliers", "pricing"]}
+674: ```
+675: 
+676: ---
+677: 
+678: ## Triggering Agents
+679: 
+680: Agents wake up on messages. No special scheduling infrastructure needed:
+681: 
+682: ```python
+683: # Via HTTP endpoint
+684: POST / agents / 1 / run
+685: {"task": "Scan all sources"}
+686: 
+687: # Via code
+688: result = await scanner.call(task="Scan all sources")
+689: 
+690: # Via TX message (from another actor or agent)
+691: await matrix.send(TX(
+692:     name='run', source='scheduler', target='agents',
+693:     data={'id': 1, 'task': 'Scan all sources'}
+694: ))
+695: 
+696: # Via lifecycle event (reactive)
+697: Grant._subscribers.append('agents/1')
+698: # When a Grant is created, the agent receives a LIFECYCLE TX
+699: ```
+700: 
+701: ---
+702: 
+703: ## Testing
+704: 
+705: Use Pydantic AI's `TestModel` for mock LLM responses:
+706: 
+707: ```python
+708: from pydantic_ai.models.test import TestModel
+709: 
+710: # No tool calls — LLM returns immediately
+711: result = await agent.call(
+712:     task="Hello",
+713:     llm=TestModel(call_tools=[]),
+714: )
+715: 
+716: # LLM calls a specific tool, then returns
+717: result = await agent.call(
+718:     task="List all grants",
+719:     llm=TestModel(call_tools=['grants_list']),
+720: )
+721: ```
+722: 
+723: **Important:** Tests that use real SQLite storage must use file-based
+724: databases (e.g., `tmp_path / 'test.db'`), not `:memory:`. The SQLite
+725: migration system opens its own connection, which for `:memory:` creates
+726: a separate, empty database.
+727: 
+728: ---
+729: 
+730: ## Files Modified (outside this package)
+731: 
+732: | File | Change |
+733: |------|--------|
+734: | `proto_model.py` | Added `register_mixin()` API + `_mixin_registry`. `n3tx_agents.__init__` calls `register_mixin('__agent__', AgentMixin)` to register the mixin before model classes are defined. |
+735: | `n3tx_agents/__init__.py` | Calls `register_mixin('__agent__', AgentMixin)` before importing `AgentActor` so the registry is populated when `AgentActor.__init_subclass__` fires. |
+736: | `pyproject.toml` | `pydantic-ai>=1.0` in `agents` and `dev` extras |
+
+### docs/API_CRUD_ENDPOINTS.md (936 total lines)
+1: # Standard CRUD Endpoints
+2: 
+3: This document describes the auto-generated CRUD endpoints available for every storable model in N3TX.
+4: 
+5: All CRUD route handlers call `.model_response()`, which injects `$schema` and `$id` metadata into every response. This runs the composable dump pipeline (`proto_dump`), making each response self-describing.
+6: 
+7: ## Endpoint Pattern
+8: 
+9: For a model with `__tablename__ = 'users'`, N3TX generates:
+10: 
+11: | Operation | Method | Path | Description |
+12: |-----------|--------|------|-------------|
+13: | Schema | GET | `/User` | Get model JSON schema |
+14: | Class-name list mirror | GET | `/User/_` | Explicit collection mirror of `/users` |
+15: | Class-name create mirror | POST | `/User` | Create mirror of `/users` |
+16: | Class-name read mirror | GET | `/User/{id}` | Read mirror of `/users/{id}` |
+17: | Class-name update mirror | PUT | `/User/{id}` | Update mirror of `/users/{id}` |
+18: | Class-name delete mirror | DELETE | `/User/{id}` | Delete mirror of `/users/{id}` |
+19: | Create | POST | `/users` | Create new user |
+20: | List | GET | `/users` | Get all users |
+21: | Read | GET | `/users/{id}` | Get specific user |
+22: | Update | PUT | `/users/{id}` | Update user |
+23: | Delete | DELETE | `/users/{id}` | Delete user |
+24: 
+25: **Note**: `GET /{ClassName}` remains the schema endpoint. Class-name collection
+26: reads use the explicit `_` marker (`GET /{ClassName}/_`), and class-name writes
+27: reuse the same handlers or actor TX contracts as table-name routes. Literal
+28: `@expose_route` methods may also have class-name mirrors; there is no generic
+29: method catch-all.
+30: 
+31: ---
+32: 
+33: ## Get Model Schema
+34: 
+35: Retrieve the JSON schema definition for a model, including its fields, validation rules, and custom methods.
+36: 
+37: ### Request
+38: 
+39: ```
+40: GET /{ModelName}
+41: ```
+42: 
+43: **Path Parameters**: None
+44: 
+45: **Query Parameters**: None
+46: 
+47: **Request Body**: None
+48: 
+49: ### Response
+50: 
+51: **Status**: 200 OK
+52: 
+53: **Body**: JSON schema object with `$schema` and `$id` at the top level, and `$id` on each `$defs` entry.
+54: 
+55: ```json
+56: {
+57:   "$schema": "http://localhost:8000/Schema",
+58:   "$id": "http://localhost:8000/User",
+59:   "type": "object",
+60:   "properties": {
+61:     "id": {
+62:       "type": "integer",
+63:       "title": "Id"
+64:     },
+65:     "name": {
+66:       "type": "string",
+67:       "title": "Name"
+68:     },
+69:     "email": {
+70:       "type": "string",
+71:       "title": "Email"
+72:     },
+73:     "age": {
+74:       "type": "integer",
+75:       "title": "Age"
+76:     }
+77:   },
+78:   "required": ["name", "email"],
+79:   "title": "User",
+80:   "methods": {
+81:     "login": {
+82:       "route": "/login",
+83:       "methods": ["POST"],
+84:       "scope": "staticmethod",
+85:       "parameters": {
+86:         "email": {"type": "string"},
+87:         "password": {"type": "string"}
+88:       },
+89:       "returns": {
+90:         "type": "$ref",
+91:         "$ref": "#/$defs/User"
+92:       }
+93:     }
+94:   },
+95:   "$defs": {
+96:     "User": {
+97:       "$id": "http://localhost:8000/User"
+98:     }
+99:   }
+100: }
+101: ```
+102: 
+103: **Frontend Usage**:
+104: - Generate forms dynamically
+105: - Validate inputs before sending
+106: - Discover available custom methods
+107: - Generate TypeScript interfaces
+108: 
+109: ### Example
+110: 
+111: ```javascript
+112: // Fetch schema to build dynamic form
+113: const schema = await fetch('http://localhost:8000/User').then(r => r.json());
+114: 
+115: // Schema includes $schema and $id at top level
+116: console.log(schema['$schema']); // "http://localhost:8000/Schema"
+117: console.log(schema['$id']);     // "http://localhost:8000/User"
+118: 
+119: // Extract required fields
+120: const requiredFields = schema.required; // ["name", "email"]
+121: 
+122: // Build form fields
+123: Object.entries(schema.properties).forEach(([key, prop]) => {
+124:   if (key === 'id') return; // Skip ID field
+125:   
+126:   createFormField({
+127:     name: key,
+128:     type: prop.type,
+129:     required: requiredFields.includes(key)
+130:   });
+
+### docs/API_CRUD_ENDPOINTS.md (936 total lines)
+131: });
+132: ```
+133: 
+134: ---
+135: 
+136: ## Create Resource
+137: 
+138: Create a new resource instance.
+139: 
+140: ### Request
+141: 
+142: ```
+143: POST /{resource}
+144: ```
+145: 
+146: **Path Parameters**: None
+147: 
+148: **Query Parameters**: None
+149: 
+150: **Request Headers**:
+151: - `Content-Type: application/json` (required)
+152: 
+153: **Request Body**: JSON object matching model schema (excluding `id`)
+154: 
+155: Example for User model:
+156: ```json
+157: {
+158:   "name": "Alice Johnson",
+159:   "email": "alice@example.com",
+160:   "age": 28
+161: }
+162: ```
+163: 
+164: **Field Requirements**:
+165: - All fields marked `required` in schema must be present
+166: - `id` field should NOT be included (auto-generated)
+167: - Optional fields can be omitted
+168: - Foreign keys should be integers (IDs)
+169: 
+170: ### Response
+171: 
+172: **Success Status**: 201 Created
+173: 
+174: **Success Body**: Created resource with assigned ID, plus `$schema` and `$id` metadata
+175: 
+176: ```json
+177: {
+178:   "$schema": "http://localhost:8000/User",
+179:   "$id": "http://localhost:8000/User/1",
+180:   "id": 1,
+181:   "name": "Alice Johnson",
+182:   "email": "alice@example.com",
+183:   "age": 28
+184: }
+185: ```
+186: 
+187: **Error Responses**:
+188: 
+189: | Status | Cause | Detail |
+190: |--------|-------|--------|
+191: | 400 | Missing required field | `"Missing field: email"` |
+192: | 400 | Validation error | Custom validation message |
+193: | 422 | Invalid field type | `"Invalid field 'age': invalid literal for int()"` |
+194: 
+195: ### Example
+196: 
+197: ```javascript
+198: // Create new user
+199: async function createUser(userData) {
+200:   const response = await fetch('http://localhost:8000/users', {
+201:     method: 'POST',
+202:     headers: {
+203:       'Content-Type': 'application/json'
+204:     },
+205:     body: JSON.stringify({
+206:       name: 'Alice Johnson',
+207:       email: 'alice@example.com',
+208:       age: 28
+209:     })
+210:   });
+211:   
+212:   if (!response.ok) {
+213:     const error = await response.json();
+214:     console.error('Failed to create user:', error.detail);
+215:     return null;
+216:   }
+217:   
+218:   const user = await response.json();
+219:   // user.$schema === "http://localhost:8000/User"
+220:   // user.$id === "http://localhost:8000/User/1"
+221:   return user;
+222: }
+223: ```
+224: 
+225: ---
+226: 
+227: ## List Resources
+228: 
+229: Retrieve instances of a resource, with optional pagination.
+230: 
+231: ### Request
+232: 
+233: ```
+234: GET /{resource}
+235: GET /{resource}?limit=20&offset=0
+236: ```
+237: 
+238: **Path Parameters**: None
+239: 
+240: **Query Parameters**:
+241: 
+242: | Parameter | Type | Required | Description |
+243: |-----------|------|----------|-------------|
+244: | `limit` | integer (1–100) | No | Maximum number of records to return. Enables paginated response format. |
+245: | `offset` | integer (>= 0) | No | Number of records to skip. Used with `limit` for page navigation. |
+246: 
+247: **Request Body**: None
+248: 
+249: ### Response
+250: 
+251: #### Without pagination (backward compatible)
+252: 
+253: When no `limit` parameter is provided, returns a plain array:
+254: 
+255: **Status**: 200 OK
+256: 
+257: **Body**: Array of resource objects, each with `$schema` and `$id`
+258: 
+259: ```json
+260: [
+
+### docs/API_CRUD_ENDPOINTS.md (936 total lines)
+261:   {
+262:     "$schema": "http://localhost:8000/User",
+263:     "$id": "http://localhost:8000/User/1",
+264:     "id": 1,
+265:     "name": "Alice Johnson",
+266:     "email": "alice@example.com",
+267:     "age": 28
+268:   },
+269:   {
+270:     "$schema": "http://localhost:8000/User",
+271:     "$id": "http://localhost:8000/User/2",
+272:     "id": 2,
+273:     "name": "Bob Smith",
+274:     "email": "bob@example.com",
+275:     "age": 32
+276:   }
+277: ]
+278: ```
+279: 
+280: #### With pagination
+281: 
+282: When `limit` is provided, returns a wrapped object with `data` and `meta`:
+283: 
+284: **Status**: 200 OK
+285: 
+286: **Body**:
+287: 
+288: ```json
+289: {
+290:   "data": [
+291:     {
+292:       "$schema": "http://localhost:8000/User",
+293:       "$id": "http://localhost:8000/User/1",
+294:       "id": 1,
+295:       "name": "Alice Johnson",
+296:       "email": "alice@example.com",
+297:       "age": 28
+298:     },
+299:     {
+300:       "$schema": "http://localhost:8000/User",
+301:       "$id": "http://localhost:8000/User/2",
+302:       "id": 2,
+303:       "name": "Bob Smith",
+304:       "email": "bob@example.com",
+305:       "age": 32
+306:     }
+307:   ],
+308:   "meta": {
+309:     "total": 47,
+310:     "limit": 20,
+311:     "offset": 0,
+312:     "has_more": true
+313:   }
+314: }
+315: ```
+316: 
+317: **Meta fields**:
+318: 
+319: | Field | Type | Description |
+320: |-------|------|-------------|
+321: | `total` | integer | Total number of matching records in the database. |
+322: | `limit` | integer | The limit that was requested. |
+323: | `offset` | integer | The offset that was applied. |
+324: | `has_more` | boolean | `true` if there are more records beyond this page. |
+325: 
+326: **Edge Cases**:
+327: - Empty database returns empty array `[]` (unpaginated) or `{"data": [], "meta": {"total": 0, ...}}` (paginated)
+328: - No sorting by default (order is implementation-defined)
+329: - `limit` without `offset` defaults to offset 0
+330: - `offset` without `limit` is ignored (no effect)
+331: 
+332: ### Examples
+333: 
+334: ```javascript
+335: // Get all users (unpaginated — backward compatible)
+336: const users = await fetch('http://localhost:8000/users')
+337:   .then(r => r.json());
+338: 
+339: console.log(`Found ${users.length} users`);
+340: 
+341: // Display in UI
+342: users.forEach(user => {
+343:   console.log(user['$id']); // e.g., "http://localhost:8000/User/1"
+344:   renderUserCard(user);
+345: });
+346: ```
+347: 
+348: ```javascript
+349: // Paginated request — first page
+350: const page1 = await fetch('http://localhost:8000/users?limit=20&offset=0')
+351:   .then(r => r.json());
+352: 
+353: console.log(`Showing ${page1.data.length} of ${page1.meta.total} users`);
+354: 
+355: // Load next page if available
+356: if (page1.meta.has_more) {
+357:   const page2 = await fetch('http://localhost:8000/users?limit=20&offset=20')
+358:     .then(r => r.json());
+359:   console.log(`Page 2: ${page2.data.length} users`);
+360: }
+361: ```
+362: 
+363: ```bash
+364: # curl examples
+365: curl http://localhost:8000/users                      # All records (plain array)
+366: curl 'http://localhost:8000/users?limit=10'           # First 10 (paginated)
+367: curl 'http://localhost:8000/users?limit=10&offset=10' # Next 10
+368: ```
+369: 
+370: **Note**: The frontend `<ntx-list>` component uses pagination automatically, requesting 20 items at a time and rendering a "Load More" button when `has_more` is true.
+371: 
+372: ---
+373: 
+374: ## Get Single Resource
+375: 
+376: Retrieve a specific resource by ID.
+377: 
+378: ### Request
+379: 
+380: ```
+381: GET /{resource}/{id}
+382: ```
+383: 
+384: **Path Parameters**:
+385: - `id` (integer, required): Resource ID
+386: 
+387: **Query Parameters**: None
+388: 
+389: **Request Body**: None
+390: 

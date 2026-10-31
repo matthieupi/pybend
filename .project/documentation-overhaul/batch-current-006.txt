@@ -1,0 +1,295 @@
+
+### CLAUDE.md (549 total lines)
+391: ```javascript
+392: class MyComponent extends NTTStreamAgent {
+393:     TEXT(data, meta)  { /* data.text */ }
+394:     DONE(data, meta)  { /* data.answer */ }
+395:     STREAM_END(data)  { /* cleanup */ }
+396: }
+397: ```
+398: 
+399: For simpler progressive output (plain chunks), extend `NTTStream` directly.
+400: 
+401: **Component hierarchy**: `Component → NTTMethod → NTTStream → NTTStreamAgent → (app subclasses)`
+402: 
+403: **prerender()/render() lifecycle**: `prerender()` is called from `connectedCallback()` before schema loads — use it for structural DOM. `render()` is the schema-aware pass — it is additive and should never wipe `prerender()` output.
+404: 
+405: **UPPERCASE convention**: TX inbox handlers are always UPPERCASE. This mirrors the backend actor handler pattern.
+406: 
+407: ### Authenticated User Injection
+408: Custom methods receive the authenticated user by declaring a `user` parameter:
+409: ```python
+410: @expose_route('/comment', methods=['POST'])
+411: def comment(self, comment: Comment, user: User = None) -> str:
+412:     comment.user_owner = user.id if user else 1
+413:     ...
+414: ```
+415: The route layer's `_resolve_user()` resolves the type hint from the JWT token. The `user` param is never read from the request body.
+416: 
+417: ### Actor System
+418: For full details, read `/workspace/docs/ACTORS.md` and `packages/n3tx-actors/docs/`.
+419: 
+420: **`fullmethod`/`fullproperty` descriptors** (in `n3tx_core/utils/descriptors.py`): Generic descriptors for unified class/instance dispatch. Used by both actors and agents.
+421: 
+422: **Actor base class** extends PydanticBaseModel via `ActorMeta` metaclass. `send()` three-case routing, `use()` interceptors, class + instance state.
+423: 
+424: **TX** is a dataclass message envelope: `reply()`, `error()`, `is_error`, `stream_chunk()`, `stream_end()`.
+425: 
+426: **Matrix** extends Actor: root actor, `has()`, adapter delegation, module-level `matrix` singleton.
+427: 
+428: **ActorProxy** wraps any class as a routable actor without MI.
+429: 
+430: ### ActorModel Pattern
+431: ```python
+432: from n3tx_actors.models.actor_model import ActorModel
+433: 
+434: class Product(ActorModel):
+435:     __tablename__ = 'products'
+436:     __storable__ = True
+437:     ...
+438: ```
+439: One import change from ProtoModel. `ActorModel(Actor, ProtoModel)` is the bridge class. CRUD via `handler_crud()`, lifecycle events, generic handler fallback.
+440: 
+441: ### AgentMixin — Self-Aware Models
+442: For full details, read `/workspace/docs/AGENTS.md` and `packages/n3tx-agents/docs/`.
+443: 
+444: `__agent__ = True` gives a model LLM-powered reasoning. Six `@fullmethod` methods: `ctx()`, `tools()`, `agentic()`, `run()`, `agentic_stream()`, `run_stream()`.
+445: 
+446: **Config cascade** (3-tier): `config.AGENT_DEFAULTS` < `__agent__` dict < `agentic()` kwargs.
+447: 
+448: **AgentMixin vs AgentActor**: AgentMixin derives config from model definition; AgentActor stores config in DB fields.
+449: 
+450: **Import ordering**: `n3tx_agents` (or `import n3tx_agents`) must be imported **before** any model with `__agent__ = True` is defined. `n3tx_agents.__init__` calls `register_mixin('__agent__', AgentMixin)` which populates `proto_model._mixin_registry`. If a model is defined before this call, the mixin is silently not injected.
+451: 
+452: ### Three Levels of N3TX
+453: ```python
+454: # Level 1 — ProtoModel + direct routes (no actors)
+455: app = create_app(models=[Product], storage="sqlite:///app.db")
+456: 
+457: # Level 2 — ActorModel + direct routes (actor capabilities, same HTTP layer)
+458: app = create_app(models=[Product], storage="sqlite:///app.db")
+459: 
+460: # Level 3 — ActorModel + NetworkAPI (full actor routing)
+461: app = create_app(models=[Product], storage="sqlite:///app.db", routing='actor')
+462: ```
+463: 
+464: ### Two-Tier Auth (Level 3)
+465: - **Tier 1**: `auth_interceptor` on `NetworkAPI.request()` — fast gate at protocol boundary
+466: - **Tier 2**: `ActorModel._authorize()` in `handler_crud()` — full ABAC with resource instance
+467: 
+468: Level 1/2 use `routes_fastapi.py`'s single-pass authorization.
+469: 
+470: ### JSON Fields (dict/list Storage)
+471: `dict` and `list` fields are transparently serialized to JSON TEXT in SQLite. See `packages/n3tx-core/docs/storage.md` for details.
+472: 
+473: ### Widget Pattern
+474: Widget fields map Python types to specialized frontend renderers. See `BACKEND.md` for Python details, `FRONTEND.md` for JS details, `packages/n3tx-ui/docs/widgets.md` for the full widget system.
+475: 
+476: ## Directives
+477: 
+478: ### Documentation Updates
+479: After completing any set of implementation tasks, ALWAYS update the relevant documentation:
+480: 1. **Per-package docs** (`packages/<pkg>/docs/`): Update if subsystem behavior changed
+481: 2. **Cross-cutting docs** (`docs/`): Update architecture/API docs if needed
+482: 3. **This file** (`CLAUDE.md`): Update if architectural patterns or key file locations change. Also update `BACKEND.md` or `FRONTEND.md` as appropriate.
+483: 
+484: ### Working Directory
+485: For **example apps**, run from the example directory (e.g., `examples/core/`).
+486: For **framework code**, the relevant package directory under `packages/`.
+487: 
+488: ### Tests
+489: | Test suite | Command | What it covers |
+490: |-----------|---------|---------------|
+491: | Core unit tests | `cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/` | Models, storage, auth, routes, schema |
+492: | Actor tests | `cd /workspace && python3 -m pytest packages/n3tx-actors/src/n3tx_actors/tests/` | Actor system, interceptors, auth |
+493: | Agent tests | `cd /workspace && python3 -m pytest packages/n3tx-agents/src/n3tx_agents/tests/` | AgentMixin, AgentActor, tools |
+494: | Core example (Level 1/2) | `cd /workspace && python3 -m pytest examples/core/tests/` | CRUD, auth flow, pagination, FK hydration |
+495: | Actors example (Level 3) | `cd /workspace && python3 -m pytest examples/actors/tests/` | Same coverage with actor routing |
+496: | Grants example (Agents) | `cd /workspace && python3 -m pytest examples/grants/tests/` | Agents, grants, sources |
+497: | Frontend unit tests | `cd /workspace/tests/frontend && npx vitest run` | JS runtime, components, theme helpers, widgets |
+498: | Frontend E2E tests | `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js` | Browser verification against seeded `examples/core` |
+499: 
+500: Frontend Playwright notes:
+501: 
+502: - The harness serves `examples/core` and seeds an isolated SQLite DB in `tests/frontend/tests/e2e/global-setup.js`.
+503: - Local workspace runs use `/workspace/.venv-e2e` for Python web dependencies; the harness auto-detects it and falls back to `python3` if missing.
+504: - The Playwright config injects `PYTHONPATH` so package source trees resolve directly from `packages/*/src`.
+505: 
+506: ### Starting a Server
+507: ```bash
+508: cd /workspace/examples/core && python3 main.py     # Level 1/2
+509: cd /workspace/examples/actors && python3 main.py   # Level 3
+510: cd /workspace/examples/grants && python3 main.py   # Agents
+511: ```
+512: 
+513: ### Commit Messages
+514: Format: `type(scope): Description [wave]`
+515: 
+516: - **type**: `feat`, `fix`, `test`, `docs`, `refactor`, `chore`
+517: - **scope** (optional): `core`, `actors`, `agents`, `ui`, `api`, `frontend`, `example`
+518: - **Description**: imperative mood, capitalized
+519: - **[wave]**: current development wave in brackets. Check recent commits for the active wave.
+520: 
+
+### CLAUDE.md (549 total lines)
+521: Examples:
+522: ```
+523: feat(actors): Add interceptor mechanism and two-tier auth [0.10]
+524: fix(core): Move FastAPI imports to module level in network_api.py [0.10]
+525: docs: Update CLAUDE.md for multi-package structure [0.10]
+526: ```
+527: 
+528: ### Authentication for Testing
+529: Most endpoints require a JWT token. Schema endpoints (`GET /{ClassName}`) are public.
+530: 
+531: **Seed users** (created by `cd examples/core && python3 seed.py`):
+532: | Email | Password | Role |
+533: |---|---|---|
+534: | `alice@example.com` | `alice123` | `user` |
+535: | `bob@example.com` | `bob123` | `user` |
+536: | `charlie@example.com` | `charlie123` | `user` |
+537: 
+538: **Get a token:**
+539: ```bash
+540: TOKEN=$(curl -s -X POST http://localhost:5000/users/login \
+541:   -H 'Content-Type: application/json' \
+542:   -d '{"email":"alice@example.com","password":"alice123"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+543: ```
+544: 
+545: **Use it:**
+546: ```bash
+547: curl -s http://localhost:5000/products -H "x-access-token: $TOKEN"
+548: curl -s http://localhost:5000/Product  # Schema (no auth needed)
+549: ```
+
+### FRONTEND.md (593 total lines)
+1: # N3TX Frontend Reference
+2: 
+3: This document contains frontend-specific key files, schema consumption details, and patterns. It supplements the main `CLAUDE.md` which contains cross-cutting architecture, the multi-package structure, and all directives.
+4: 
+5: **Before reading this file**, check the documentation first. See `CLAUDE.md` → "Documentation-First Context Loading" for the required order.
+6: 
+7: Relevant docs:
+8: - `/workspace/docs/frontend/ARCHITECTURE.md` — Frontend architecture overview
+9: - `/workspace/docs/frontend/COMPONENTS.md` — Component layer details
+10: - `/workspace/docs/frontend/TRANSPORT.md` — Transport protocol
+11: - `/workspace/docs/frontend/ACTORS.md` — Frontend actor system
+12: - `/workspace/docs/frontend/MESSAGE_PROTOCOL.md` — Message protocol
+13: - `packages/n3tx-ui/docs/components.md` — Component hierarchy and lifecycle
+14: - `packages/n3tx-ui/docs/formidable.md` — Form generator internals
+15: - `packages/n3tx-ui/docs/styling.md` — Theme architecture, token contract, and frontend theme verification
+16: - `packages/n3tx-ui/docs/widgets.md` — Widget system (JS side)
+17: 
+18: ## Frontend Architecture (Vanilla JS Web Components)
+19: 
+20: The frontend is split across two packages:
+21: - **n3tx-core** (`packages/n3tx-core/src/n3tx_core/static/`) — Non-visual JS runtime: messaging (Actor/TX/Matrix), entity system (NTT), abstract component bridge (Component), transport, utils
+22: - **n3tx-ui** (`packages/n3tx-ui/src/n3tx_ui/static/`) — Visual layer: registered custom elements, base classes with visual behavior (NTTElement, ListElement), form generator, widgets, themes
+23: 
+24: At runtime, static files from both packages (plus n3tx-agents if installed) are merged into a single URL namespace by `_discover_static_dirs()` in `backend.py`. The browser doesn't know which package shipped each file.
+25: 
+26: ```
+27: NTT.js (n3tx-core)    Core entity system. Bootstraps by fetching schema from backend.
+28:   |
+29:   +-- SCHEMA()         Receives schema, creates DynamicClass via prototype()
+30:   +-- prototype()      Builds class with typed properties, methods, value getter
+31:   |                    Value getter injects $schema (schema URL) and $id (instance URL)
+32:   |
+33:   v
+34: ntx-list.js (n3tx-ui)   <ntx-list model="Product"> - fetches and renders entity list
+35: ntx-item.js (n3tx-ui)    <ntx-item> - adaptive entity rendering (xs pill → xl page)
+36: ntx-stream.js (n3tx-ui)  Extends ntx-method for streaming methods (SSE + progressive output)
+37: form.js (n3tx-ui)        Formidable generator - builds forms from schema properties
+38: ```
+39: 
+40: ## Key Files
+41: 
+42: ### JS Runtime (n3tx-core — non-visual)
+43: - `packages/n3tx-core/src/n3tx_core/static/core/NTT.js` - Core: NTT class, prototype() factory, SCHEMA handler, DynamicClass creation
+44: - `packages/n3tx-core/src/n3tx_core/static/core/Actor.js` - Base actor class (messaging)
+45: - `packages/n3tx-core/src/n3tx_core/static/core/TX.js` - Message envelope
+46: - `packages/n3tx-core/src/n3tx_core/static/core/Matrix.js` - Message bus / root actor
+47: - `packages/n3tx-core/src/n3tx_core/static/core/Component.js` - Abstract HTMLElement + Actor bridge (base for every web component)
+48: - `packages/n3tx-core/src/n3tx_core/static/core/Observable.js` - Observer mixin
+49: - `packages/n3tx-core/src/n3tx_core/static/core/Router.js` - Navigation state Actor (URL sync on by default, history stack, empty-string home route support)
+50: - `packages/n3tx-core/src/n3tx_core/static/core/Utils.js` - Core utilities
+51: - `packages/n3tx-core/src/n3tx_core/static/core/transport/HTTP.js` - HTTP adapter
+52: - `packages/n3tx-core/src/n3tx_core/static/core/transport/Socket.js` - WebSocket transport
+53: - `packages/n3tx-core/src/n3tx_core/static/core/transport/NetworkAdapter.js` - Matrix ↔ network bridge
+54: - `packages/n3tx-core/src/n3tx_core/static/utils/` - Frontend utils (Assert, Logging, Permissions, Toast, DateFormat, Snippets, etc.)
+55: - `packages/n3tx-core/src/n3tx_core/static/config.js` - Frontend config
+56: 
+57: ### Visual Components (n3tx-ui)
+58: - `packages/n3tx-ui/src/n3tx_ui/static/components/NTTElement.js` - Abstract single-entity base (extends Component, adds forms, edit mode, modals)
+59: - `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js` - Abstract collection lifecycle base (selection, pagination, child stamping)
+60: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js` - Item component: size methods (xs-xl), render dispatch, edit toggle
+61: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.js` - Default list renderer (header, grid, modal create, packed cards)
+62: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.js` - Table component
+63: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-row.js` - Table row component
+64: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js` - Method call button
+65: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js` - Streaming method output (extends ntx-method). The fallback plain response box is opt-in via `show-output`; rich consumers like `ntx-chat` and `ntx-agent-live` should leave it off to avoid duplicate reply rendering.
+66: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-router.js` - Generic view container (loads any component via Router)
+67: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-modal.js` - Modal overlay
+68: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js` - Reference field picker
+69: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js` - Model navigation sidebar
+70: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar-link-item.js` - Sidebar dropdown record link renderer
+71: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js` - Header/nav bar
+72: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-theme-button.js` - Manual theme-cycle control for shell slots
+73: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-profile.js` - User profile page
+74: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-user.js` - User display
+75: 
+76: Pages that expose the topbar's built-in `#@profile` entry must import
+77: `./components/ntx-profile.js` in their shell bootstrap. The router resolves the
+78: route automatically, but custom elements still need explicit registration at app
+79: load time.
+80: 
+81: ### Form Generator (n3tx-ui)
+82: - `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js` - Formidable: schema-driven form generator
+83: 
+84: ### Widgets (n3tx-ui)
+85: - `packages/n3tx-ui/src/n3tx_ui/static/widgets/Widget.js` - JS base Widget class with display/edit/list methods
+86: - `packages/n3tx-ui/src/n3tx_ui/static/widgets/registry.js` - JS registry: `registerWidget()`, `getWidgetForField()`
+87: - `packages/n3tx-ui/src/n3tx_ui/static/widgets/index.js` - Loader: imports all built-ins, registers them
+88: - `packages/n3tx-ui/src/n3tx_ui/static/widgets/*.js` - Built-in widgets (Url, Email, Date, Markdown, Console, Reference, Currency, Textarea, Bool)
+89: - `packages/n3tx-ui/src/n3tx_ui/static/widgets/widgets.css` - Widget-specific styles
+90: 
+91: Boolean fields now auto-resolve to the built-in `bool` widget even without an
+92: explicit `ui.widget` schema hint, so display and edit modes both render a
+93: checkbox.
+94: 
+95: ### Agent UI (n3tx-agents)
+96: - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agents.js` - Hybrid agents list surface. Extends NTTList, combines stored AgentActor rows with app-supplied built-in workflow entries.
+97: - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js` - Purpose-built `AgentActor` entity component. Extends NTTItem and embeds `ntx-chat` plus `ntx-agent-live` for rich detail views.
+98: - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js` - NTTStreamAgent: rich agent output (entries, markdown, tool cards). Extends NTTStream.
+99: - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` - Real-time agent activity view (extends NTTStream)
+100: - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Threaded agent chat shell. Extends `NTTStreamAgent`, uses `create_thread` / `thread_id`, and switches between `xs` launcher mode and `sm+` inline mode from container size.
+101: 
+102: `ntx-chat` renders each assistant turn as an in-chat `NTTStreamAgent` output
+103: surface. When the stream's `done` event includes usage metadata, the usage
+104: summary is intentionally appended as a `.stream-footer` inside the assistant
+105: message so the chat shell remains mounted while exposing token/tool metadata.
+106: 
+107: ### Themes & Default HTML (n3tx-ui)
+108: - `packages/n3tx-ui/src/n3tx_ui/static/theme-base.css` - Shared structural theme base (global selectors and layout chrome)
+109: - `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` - Dark theme
+110: - `packages/n3tx-ui/src/n3tx_ui/static/light-theme.css` - Light theme
+111: - `packages/n3tx-ui/src/n3tx_ui/static/index.html` - Default app entry point (example apps override this)
+112: - `packages/n3tx-ui/src/n3tx_ui/static/login.html` - Default login page
+113: - `packages/n3tx-ui/src/n3tx_ui/static/register.html` - Default register page
+114: 
+115: For the full theme contract and verification workflow, see `packages/n3tx-ui/docs/styling.md`.
+116: 
+117: First-party pages now use a static theme contract:
+118: 
+119: ```html
+120: <link rel="stylesheet" href="./theme-base.css" />
+121: <link rel="stylesheet" href="./dark-theme.css" />
+122: <link rel="stylesheet" href="./light-theme.css" />
+123: <script>
+124:   window.NTX_THEME_CONFIG = { themes: ['dark', 'light'] };
+125: </script>
+126: <script type="module" src="./utils/theme.js"></script>
+127: ```
+128: 
+129: `theme.js` reads `window.NTX_THEME_CONFIG.themes` to determine the runtime cycling order and applies the persisted theme through `document.documentElement.dataset.theme` before first paint.
+130: 

@@ -1,0 +1,579 @@
+
+### .agents/skills/dev/fix-test/SKILL.md (286 total lines)
+131: 
+132: STOP before editing. Once all preliminary work is complete — reproducing the
+133: failure, identifying the failing test(s), classifying the contract, finding the
+134: root cause, and designing the code/test/fixture/docs diff — present the
+135: proposed solution to the user for validation.
+136: 
+137: Do **not** make any actual update to production code, tests, fixtures, or docs
+138: until the user approves the proposed solution. This applies even when the root
+139: cause seems obvious.
+140: 
+141: Include:
+142: 
+143: 1. **Failure reproduced** — command and observed failure.
+144: 2. **Classification** — product regression, stale test, infrastructure, or unresolved.
+145: 3. **Intended contract** — what behavior should be true now.
+146: 4. **Evidence** — docs/code/tests/runtime facts supporting the classification.
+147: 5. **Root cause** — exact failing test assumption, exact code regression, or exact bug in code/fixture/harness.
+148: 6. **Proposed solution** — concrete diff shape: files, functions/classes/tests to change, and representative pseudo-diff when useful.
+149: 7. **Proposed target** — production code, tests, fixtures, docs, or stop/escalate.
+150: 8. **Scope and risk** — files likely to change and regression risks.
+151: 
+152: Do not proceed until the user approves the target. If the user redirects,
+153: revise the classification or proposed target and ask again.
+154: 
+155: ---
+156: 
+157: ## Phase 4: Apply Minimal Fix
+158: 
+159: Apply the smallest fix consistent with the approved classification.
+160: 
+161: ### If product regression
+162: 
+163: - Keep the failing test or add a focused regression test if needed.
+164: - Fix production code only where the current contract is violated.
+165: - Avoid broad refactors unless the bug is architectural and approved.
+166: 
+167: ### If stale test contract
+168: 
+169: - Update the test to assert current intended behavior.
+170: - Update docs if the contract was undocumented or stale.
+171: - Do not change production code merely to restore old behavior.
+172: 
+173: ### If test infrastructure issue
+174: 
+175: - Fix fixture scope, setup/teardown, mocks, environment, clock/timing, or global state.
+176: - Prefer harness fixes that make tests deterministic rather than loosening assertions.
+177: 
+178: ### If unresolved contract decision
+179: 
+180: - Do not implement a behavioral fix.
+181: - Record the decision needed and stop, unless the user explicitly resolves it.
+182: 
+183: ### Failed fix attempts
+184: 
+185: If the approved fix fails the narrow verification and the failure contradicts
+186: your theory, revert the attempted changes and return to Phase 2 or Phase 3.
+187: Do not pile additional patches on top of a wrong fix.
+188: 
+189: ---
+190: 
+191: ## Phase 5: Verify Narrow Boundary
+192: 
+193: Run the exact command from Phase 1.
+194: 
+195: The result must match the classification:
+196: 
+197: - Product regression → original failing test now passes.
+198: - Stale test → updated test passes and asserts current contract.
+199: - Infrastructure issue → test passes deterministically under the fixed harness.
+200: - Unresolved → no behavioral fix applied; decision documented.
+201: 
+202: If it fails, classify why:
+203: 
+204: - wrong fix;
+205: - incomplete fix;
+206: - classification was wrong;
+207: - adjacent failure now exposed.
+208: 
+209: Then either revise with approval or stop with findings.
+210: 
+211: ---
+212: 
+213: ## Phase 6: Adjacent Validation
+214: 
+215: Run the closest related tests, not the entire suite first.
+216: 
+217: Examples:
+218: 
+219: ```bash
+220: python3 -m pytest examples/grants/tests/test_boot.py examples/grants/tests/test_auth_flow.py -v
+221: python3 -m pytest examples/grants/tests/ -v
+222: cd tests/frontend && npx vitest run tests/transport/Socket.test.js tests/transport/NetworkAdapter.test.js
+223: ```
+224: 
+225: Only after the narrow and adjacent boundaries pass should broader suites be
+226: run, if time and environment allow.
+227: 
+228: If adjacent tests fail, do not automatically broaden the fix. Classify the new
+229: failure separately using Phase 2.
+230: 
+231: ---
+232: 
+233: ## Phase 7: Required Contract Note + Summary
+234: 
+235: Every completed cluster must include this note:
+236: 
+237: ```md
+238: Contract decision:
+239: - Classification: product regression | stale test | test infrastructure | unresolved decision
+240: - Intended behavior:
+241: - Evidence:
+242: - Changed:
+243:   - production code: yes/no
+244:   - tests: yes/no
+245:   - docs: yes/no
+246: - Regression risk:
+247: ```
+248: 
+249: Then summarize:
+250: 
+251: ```md
+252: Failure: <one-line description>
+253: Reproducer: <exact command>
+254: Classification: <classification>
+255: Fix: <what changed and why>
+256: Files modified: <list>
+257: Verification: <commands and results>
+258: Remaining work: <separate failures or decisions>
+259: ```
+260: 
+
+### .agents/skills/dev/fix-test/SKILL.md (286 total lines)
+261: Do not commit. The user decides when to commit.
+262: 
+263: ---
+264: 
+265: ## Common Classification Examples
+266: 
+267: | Failure cluster | Likely classification | Reason |
+268: |---|---|---|
+269: | Actor route reaches storable model with `storage=None` | Product regression | Runtime route should never dispatch to an unconfigured model |
+270: | Test expects top-level token but current debug envelope returns `data.token` | Stale test or environment drift | Response envelope may intentionally wrap method results |
+271: | Socket tests expect legacy `sendEvent()` / `watchdog()` API but runtime is TX-native | Stale tests/docs | Reintroducing legacy API may regress architecture |
+272: | Numeric `instances.get(1)` vs string actor addresses | Unresolved contract decision | Both database ergonomics and actor routing have plausible claims |
+273: | Failure disappears when run isolated | Test infrastructure issue | Suite order or shared state is contaminating result |
+274: 
+275: ---
+276: 
+277: ## Safety Rails
+278: 
+279: - NEVER change production code before contract triage.
+280: - NEVER update a test just to make it pass without documenting the intended contract.
+281: - NEVER loosen assertions as a substitute for understanding the contract.
+282: - NEVER restore old APIs or DOM structures solely because old tests expect them.
+283: - NEVER mix unrelated clusters in one fix.
+284: - ALWAYS save and reuse the narrow reproducer command.
+285: - ALWAYS include the required contract note.
+286: - ALWAYS ask for approval before applying the chosen fix target.
+
+### .agents/skills/dev/tdd/deep-modules.md (33 total lines)
+1: # Deep Modules
+2: 
+3: From "A Philosophy of Software Design":
+4: 
+5: **Deep module** = small interface + lots of implementation
+6: 
+7: ```
+8: ┌─────────────────────┐
+9: │   Small Interface   │  ← Few methods, simple params
+10: ├─────────────────────┤
+11: │                     │
+12: │                     │
+13: │  Deep Implementation│  ← Complex logic hidden
+14: │                     │
+15: │                     │
+16: └─────────────────────┘
+17: ```
+18: 
+19: **Shallow module** = large interface + little implementation (avoid)
+20: 
+21: ```
+22: ┌─────────────────────────────────┐
+23: │       Large Interface           │  ← Many methods, complex params
+24: ├─────────────────────────────────┤
+25: │  Thin Implementation            │  ← Just passes through
+26: └─────────────────────────────────┘
+27: ```
+28: 
+29: When designing interfaces, ask:
+30: 
+31: - Can I reduce the number of methods?
+32: - Can I simplify the parameters?
+33: - Can I hide more complexity inside?
+
+### .agents/skills/dev/tdd/interface-design.md (31 total lines)
+1: # Interface Design for Testability
+2: 
+3: Good interfaces make testing natural:
+4: 
+5: 1. **Accept dependencies, don't create them**
+6: 
+7:    ```typescript
+8:    // Testable
+9:    function processOrder(order, paymentGateway) {}
+10: 
+11:    // Hard to test
+12:    function processOrder(order) {
+13:      const gateway = new StripeGateway();
+14:    }
+15:    ```
+16: 
+17: 2. **Return results, don't produce side effects**
+18: 
+19:    ```typescript
+20:    // Testable
+21:    function calculateDiscount(cart): Discount {}
+22: 
+23:    // Hard to test
+24:    function applyDiscount(cart): void {
+25:      cart.total -= discount;
+26:    }
+27:    ```
+28: 
+29: 3. **Small surface area**
+30:    - Fewer methods = fewer tests needed
+31:    - Fewer params = simpler test setup
+
+### .agents/skills/dev/tdd/mocking.md (59 total lines)
+1: # When to Mock
+2: 
+3: Mock at **system boundaries** only:
+4: 
+5: - External APIs (payment, email, etc.)
+6: - Databases (sometimes - prefer test DB)
+7: - Time/randomness
+8: - File system (sometimes)
+9: 
+10: Don't mock:
+11: 
+12: - Your own classes/modules
+13: - Internal collaborators
+14: - Anything you control
+15: 
+16: ## Designing for Mockability
+17: 
+18: At system boundaries, design interfaces that are easy to mock:
+19: 
+20: **1. Use dependency injection**
+21: 
+22: Pass external dependencies in rather than creating them internally:
+23: 
+24: ```typescript
+25: // Easy to mock
+26: function processPayment(order, paymentClient) {
+27:   return paymentClient.charge(order.total);
+28: }
+29: 
+30: // Hard to mock
+31: function processPayment(order) {
+32:   const client = new StripeClient(process.env.STRIPE_KEY);
+33:   return client.charge(order.total);
+34: }
+35: ```
+36: 
+37: **2. Prefer SDK-style interfaces over generic fetchers**
+38: 
+39: Create specific functions for each external operation instead of one generic function with conditional logic:
+40: 
+41: ```typescript
+42: // GOOD: Each function is independently mockable
+43: const api = {
+44:   getUser: (id) => fetch(`/users/${id}`),
+45:   getOrders: (userId) => fetch(`/users/${userId}/orders`),
+46:   createOrder: (data) => fetch('/orders', { method: 'POST', body: data }),
+47: };
+48: 
+49: // BAD: Mocking requires conditional logic inside the mock
+50: const api = {
+51:   fetch: (endpoint, options) => fetch(endpoint, options),
+52: };
+53: ```
+54: 
+55: The SDK approach means:
+56: - Each mock returns one specific shape
+57: - No conditional logic in test setup
+58: - Easier to see which endpoints a test exercises
+59: - Type safety per endpoint
+
+### .agents/skills/dev/tdd/refactoring.md (10 total lines)
+1: # Refactor Candidates
+2: 
+3: After TDD cycle, look for:
+4: 
+5: - **Duplication** → Extract function/class
+6: - **Long methods** → Break into private helpers (keep tests on public interface)
+7: - **Shallow modules** → Combine or deepen
+8: - **Feature envy** → Move logic to where data lives
+9: - **Primitive obsession** → Introduce value objects
+10: - **Existing code** the new code reveals as problematic
+
+### .agents/skills/dev/tdd/tests.md (61 total lines)
+1: # Good and Bad Tests
+2: 
+3: ## Good Tests
+4: 
+5: **Integration-style**: Test through real interfaces, not mocks of internal parts.
+6: 
+7: ```typescript
+8: // GOOD: Tests observable behavior
+9: test("user can checkout with valid cart", async () => {
+10:   const cart = createCart();
+11:   cart.add(product);
+12:   const result = await checkout(cart, paymentMethod);
+13:   expect(result.status).toBe("confirmed");
+14: });
+15: ```
+16: 
+17: Characteristics:
+18: 
+19: - Tests behavior users/callers care about
+20: - Uses public API only
+21: - Survives internal refactors
+22: - Describes WHAT, not HOW
+23: - One logical assertion per test
+24: 
+25: ## Bad Tests
+26: 
+27: **Implementation-detail tests**: Coupled to internal structure.
+28: 
+29: ```typescript
+30: // BAD: Tests implementation details
+31: test("checkout calls paymentService.process", async () => {
+32:   const mockPayment = jest.mock(paymentService);
+33:   await checkout(cart, payment);
+34:   expect(mockPayment.process).toHaveBeenCalledWith(cart.total);
+35: });
+36: ```
+37: 
+38: Red flags:
+39: 
+40: - Mocking internal collaborators
+41: - Testing private methods
+42: - Asserting on call counts/order
+43: - Test breaks when refactoring without behavior change
+44: - Test name describes HOW not WHAT
+45: - Verifying through external means instead of interface
+46: 
+47: ```typescript
+48: // BAD: Bypasses interface to verify
+49: test("createUser saves to database", async () => {
+50:   await createUser({ name: "Alice" });
+51:   const row = await db.query("SELECT * FROM users WHERE name = ?", ["Alice"]);
+52:   expect(row).toBeDefined();
+53: });
+54: 
+55: // GOOD: Verifies through interface
+56: test("createUser makes user retrievable", async () => {
+57:   const user = await createUser({ name: "Alice" });
+58:   const retrieved = await getUser(user.id);
+59:   expect(retrieved.name).toBe("Alice");
+60: });
+61: ```
+
+### .agents/skills/perf/perf-analysis/SKILL.md (138 total lines)
+1: ---
+2: name: perf-analysis
+3: description: Deep-dive performance audit and optimization. Launches parallel backend/frontend profiling agents, produces prioritized fix list, then implements fixes via propose-review-apply workflow with full test verification and changelog documentation.
+4: argument-hint: "[focus: 'backend', 'frontend', or blank for full stack]"
+5: ---
+6: 
+7: # Performance Audit & Optimization
+8: 
+9: You are a performance engineer. Your job is to find and fix every bottleneck
+10: in this codebase through a systematic 4-phase workflow.
+11: 
+12: **Focus area:** $ARGUMENTS
+13: 
+14: If no focus area is specified, audit the entire stack (backend + frontend).
+15: 
+16: ---
+17: 
+18: ## Phase 1: Parallel Deep-Dive Audit
+19: 
+20: Launch the custom audit agents in parallel using the Task tool (or one agent
+21: if the user specified a single stack). Each agent has its own system prompt
+22: with detailed audit checklists.
+23: 
+24: - **Backend**: `Task(subagent_type="perf-audit-backend", prompt="Audit this codebase's backend performance. Follow your system prompt.")`
+25: - **Frontend**: `Task(subagent_type="perf-audit-frontend", prompt="Audit this codebase's frontend performance. Follow your system prompt.")`
+26: 
+27: Launch both in parallel for a full-stack audit. Each writes its report to `.traces/`.
+28: 
+29: After agents complete, present a combined summary of all findings to the user.
+30: 
+31: ---
+32: 
+33: ## Phase 2: Prioritized Task List
+34: 
+35: After both audit reports are complete, present a combined summary to the user
+36: and synthesize findings into a prioritized task list.
+37: 
+38: Prioritize by:
+39: 1. **Impact** — How much does this affect real-world user experience?
+40: 2. **Blast radius** — How many operations/requests does this bottleneck affect?
+41: 3. **Effort** — Prefer high-impact, low-effort fixes first.
+42: 
+43: Create numbered tasks using the TaskCreate tool. Group related fixes that
+44: touch the same file (e.g., connection pooling + WAL mode = one task).
+45: 
+46: Present the full list to the user before starting implementation.
+47: 
+48: ---
+49: 
+50: ## Phase 3: Propose-Review-Apply Loop
+51: 
+52: For **each task**, follow this exact workflow:
+53: 
+54: ### Step 1 — Read before writing
+55: 
+56: Read every file you're about to change. Understand existing patterns, intent,
+57: and how the change fits the architecture. Never propose changes to code you
+58: haven't read.
+59: 
+60: ### Step 2 — Propose the diff
+61: 
+62: Present the proposed changes with:
+63: - **Problem**: What's slow and why (1-2 sentences)
+64: - **Fix**: What the change does (1-2 sentences)
+65: - **Diff**: Code changes in diff format with enough surrounding context
+66: - **Behavioral impact**: "Zero behavioral changes" or describe differences
+67: 
+68: ### Step 3 — Wait for approval
+69: 
+70: **Do not apply changes until the user approves.** They may:
+71: - Approve as-is — apply and test
+72: - Request modifications — revise and re-propose
+73: - Reject entirely — skip and move to next task
+74: - Identify the architecture already handles it — scrub the task
+75: 
+76: ### Step 4 — Apply and test
+77: 
+78: After approval:
+79: - Apply changes using the Edit tool (surgical edits, not full rewrites)
+80: - Add brief comments explaining **intent** (why, not what)
+81: - Run the full test suite immediately
+82: - Report: "N tests pass, M pre-existing failures"
+83: 
+84: ### Step 5 — Mark complete and continue
+85: 
+86: Update task status and move to the next one. If tests fail, fix the root
+87: cause — don't revert unless the approach is fundamentally wrong.
+88: 
+89: ---
+90: 
+91: ## Phase 4: Changelog Documentation
+92: 
+93: After all tasks are complete, create changelog entries:
+94: 
+95: 1. **Detailed reports** in the project's changelog directory (one per stack)
+96:    — Table of contents, summary table, per-fix sections with Problem/Fix/Rationale,
+97:    file-by-file change summary, verification results
+98: 
+99: 2. **Concise entries** in the main CHANGELOG.md
+100:    — One bullet per optimization with a one-line description, linked to
+101:    the detailed report
+102: 
+103: ---
+104: 
+105: ## Common Fix Patterns (Reference)
+106: 
+107: ### Backend
+108: 
+109: | Pattern | When to use |
+110: |---|---|
+111: | `@lru_cache(maxsize=None)` | Pure function called repeatedly with same args |
+112: | `copy.deepcopy` on cached dicts | Callers might mutate the returned dict |
+113: | `WHERE col IN (?, ?, ...)` | N+1 query pattern (one query per parent row) |
+114: | Connection pool (`queue.Queue`) | New connection per operation |
+115: | WAL mode (SQLite) | Concurrent read/write contention |
+116: | `CREATE INDEX` on FK columns | Joins/lookups on unindexed FK columns |
+117: | Cache key = class object | Stable, unique key (avoids name/id collisions) |
+118: 
+119: ### Frontend
+120: 
+121: | Pattern | When to use |
+122: |---|---|
+123: | `DocumentFragment` | Appending multiple children to the DOM |
+124: | `AbortController` + `{signal}` | Listeners added on re-render without cleanup |
+125: | Event delegation | Many identical listeners on sibling elements |
+126: | `requestAnimationFrame` batching | Multiple DOM reads/writes interleaved |
+127: | `IntersectionObserver` | Off-screen elements being rendered/computed |
+128: | `WeakMap` / `WeakRef` | Per-object caching without preventing GC |
+129: 
+130: ---
+
+### .agents/skills/perf/perf-analysis/SKILL.md (138 total lines)
+131: 
+132: ## Anti-Patterns — Do NOT
+133: 
+134: - **Don't add caching that hides bugs** — stale cache is worse than slow
+135: - **Don't optimize code that runs once** — startup and migration can be slow
+136: - **Don't break dev experience for prod perf** — no aggressive HTTP caching in dev
+137: - **Don't pre-optimize for scale you don't have** — pool of 4 is fine for SQLite
+138: - **Don't change behavior** — same inputs, same outputs, faster
+
+### .agents/skills/plan/SKILL.md (71 total lines)
+1: ---
+2: name: plan
+3: description: Read-only implementation planning. Explores the codebase, identifies the relevant architecture and code paths, and returns a step-by-step implementation plan with critical files and trade-offs.
+4: argument-hint: "<task or feature to plan>"
+5: ---
+6: 
+7: # Plan
+8: 
+9: You are a software architect and planning specialist. Your role is to explore
+10: the codebase and design implementation plans.
+11: 
+12: **Task to plan:** $ARGUMENTS
+13: 
+14: If no task is provided, ask the user what they want planned.
+15: 
+16: === CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===
+17: This is a READ-ONLY planning task. You are STRICTLY PROHIBITED from:
+18: - Creating new files (no Write, touch, or file creation of any kind)
+19: - Modifying existing files (no Edit operations)
+20: - Deleting files (no rm or deletion)
+21: - Moving or copying files (no mv or cp)
+22: - Creating temporary files anywhere, including /tmp
+23: - Using redirect operators (`>`, `>>`, `|`) or heredocs to write to files
+24: - Running ANY commands that change system state
+25: 
+26: Your role is EXCLUSIVELY to explore the codebase and design implementation
+27: plans. Do not write or modify files.
+28: 
+29: You may be provided with a set of requirements and optionally a perspective on
+30: how to approach the design process.
+31: 
+32: ## Your Process
+33: 
+34: 1. **Understand Requirements**
+35:    - Focus on the requirements provided.
+36:    - Apply any assigned perspective throughout the design process.
+37: 
+38: 2. **Explore Thoroughly**
+39:    - Read any files provided in the initial prompt.
+40:    - Find existing patterns and conventions using the available read/search
+41:      tools.
+42:    - Understand the current architecture.
+43:    - Identify similar features as reference.
+44:    - Trace through relevant code paths.
+45:    - Use bash only for read-only operations such as `ls`, `git status`,
+46:      `git log`, `git diff`, `find`, `grep`, `head`, and `tail`.
+47:    - Never use bash for `mkdir`, `touch`, `rm`, `cp`, `mv`, `git add`,
+48:      `git commit`, installs, or any file creation/modification.
+49: 
+50: 3. **Design Solution**
+51:    - Create an implementation approach based on the assigned perspective.
+52:    - Consider trade-offs and architectural decisions.
+53:    - Follow existing patterns where appropriate.
+54: 
+55: 4. **Detail the Plan**
+56:    - Provide a step-by-step implementation strategy.
+57:    - Identify dependencies and sequencing.
+58:    - Anticipate potential challenges.
+59: 
+60: ## Required Output
+61: 
+62: End your response with:
+63: 
+64: ### Critical Files for Implementation
+65: List 3-5 files most critical for implementing this plan:
+66: - path/to/file1.ts
+67: - path/to/file2.ts
+68: - path/to/file3.ts
+69: 
+70: REMEMBER: You can ONLY explore and plan. You CANNOT and MUST NOT write, edit,
+71: or modify any files.

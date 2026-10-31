@@ -1,0 +1,280 @@
+
+### .opencode/skills/n3tx-ui-components/SKILL.md (80 total lines)
+1: ---
+2: name: n3tx-ui-components
+3: description: N3TX Web Components, custom renderers, Component/NTTElement/ListElement lifecycle, router-mounted components, and frontend customization. Use when creating or changing N3TX UI components.
+4: argument-hint: "<component task>"
+5: ---
+6: 
+7: # N3TX UI Components
+8: 
+9: N3TX UI customization should compose with schema-driven components.
+10: 
+11: ## Component hierarchy
+12: 
+13: ```text
+14: Component
+15:   -> NTTElement       single entity base
+16:        -> ntx-item
+17:   -> ListElement      collection base
+18:        -> ntx-list, ntx-table
+19:   -> ntx-method
+20:        -> ntx-stream
+21:             -> NTTStreamAgent
+22: ```
+23: 
+24: ## Custom renderer pattern
+25: 
+26: Backend schema selects the component:
+27: 
+28: ```python
+29: class Product(ActorModel):
+30:     __ui__ = {'renderer': {'detail': 'my-product-detail', 'list': 'ntx-list'}}
+31: ```
+32: 
+33: Frontend registers the element:
+34: 
+35: ```javascript
+36: import { NTTElement } from './components/NTTElement.js';
+37: 
+38: class MyProductDetail extends NTTElement {
+39:   render() {
+40:     super.render?.();
+41:     // Use this.value / schema-driven data, not duplicated contracts.
+42:   }
+43: }
+44: 
+45: customElements.define('my-product-detail', MyProductDetail);
+46: ```
+47: 
+48: ## Lifecycle guidance
+49: 
+50: - `connectedCallback()` attaches the component and loads schema/entity data.
+51: - `prerender()` creates stable structure before schema arrives.
+52: - `render()` is schema-aware and should be additive.
+53: - For streams, cancel in `disconnectedCallback()`.
+54: 
+55: ## Router-mounted attrs
+56: 
+57: Router sets attributes such as:
+58: 
+59: - `model="Product"` for collection routes
+60: - `ref="Product/1"` or full URL for entity routes
+61: - `method="run"` for action routes
+62: - `data-model` for nested semantic model identity
+63: 
+64: ## Guardrails
+65: 
+66: - Do not duplicate backend model fields in component constants.
+67: - Do not bypass N3TX transport for entity/method calls.
+68: - Do not wipe structural DOM created by `prerender()` in `render()`.
+69: - Do not make custom components own authorization; read schema/permissions.
+70: 
+71: ## Verification
+72: 
+73: - Component is registered before route attempts to mount it.
+74: - It renders from schema/entity data.
+75: - It handles loading/empty/error states.
+76: - Vitest covers schema-to-DOM behavior where possible.
+77: 
+78: ## Source-reading policy
+79: 
+80: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+
+### .opencode/skills/n3tx-ui-schema/SKILL.md (71 total lines)
+1: ---
+2: name: n3tx-ui-schema
+3: description: N3TX schema-driven UI contracts, __ui__, field metadata, renderer hints, access adaptation, route grammar, and frontend schema consumption. Use when shaping UI from backend models.
+4: argument-hint: "<schema UI task>"
+5: ---
+6: 
+7: # N3TX UI Schema
+8: 
+9: The backend schema is the frontend contract.
+10: 
+11: ## `__ui__` pattern
+12: 
+13: ```python
+14: class Product(ActorModel):
+15:     __ui__ = {
+16:         'icon': 'box',
+17:         'description': 'Products available in the catalog.',
+18:         'create_label': 'Add product',
+19:         'field_order': ['name', 'price', 'description'],
+20:         'groups': {'main': ['name', 'price'], 'Details': ['description']},
+21:         'renderer': {'list': 'ntx-list', 'item': 'ntx-item', 'detail': 'ntx-item'},
+22:         'methods': {'favorite': {'layout': 'button', 'icon': 'star', 'count_field': 'favorites'}},
+23:     }
+24: ```
+25: 
+26: Field-level UI hints:
+27: 
+28: ```python
+29: name: str = Field(json_schema_extra={'ui': {'placeholder': 'Product name'}})
+30: body: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
+31: ```
+32: 
+33: ## Schema sections consumed by UI
+34: 
+35: - `properties` -> fields/forms
+36: - `properties[f].ui.widget` -> widget registry
+37: - `properties[f].ui.display` -> hide/show
+38: - `properties[f].ui.protected` -> hidden in edit mode
+39: - `ui.field_order` -> form order
+40: - `ui.groups` -> fieldsets
+41: - `ui.renderer` -> route/view component tag
+42: - `access` -> action visibility
+43: - `methods` -> method buttons/streams
+44: - `$defs` -> nested entity classes
+45: 
+46: ## Route/view semantics
+47: 
+48: ```text
+49: #Product/@table      collection table view
+50: #Product/1/@chat     detail chat view
+51: #Product/1/run       method route
+52: #Product/1/@run      view route, not method
+53: ```
+54: 
+55: ## Guardrails
+56: 
+57: - Do not hardcode frontend field order or labels if schema can carry them.
+58: - Do not duplicate access rules in JS.
+59: - Do not infer method/view meaning without respecting `@` boundary.
+60: - Do not fork UI when renderer hints or widgets can express the customization.
+61: 
+62: ## Verification
+63: 
+64: - `GET /{ClassName}` includes expected `ui` and field hints.
+65: - Formidable renders fields in order/groups.
+66: - Router resolves renderer tags.
+67: - Access-aware controls match schema rules.
+68: 
+69: ## Source-reading policy
+70: 
+71: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+
+### .opencode/skills/n3tx-widgets/SKILL.md (71 total lines)
+1: ---
+2: name: n3tx-widgets
+3: description: N3TX field widgets, backend Widget types, frontend widget registry, Formidable integration, and schema-driven field rendering. Use when customizing field display or input behavior.
+4: argument-hint: "<widget task>"
+5: ---
+6: 
+7: # N3TX Widgets
+8: 
+9: Widgets customize field rendering while preserving schema as the contract.
+10: 
+11: ## Backend widget hints
+12: 
+13: Simple hint:
+14: 
+15: ```python
+16: body: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
+17: price: float = Field(gt=0, json_schema_extra={'ui': {'widget': 'currency'}})
+18: ```
+19: 
+20: Typed widget fields:
+21: 
+22: ```python
+23: from n3tx_core.widgets import MarkdownField, UrlField, CurrencyField
+24: 
+25: class Post(ActorModel):
+26:     body: MarkdownField(rows=10)
+27:     website: UrlField
+28:     price: CurrencyField
+29: ```
+30: 
+31: ## Frontend widget registry
+32: 
+33: ```javascript
+34: import { Widget } from './widgets/Widget.js';
+35: import { registerWidget } from './widgets/registry.js';
+36: 
+37: class ColorWidget extends Widget {
+38:   display(value, field, schema) { return `<span>${value}</span>`; }
+39:   edit(value, field, schema) { return `<input name="${field}" value="${value ?? ''}">`; }
+40: }
+41: 
+42: registerWidget('color', new ColorWidget());
+43: ```
+44: 
+45: Use schema `ui.widget = 'color'` to select it.
+46: 
+47: ## When to use widgets vs components
+48: 
+49: | Need | Use |
+50: |---|---|
+51: | Custom field display/input | Widget |
+52: | Custom whole entity layout | Renderer component |
+53: | Custom collection layout | List/table/custom collection component |
+54: | Custom behavior/action | `@expose_route` + method component |
+55: 
+56: ## Guardrails
+57: 
+58: - Do not hardcode widgets by model/field name in random components if schema can declare `ui.widget`.
+59: - Do not duplicate validation; backend Pydantic remains authoritative.
+60: - Do not fork Formidable for one field type; register a widget.
+61: 
+62: ## Verification
+63: 
+64: - Schema includes `ui.widget`.
+65: - Formidable uses the widget in display/edit/list contexts.
+66: - Widget handles empty/null values and safe rendering.
+67: - Vitest covers rendering behavior.
+68: 
+69: ## Source-reading policy
+70: 
+71: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+
+### .pi/extensions/skill-path-aliases/README.md (50 total lines)
+1: # skill-path-aliases
+2: 
+3: Project-local pi extension that enforces path-shaped skill commands.
+4: 
+5: ## Why
+6: 
+7: Pi exposes skills as flat commands like `/skill:git-status`.
+8: This extension adds a folder-shaped alias layer so nested skills are invoked by
+9: where they live on disk, not only by their flat leaf name.
+10: 
+11: ## Supported form
+12: 
+13: Only the path form is accepted for nested skills:
+14: 
+15: - `git/git-status` → `/skill:git:git-status`
+16: - `architecture/deep-audit` → `/skill:architecture:deep-audit`
+17: - `dev/bugfix` → `/skill:dev:bugfix`
+18: 
+19: Aliases preserve the full nested folder name exactly:
+20: 
+21: - `/skill:git:git-status` → canonical `/skill:git-status`
+22: - `/skill:design:interface-design` → canonical `/skill:interface-design`
+23: 
+24: ## Behavior
+25: 
+26: - Path aliases are rewritten to pi's canonical skill command before expansion.
+27: - The extension also registers real slash commands for nested path aliases, so both the canonical flat command and the path alias can appear in the TUI autocomplete.
+28: - Direct canonical use of nested skills, like `/skill:git-status`, is blocked in-session and the extension warns with the preferred path form.
+29: - Top-level skills with no folder path, like `/skill:review`, are left alone.
+30: 
+31: ## Important limitation
+32: 
+33: This does **not** remove pi's underlying built-in skill command registration.
+34: The canonical command will still appear in pi's command list or completion UI.
+35: The extension adds path aliases alongside it; it does not replace the native flat command.
+36: 
+37: ## Location
+38: 
+39: Pi auto-discovers this extension from:
+40: 
+41: - `.pi/extensions/skill-path-aliases/index.ts`
+42: 
+43: No pi internals are modified.
+44: 
+45: ## Verification
+46: 
+47: ```bash
+48: cd /workspace/.pi/extensions/skill-path-aliases
+49: node --test skill-aliases.test.mjs
+50: ```

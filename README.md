@@ -1,5 +1,7 @@
 # N3TX
 
+Schema Driven Development (SDD) framework with native agentic integration, for building and extending systems in the AI era software.
+
 N3TX derives storage operations, HTTP routes, JSON Schema and UI contracts from
 Python models. Models declare fields, validation, access rules and domain actions.
 Optional packages add Web Components, actor messaging, agents and file resources.

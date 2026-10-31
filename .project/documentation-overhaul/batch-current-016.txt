@@ -1,0 +1,989 @@
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+261: ### Return Types
+262: 
+263: Custom endpoints can return:
+264: 
+265: 1. **Model Instance** - Returns full object as JSON with `$schema` and `$id` metadata (via `.model_response()`)
+266: 2. **List of Models** - Returns array of objects, each with `$schema` and `$id`
+267: 3. **dict** - Returns custom JSON structure (no automatic metadata)
+268: 4. **str** - Returns plain string (wrapped in JSON)
+269: 5. **None** - Returns null
+270: 
+271: When a custom endpoint returns a model instance, the route handler calls `.model_response()` to inject `$schema` and `$id` metadata into the response. This runs the dump pipeline (`proto_dump.run_pipeline()`), which is extensible via `@dump_extension`.
+272: 
+273: ### Examples
+274: 
+275: #### Return Model Instance
+276: 
+277: **Backend**:
+278: ```python
+279: @expose_route('/action', methods=['POST'])
+280: def some_action(self) -> Product:
+281:     # Logic
+282:     return self
+283: ```
+284: 
+285: **Frontend Response**:
+286: ```json
+287: {
+288:   "$schema": "http://localhost:8000/Product",
+289:   "$id": "http://localhost:8000/Product/1",
+290:   "id": 1,
+291:   "name": "Product",
+292:   "price": 99.99
+293: }
+294: ```
+295: 
+296: #### Return List of Models
+297: 
+298: **Backend**:
+299: ```python
+300: @classmethod
+301: @expose_route('/filter', methods=['POST'])
+302: def filter_products(cls, min_price: float) -> List[Product]:
+303:     return [p for p in cls.list() if p.price >= min_price]
+304: ```
+305: 
+306: **Frontend Response**:
+307: ```json
+308: [
+309:   {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/Product/1", "id": 1, "name": "Laptop", "price": 999.99},
+310:   {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/Product/2", "id": 2, "name": "Phone", "price": 699.99}
+311: ]
+312: ```
+313: 
+314: #### Return Custom dict
+315: 
+316: **Backend**:
+317: ```python
+318: @expose_route('/stats', methods=['GET'])
+319: def get_stats(self) -> dict:
+320:     return {
+321:         "total_orders": 42,
+322:         "revenue": 12500.50,
+323:         "average": 297.63
+324:     }
+325: ```
+326: 
+327: **Frontend Response**:
+328: ```json
+329: {
+330:   "total_orders": 42,
+331:   "revenue": 12500.5,
+332:   "average": 297.63
+333: }
+334: ```
+335: 
+336: ---
+337: 
+338: ## Error Handling
+339: 
+340: Custom endpoints can fail in several ways:
+341: 
+342: ### Missing Required Parameter (400)
+343: 
+344: **Request**:
+345: ```json
+346: {
+347:   "email": "alice@example.com"
+348:   // Missing required "password" parameter
+349: }
+350: ```
+351: 
+352: **Response** (400):
+353: ```json
+354: {
+355:   "detail": "Missing field: password"
+356: }
+357: ```
+358: 
+359: ### Invalid Parameter Type (422)
+360: 
+361: **Request**:
+362: ```json
+363: {
+364:   "percentage": "not-a-number"
+365: }
+366: ```
+367: 
+368: **Response** (422):
+369: ```json
+370: {
+371:   "detail": "Invalid field 'percentage': could not convert string to float"
+372: }
+373: ```
+374: 
+375: ### Resource Not Found (404)
+376: 
+377: For instance methods, if the ID doesn't exist:
+378: 
+379: **Request**: `POST /products/999/discount`
+380: 
+381: **Response** (404):
+382: ```json
+383: {
+384:   "detail": "Not found"
+385: }
+386: ```
+387: 
+388: ### Custom Business Logic Error (400)
+389: 
+390: **Backend**:
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+391: ```python
+392: @expose_route('/discount', methods=['POST'])
+393: def apply_discount(self, percentage: float) -> Product:
+394:     if percentage < 0 or percentage > 100:
+395:         raise ValueError("Discount must be between 0 and 100")
+396:     # ...
+397: ```
+398: 
+399: **Frontend Request**:
+400: ```json
+401: {
+402:   "percentage": 150
+403: }
+404: ```
+405: 
+406: **Response** (400):
+407: ```json
+408: {
+409:   "detail": [
+410:     {
+411:       "file": "models/product_model.py",
+412:       "line": 23,
+413:       "function": "apply_discount",
+414:       "code": "raise ValueError(...)",
+415:       "error": "Discount must be between 0 and 100"
+416:     }
+417:   ]
+418: }
+419: ```
+420: 
+421: ---
+422: 
+423: ## Discovering Custom Endpoints
+424: 
+425: ### Via Model Schema
+426: 
+427: Get the schema to discover all custom endpoints:
+428: 
+429: ```javascript
+430: const schema = await fetch('http://localhost:8000/User')
+431:   .then(r => r.json());
+432: 
+433: // Custom endpoints are in the "methods" object
+434: Object.entries(schema.methods).forEach(([methodName, metadata]) => {
+435:   console.log(`${methodName}:`, metadata.route, metadata.methods);
+436:   console.log('Parameters:', metadata.parameters);
+437:   console.log('Returns:', metadata.returns);
+438: });
+439: ```
+440: 
+441: Example output:
+442: ```
+443: login: /login ['POST']
+444: Parameters: { email: {type: 'string'}, password: {type: 'string'} }
+445: Returns: { type: '$ref', $ref: '#/$defs/User' }
+446: ```
+447: 
+448: ### Via Interactive Documentation
+449: 
+450: FastAPI: Visit `http://localhost:8000/docs` to see all endpoints including custom ones.
+451: 
+452: ---
+453: 
+454: ## Streaming Endpoints
+455: 
+456: Custom methods can stream progressive results to the client via Server-Sent Events (SSE). Mark the route with `stream=True` and use an async generator:
+457: 
+458: ### Backend
+459: 
+460: ```python
+461: @expose_route('/generate', methods=['POST'], stream=True, access=AUTHENTICATED)
+462: async def generate(self, prompt: str = ''):
+463:     for i in range(10):
+464:         await asyncio.sleep(0.1)
+465:         yield {'chunk': f'Processing step {i}'}
+466: ```
+467: 
+468: ### Frontend (SSE)
+469: 
+470: ```javascript
+471: const handle = HTTP.stream('/products/1/generate', { prompt: 'hello' },
+472:     (chunk) => document.body.append(chunk.chunk),  // progressive output
+473:     (data)  => console.log('Stream complete'),
+474:     (err)   => console.error('Stream error:', err),
+475: );
+476: 
+477: // Cancel mid-stream:
+478: handle.cancel();
+479: ```
+480: 
+481: ### SSE Wire Format
+482: 
+483: ```
+484: event: chunk
+485: data: {"chunk": "Processing step 0"}
+486: 
+487: event: chunk
+488: data: {"chunk": "Processing step 1"}
+489: 
+490: event: done
+491: data: {}
+492: ```
+493: 
+494: ### Component
+495: 
+496: Use `<ntx-stream>` instead of `<ntx-method>` for streaming methods:
+497: 
+498: ```html
+499: <ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
+500: ```
+501: 
+502: ### Schema Discovery
+503: 
+504: Streaming methods are discoverable via the schema. The method entry includes `"stream": true`:
+505: 
+506: ```json
+507: {
+508:   "methods": {
+509:     "generate": {
+510:       "route": "/generate",
+511:       "methods": ["POST"],
+512:       "stream": true,
+513:       "parameters": { "prompt": { "type": "string" } }
+514:     }
+515:   }
+516: }
+517: ```
+518: 
+519: ---
+520: 
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+521: ## Common Custom Endpoint Patterns
+522: 
+523: ### 1. Authentication
+524: 
+525: ```python
+526: @staticmethod
+527: @expose_route('/login', methods=['POST'])
+528: def login(email: str, password: str) -> dict:
+529:     # Validate credentials
+530:     user = find_user(email)
+531:     if not verify_password(password, user.password_hash):
+532:         raise ValueError("Invalid credentials")
+533:     
+534:     # Generate token
+535:     token = create_session_token(user.id)
+536:     return {
+537:         "token": token,
+538:         "user_id": user.id,
+539:         "email": user.email
+540:     }
+541: ```
+542: 
+543: **Frontend**:
+544: ```javascript
+545: const { token, user_id } = await fetch('/users/login', {
+546:   method: 'POST',
+547:   headers: { 'Content-Type': 'application/json' },
+548:   body: JSON.stringify({ email, password })
+549: }).then(r => r.json());
+550: 
+551: // Store token for future requests
+552: localStorage.setItem('auth_token', token);
+553: ```
+554: 
+555: ### 2. Search/Filter
+556: 
+557: ```python
+558: @classmethod
+559: @expose_route('/search', methods=['POST'])
+560: def search(cls, query: str, status: str = None) -> List[Product]:
+561:     results = cls.list()
+562:     if query:
+563:         results = [r for r in results if query.lower() in r.name.lower()]
+564:     if status:
+565:         results = [r for r in results if r.status == status]
+566:     return results
+567: ```
+568: 
+569: **Frontend**:
+570: ```javascript
+571: const products = await fetch('/products/search', {
+572:   method: 'POST',
+573:   headers: { 'Content-Type': 'application/json' },
+574:   body: JSON.stringify({
+575:     query: 'laptop',
+576:     status: 'available'
+577:   })
+578: }).then(r => r.json());
+579: ```
+580: 
+581: ### 3. State Transitions
+582: 
+583: ```python
+584: @expose_route('/publish', methods=['POST'])
+585: def publish(self) -> Article:
+586:     if self.status != 'draft':
+587:         raise ValueError("Only draft articles can be published")
+588:     
+589:     self.status = 'published'
+590:     self.published_at = datetime.now().isoformat()
+591:     self.save()
+592:     return self
+593: ```
+594: 
+595: **Frontend**:
+596: ```javascript
+597: async function publishArticle(articleId) {
+598:   try {
+599:     const article = await fetch(`/articles/${articleId}/publish`, {
+600:       method: 'POST',
+601:       headers: { 'Content-Type': 'application/json' },
+602:       body: JSON.stringify({})  // Empty body (no parameters)
+603:     }).then(r => r.json());
+604:     
+605:     console.log('Published:', article.published_at);
+606:     return article;
+607:     
+608:   } catch (err) {
+609:     if (err.message.includes('draft')) {
+610:       alert('Article must be in draft status to publish');
+611:     }
+612:     throw err;
+613:   }
+614: }
+615: ```
+616: 
+617: ### 4. Aggregations/Statistics
+618: 
+619: ```python
+620: @classmethod
+621: @expose_route('/statistics', methods=['GET'])
+622: def get_statistics(cls) -> dict:
+623:     orders = cls.list()
+624:     return {
+625:         "total": len(orders),
+626:         "completed": len([o for o in orders if o.status == 'completed']),
+627:         "revenue": sum(o.total for o in orders if o.status == 'completed'),
+628:         "average_value": sum(o.total for o in orders) / len(orders) if orders else 0
+629:     }
+630: ```
+631: 
+632: **Frontend**:
+633: ```javascript
+634: const stats = await fetch('/orders/statistics', {
+635:   method: 'GET',
+636:   headers: { 'Content-Type': 'application/json' },
+637:   body: JSON.stringify({})
+638: }).then(r => r.json());
+639: 
+640: renderDashboard(stats);
+641: ```
+642: 
+643: ### 5. Batch Operations
+644: 
+645: ```python
+646: @classmethod
+647: @expose_route('/bulk-update', methods=['POST'])
+648: def bulk_update(cls, ids: List[int], updates: dict) -> dict:
+649:     updated_count = 0
+650:     for id in ids:
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+651:         cls.update(id, updates)
+652:         updated_count += 1
+653:     
+654:     return {
+655:         "updated": updated_count,
+656:         "ids": ids
+657:     }
+658: ```
+659: 
+660: **Frontend**:
+661: ```javascript
+662: // Update multiple products at once
+663: const result = await fetch('/products/bulk-update', {
+664:   method: 'POST',
+665:   headers: { 'Content-Type': 'application/json' },
+666:   body: JSON.stringify({
+667:     ids: [1, 2, 3, 4, 5],
+668:     updates: { status: 'archived' }
+669:   })
+670: }).then(r => r.json());
+671: 
+672: console.log(`Updated ${result.updated} products`);
+673: ```
+674: 
+675: ### 6. Toggle Actions (Like/Favorite)
+676: 
+677: Toggle endpoints create or delete a child record and replace the parent
+678: `list[T]` collection. Empty body allowed — no payload needed.
+679: 
+680: ```python
+681: @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+682: def favorite(self, user: User = None) -> str:
+683:     """Toggle — create if not favorited, remove if already favorited."""
+684:     existing = next((like for like in self.favorites if like.user == user.id), None)
+685:     if existing:
+686:         Like.delete(existing.id)
+687:         type(self).update(self.id, {'favorites': [f for f in self.favorites if f.id != existing.id]})
+688:         return json.dumps({"action": "unfavorited"})
+689:     else:
+690:         saved = Like.create(Like(user=user.id))
+691:         type(self).update(self.id, {'favorites': [*self.favorites, saved]})
+692:         return json.dumps({"action": "favorited"})
+693: ```
+694: 
+695: **Frontend**:
+696: ```javascript
+697: // POST /products/1/favorite — empty body
+698: const result = await fetch('/products/1/favorite', {
+699:   method: 'POST',
+700:   headers: {
+701:     'Content-Type': 'application/json',
+702:     'x-access-token': jwtToken
+703:   },
+704:   body: JSON.stringify({})
+705: }).then(r => r.json());
+706: 
+707: console.log(result.action); // "favorited" or "unfavorited"
+708: ```
+709: 
+710: The frontend `<ntx-method>` component renders toggle methods as compact icon + count pills (heart for like, star for favorite) using the `button` layout hint from `__ui__.methods`.
+711: 
+712: ### 7. Complex Queries
+713: 
+714: ```python
+715: @expose_route('/related-products', methods=['GET'])
+716: def get_related(self, limit: int = 5) -> List[Product]:
+717:     # Find products in same category
+718:     all_products = Product.list()
+719:     related = [
+720:         p for p in all_products 
+721:         if p.category == self.category and p.id != self.id
+722:     ]
+723:     return related[:limit]
+724: ```
+725: 
+726: **Frontend**:
+727: ```javascript
+728: // Get related products
+729: const related = await fetch(`/products/1/related-products`, {
+730:   method: 'GET',
+731:   headers: { 'Content-Type': 'application/json' },
+732:   body: JSON.stringify({ limit: 10 })
+733: }).then(r => r.json());
+734: 
+735: displayRelatedProducts(related);
+736: ```
+737: 
+738: ---
+739: 
+740: ## Working with Complex Parameters
+741: 
+742: ### Nested Objects
+743: 
+744: **Backend**:
+745: ```python
+746: from pydantic import BaseModel
+747: 
+748: class Address(BaseModel):
+749:     street: str
+750:     city: str
+751:     zip_code: str
+752: 
+753: @expose_route('/update-address', methods=['POST'])
+754: def update_address(self, address: Address) -> User:
+755:     # address is validated Pydantic model
+756:     self.address = address.model_dump_json()
+757:     self.save()
+758:     return self
+759: ```
+760: 
+761: **Frontend**:
+762: ```javascript
+763: await fetch('/users/1/update-address', {
+764:   method: 'POST',
+765:   headers: { 'Content-Type': 'application/json' },
+766:   body: JSON.stringify({
+767:     address: {
+768:       street: '123 Main St',
+769:       city: 'Springfield',
+770:       zip_code: '12345'
+771:     }
+772:   })
+773: });
+774: ```
+775: 
+776: ### Lists
+777: 
+778: **Backend**:
+779: ```python
+780: @classmethod
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+781: @expose_route('/find-by-ids', methods=['POST'])
+782: def find_by_ids(cls, ids: List[int]) -> List[User]:
+783:     all_users = cls.list()
+784:     return [u for u in all_users if u.id in ids]
+785: ```
+786: 
+787: **Frontend**:
+788: ```javascript
+789: const users = await fetch('/users/find-by-ids', {
+790:   method: 'POST',
+791:   headers: { 'Content-Type': 'application/json' },
+792:   body: JSON.stringify({
+793:     ids: [1, 3, 5, 7]
+794:   })
+795: }).then(r => r.json());
+796: ```
+797: 
+798: ### Optional Parameters
+799: 
+800: **Backend**:
+801: ```python
+802: @classmethod
+803: @expose_route('/search', methods=['POST'])
+804: def search(cls, query: str, min_price: float = 0, max_price: float = None) -> List[Product]:
+805:     results = cls.list()
+806:     # Filter logic
+807:     return results
+808: ```
+809: 
+810: **Frontend - All parameters**:
+811: ```javascript
+812: await fetch('/products/search', {
+813:   method: 'POST',
+814:   body: JSON.stringify({
+815:     query: 'laptop',
+816:     min_price: 500,
+817:     max_price: 2000
+818:   })
+819: });
+820: ```
+821: 
+822: **Frontend - Only required parameters**:
+823: ```javascript
+824: await fetch('/products/search', {
+825:   method: 'POST',
+826:   body: JSON.stringify({
+827:     query: 'laptop'
+828:     // min_price and max_price use defaults
+829:   })
+830: });
+831: ```
+832: 
+833: ---
+834: 
+835: ## Example: Complete Authentication Flow
+836: 
+837: ### Backend Endpoints
+838: 
+839: ```python
+840: class User(ProtoModel):
+841:     __storable__ = True
+842:     __tablename__ = 'users'
+843:     
+844:     email: str
+845:     password_hash: str
+846:     
+847:     @staticmethod
+848:     @expose_route('/register', methods=['POST'])
+849:     def register(email: str, password: str) -> dict:
+850:         # Validate email uniqueness
+851:         users = User.list()
+852:         if any(u.email == email for u in users):
+853:             raise ValueError("Email already registered")
+854:         
+855:         # Create user
+856:         user = User.create(User(
+857:             email=email,
+858:             password_hash=hash_password(password)
+859:         ))
+860:         
+861:         return {"user_id": user.id, "email": user.email}
+862:     
+863:     @staticmethod
+864:     @expose_route('/login', methods=['POST'])
+865:     def login(email: str, password: str) -> dict:
+866:         users = User.list()
+867:         user = next((u for u in users if u.email == email), None)
+868:         
+869:         if not user or not verify_password(password, user.password_hash):
+870:             raise ValueError("Invalid credentials")
+871:         
+872:         token = create_token(user.id)
+873:         return {
+874:             "token": token,
+875:             "user_id": user.id,
+876:             "email": user.email
+877:         }
+878:     
+879:     @expose_route('/change-password', methods=['POST'])
+880:     def change_password(self, old_password: str, new_password: str) -> dict:
+881:         if not verify_password(old_password, self.password_hash):
+882:             raise ValueError("Current password is incorrect")
+883:         
+884:         self.password_hash = hash_password(new_password)
+885:         self.save()
+886:         
+887:         return {"message": "Password changed successfully"}
+888: ```
+889: 
+890: ### Frontend Implementation
+891: 
+892: ```javascript
+893: class AuthService {
+894:   
+895:   async register(email, password) {
+896:     try {
+897:       const response = await fetch('/users/register', {
+898:         method: 'POST',
+899:         headers: { 'Content-Type': 'application/json' },
+900:         body: JSON.stringify({ email, password })
+901:       });
+902:       
+903:       if (!response.ok) {
+904:         const error = await response.json();
+905:         throw new Error(error.detail[0].error);
+906:       }
+907:       
+908:       return await response.json();
+909:       
+910:     } catch (err) {
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+911:       if (err.message.includes('already registered')) {
+912:         alert('This email is already registered');
+913:       }
+914:       throw err;
+915:     }
+916:   }
+917:   
+918:   async login(email, password) {
+919:     const response = await fetch('/users/login', {
+920:       method: 'POST',
+921:       headers: { 'Content-Type': 'application/json' },
+922:       body: JSON.stringify({ email, password })
+923:     });
+924:     
+925:     if (!response.ok) {
+926:       throw new Error('Invalid credentials');
+927:     }
+928:     
+929:     const { token, user_id } = await response.json();
+930:     
+931:     // Store auth token
+932:     localStorage.setItem('auth_token', token);
+933:     localStorage.setItem('user_id', user_id);
+934:     
+935:     return { token, user_id };
+936:   }
+937:   
+938:   async changePassword(userId, oldPassword, newPassword) {
+939:     const response = await fetch(`/users/${userId}/change-password`, {
+940:       method: 'POST',
+941:       headers: { 
+942:         'Content-Type': 'application/json',
+943:         'Authorization': `Bearer ${this.getToken()}`
+944:       },
+945:       body: JSON.stringify({
+946:         old_password: oldPassword,
+947:         new_password: newPassword
+948:       })
+949:     });
+950:     
+951:     if (!response.ok) {
+952:       const error = await response.json();
+953:       throw new Error(error.detail[0].error);
+954:     }
+955:     
+956:     return await response.json();
+957:   }
+958:   
+959:   getToken() {
+960:     return localStorage.getItem('auth_token');
+961:   }
+962:   
+963:   logout() {
+964:     localStorage.removeItem('auth_token');
+965:     localStorage.removeItem('user_id');
+966:   }
+967: }
+968: 
+969: // Usage
+970: const auth = new AuthService();
+971: 
+972: // Register
+973: await auth.register('alice@example.com', 'SecurePass123');
+974: 
+975: // Login
+976: const { token, user_id } = await auth.login('alice@example.com', 'SecurePass123');
+977: 
+978: // Change password
+979: await auth.changePassword(user_id, 'SecurePass123', 'NewSecurePass456');
+980: 
+981: // Logout
+982: auth.logout();
+983: ```
+984: 
+985: ---
+986: 
+987: ## Best Practices
+988: 
+989: ### 1. Always Handle Errors
+990: 
+991: ```javascript
+992: async function callCustomEndpoint() {
+993:   try {
+994:     const response = await fetch('/resource/action', {
+995:       method: 'POST',
+996:       headers: { 'Content-Type': 'application/json' },
+997:       body: JSON.stringify(params)
+998:     });
+999:     
+1000:     if (!response.ok) {
+1001:       const error = await response.json();
+1002:       // Extract meaningful error message
+1003:       const message = error.detail?.[0]?.error || 'Unknown error';
+1004:       throw new Error(message);
+1005:     }
+1006:     
+1007:     return await response.json();
+1008:     
+1009:   } catch (err) {
+1010:     console.error('API Error:', err);
+1011:     // Show user-friendly message
+1012:     showErrorToUser(err.message);
+1013:     return null;
+1014:   }
+1015: }
+1016: ```
+1017: 
+1018: ### 2. Validate Before Sending
+1019: 
+1020: ```javascript
+1021: // Check schema first
+1022: const schema = await fetch('/Product').then(r => r.json());
+1023: const method = schema.methods.apply_discount;
+1024: 
+1025: // Validate parameters match schema
+1026: const params = { percentage: 10 };
+1027: for (const [name, paramSchema] of Object.entries(method.parameters)) {
+1028:   if (!(name in params)) {
+1029:     console.error(`Missing required parameter: ${name}`);
+1030:     return;
+1031:   }
+1032: }
+1033: 
+1034: // Then make request
+1035: await fetch('/products/1/apply-discount', {
+1036:   method: 'POST',
+1037:   body: JSON.stringify(params)
+1038: });
+1039: ```
+1040: 
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+1041: ### 3. Type Safety with TypeScript
+1042: 
+1043: ```typescript
+1044: // Define types based on schema
+1045: interface DiscountParams {
+1046:   percentage: number;
+1047: }
+1048: 
+1049: interface Product {
+1050:   id: number;
+1051:   name: string;
+1052:   price: number;
+1053: }
+1054: 
+1055: async function applyDiscount(
+1056:   productId: number, 
+1057:   params: DiscountParams
+1058: ): Promise<Product> {
+1059:   const response = await fetch(`/products/${productId}/discount`, {
+1060:     method: 'POST',
+1061:     headers: { 'Content-Type': 'application/json' },
+1062:     body: JSON.stringify(params)
+1063:   });
+1064:   
+1065:   return await response.json();
+1066: }
+1067: ```
+1068: 
+1069: ---
+1070: 
+1071: ## Troubleshooting
+1072: 
+1073: ### "Missing field: X" Error
+1074: 
+1075: **Cause**: Required parameter not included in request body
+1076: 
+1077: **Solution**: Check method signature and include all parameters without defaults
+1078: 
+1079: ### "Invalid field 'X': ..." Error
+1080: 
+1081: **Cause**: Parameter type doesn't match expected type
+1082: 
+1083: **Solution**: Check schema for correct type (string, number, boolean, array, object)
+1084: 
+1085: ### 404 on Instance Method
+1086: 
+1087: **Cause**: Resource with given ID doesn't exist
+1088: 
+1089: **Solution**: Verify ID exists with `GET /{resource}/{id}` first
+1090: 
+1091: ### Custom Endpoint Not Found
+1092: 
+1093: **Cause**: Endpoint not registered or incorrect URL
+1094: 
+1095: **Solution**: Check schema (`GET /{ModelName}`) for available methods and routes
+1096: 
+1097: ---
+1098: 
+1099: ## Next Steps
+1100: 
+1101: - [Standard CRUD Endpoints](./API_CRUD_ENDPOINTS.md) - Auto-generated endpoints reference
+1102: - [Data Models Reference](./API_DATA_MODELS.md) - Schema for each model
+1103: - [API Overview](./API_OVERVIEW.md) - General conventions and setup
+
+### docs/API_DATA_MODELS.md (1087 total lines)
+1: # Data Models Reference
+2: 
+3: This document provides detailed schema reference for the example models in N3TX. Use this as a template for understanding the schema structure of your own models.
+4: 
+5: ---
+6: 
+7: ## How to Read This Document
+8: 
+9: Each model section includes:
+10: 
+11: 1. **Model Overview** - Purpose and relationships
+12: 2. **Schema Reference** - Available endpoints and fields
+13: 3. **Field Details** - Types, constraints, validation
+14: 4. **Example Requests/Responses** - Real-world usage (all responses include `$schema` and `$id`)
+15: 5. **Frontend Integration** - TypeScript interfaces and usage patterns
+16: 
+17: ---
+18: 
+19: ## User Model
+20: 
+21: User accounts in the system.
+22: 
+23: ### Endpoints
+24: 
+25: | Method | Path | Purpose |
+26: |--------|------|---------|
+27: | GET | `/User` | Get schema |
+28: | POST | `/users` | Create user |
+29: | GET | `/users` | List all users |
+30: | GET | `/users/{id}` | Get user |
+31: | PUT | `/users/{id}` | Update user |
+32: | DELETE | `/users/{id}` | Delete user |
+33: | POST | `/users/login` | Custom: Login |
+34: 
+35: ### Schema
+36: 
+37: ```json
+38: {
+39:   "$schema": "http://localhost:8000/Schema",
+40:   "$id": "http://localhost:8000/User",
+41:   "type": "object",
+42:   "properties": {
+43:     "id": {
+44:       "type": "integer",
+45:       "description": "Auto-generated unique identifier"
+46:     },
+47:     "name": {
+48:       "type": "string",
+49:       "description": "User's full name"
+50:     },
+51:     "email": {
+52:       "type": "string",
+53:       "description": "User's email address"
+54:     },
+55:     "age": {
+56:       "type": "integer",
+57:       "description": "User's age (optional)"
+58:     }
+59:   },
+60:   "required": ["name", "email"]
+61: }
+62: ```
+63: 
+64: ### Field Details
+65: 
+66: | Field | Type | Required | Constraints | Description |
+67: |-------|------|----------|-------------|-------------|
+68: | `id` | integer | No (auto) | Read-only, auto-increment | Unique identifier |
+69: | `name` | string | Yes | - | Full name |
+70: | `email` | string | Yes | Must be valid email | Email address |
+71: | `age` | integer | No | Must be positive | Age in years |
+72: 
+73: ### Create User
+74: 
+75: **Request**:
+76: ```bash
+77: POST /users
+78: Content-Type: application/json
+79: 
+80: {
+81:   "name": "Alice Johnson",
+82:   "email": "alice@example.com",
+83:   "age": 28
+84: }
+85: ```
+86: 
+87: **Response** (201 Created):
+88: ```json
+89: {
+90:   "$schema": "http://localhost:8000/User",
+91:   "$id": "http://localhost:8000/User/1",
+92:   "id": 1,
+93:   "name": "Alice Johnson",
+94:   "email": "alice@example.com",
+95:   "age": 28
+96: }
+97: ```
+98: 
+99: ### Get User
+100: 
+101: **Request**:
+102: ```bash
+103: GET /users/1
+104: ```
+105: 
+106: **Response** (200 OK):
+107: ```json
+108: {
+109:   "$schema": "http://localhost:8000/User",
+110:   "$id": "http://localhost:8000/User/1",
+111:   "id": 1,
+112:   "name": "Alice Johnson",
+113:   "email": "alice@example.com",
+114:   "age": 28
+115: }
+116: ```
+117: 
+118: ### List Users
+119: 
+120: **Request**:
+121: ```bash
+122: GET /users
+123: ```
+124: 
+125: **Response** (200 OK):
+126: ```json
+127: [
+128:   {
+129:     "$schema": "http://localhost:8000/User",
+130:     "$id": "http://localhost:8000/User/1",

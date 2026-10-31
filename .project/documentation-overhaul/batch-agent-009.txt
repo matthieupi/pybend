@@ -1,0 +1,614 @@
+
+### .agents/prompts/prd-to-issue.md (86 total lines)
+1: ---
+2: description: Break a PRD into independently-grabbable GitHub issues using tracer-bullet vertical slices. Use when user wants to convert a PRD to issues, create implementation tickets, or break down a PRD into work items.
+3: ---
+4: # PRD to Issues
+5: 
+6: Break a PRD into independently-grabbable GitHub issues using vertical slices (tracer bullets).
+7: 
+8: ## Process
+9: 
+10: ### 1. Locate the PRD
+11: 
+12: Ask the user for the PRD GitHub issue number (or URL).
+13: 
+14: If the PRD is not already in your context window, fetch it with `gh issue view <number>` (with comments).
+15: 
+16: ### 2. Explore the codebase (optional)
+17: 
+18: If you have not already explored the codebase, do so to understand the current state of the code.
+19: 
+20: ### 3. Draft vertical slices
+21: 
+22: Break the PRD into **tracer bullet** issues. Each issue is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
+23: 
+24: Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision or a design review. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible.
+25: 
+26: <vertical-slice-rules>
+27: - Each slice delivers a narrow but COMPLETE path through every layer (schema, API, UI, tests)
+28: - A completed slice is demoable or verifiable on its own
+29: - Prefer many thin slices over few thick ones
+30: </vertical-slice-rules>
+31: 
+32: ### 4. Quiz the user
+33: 
+34: Present the proposed breakdown as a numbered list. For each slice, show:
+35: 
+36: - **Title**: short descriptive name
+37: - **Type**: HITL / AFK
+38: - **Blocked by**: which other slices (if any) must complete first
+39: - **User stories covered**: which user stories from the PRD this addresses
+40: 
+41: Ask the user:
+42: 
+43: - Does the granularity feel right? (too coarse / too fine)
+44: - Are the dependency relationships correct?
+45: - Should any slices be merged or split further?
+46: - Are the correct slices marked as HITL and AFK?
+47: 
+48: Iterate until the user approves the breakdown.
+49: 
+50: ### 5. Create the GitHub issues
+51: 
+52: For each approved slice, create a GitHub issue using `gh issue create`. Use the issue body template below.
+53: 
+54: Create issues in dependency order (blockers first) so you can reference real issue numbers in the "Blocked by" field.
+55: 
+56: <issue-template>
+57: ## Parent PRD
+58: 
+59: #<prd-issue-number>
+60: 
+61: ## What to build
+62: 
+63: A concise description of this vertical slice. Describe the end-to-end behavior, not layer-by-layer implementation. Reference specific sections of the parent PRD rather than duplicating content.
+64: 
+65: ## Acceptance criteria
+66: 
+67: - [ ] Criterion 1
+68: - [ ] Criterion 2
+69: - [ ] Criterion 3
+70: 
+71: ## Blocked by
+72: 
+73: - Blocked by #<issue-number> (if any)
+74: 
+75: Or "None - can start immediately" if no blockers.
+76: 
+77: ## User stories addressed
+78: 
+79: Reference by number from the parent PRD:
+80: 
+81: - User story 3
+82: - User story 7
+83: 
+84: </issue-template>
+85: 
+86: Do NOT close or modify the parent PRD issue.
+
+### .agents/prompts/refactor-plan.md (66 total lines)
+1: ---
+2: description: Create a detailed refactor plan with tiny commits via user interview, then file it as a GitHub issue. Use when user wants to plan a refactor, create a refactoring RFC, or break a refactor into safe incremental steps.
+3: ---
+4: This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
+5: 
+6: 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
+7: 
+8: 2. Explore the repo to verify their assertions and understand the current state of the codebase.
+9: 
+10: 3. Ask whether they have considered other options, and present other options to them.
+11: 
+12: 4. Interview the user about the implementation. Be extremely detailed and thorough.
+13: 
+14: 5. Hammer out the exact scope of the implementation. Work out what you plan to change and what you plan not to change.
+15: 
+16: 6. Look in the codebase to check for test coverage of this area of the codebase. If there is insufficient test coverage, ask the user what their plans for testing are.
+17: 
+18: 7. Break the implementation into a plan of tiny commits. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working."
+19: 
+20: 8. Create a GitHub issue with the refactor plan. Use the following template for the issue description:
+21: 
+22: <refactor-plan-template>
+23: 
+24: ## Problem Statement
+25: 
+26: The problem that the developer is facing, from the developer's perspective.
+27: 
+28: ## Solution
+29: 
+30: The solution to the problem, from the developer's perspective.
+31: 
+32: ## Commits
+33: 
+34: A LONG, detailed implementation plan. Write the plan in plain English, breaking down the implementation into the tiniest commits possible. Each commit should leave the codebase in a working state.
+35: 
+36: ## Decision Document
+37: 
+38: A list of implementation decisions that were made. This can include:
+39: 
+40: - The modules that will be built/modified
+41: - The interfaces of those modules that will be modified
+42: - Technical clarifications from the developer
+43: - Architectural decisions
+44: - Schema changes
+45: - API contracts
+46: - Specific interactions
+47: 
+48: Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
+49: 
+50: ## Testing Decisions
+51: 
+52: A list of testing decisions that were made. Include:
+53: 
+54: - A description of what makes a good test (only test external behavior, not implementation details)
+55: - Which modules will be tested
+56: - Prior art for the tests (i.e. similar types of tests in the codebase)
+57: 
+58: ## Out of Scope
+59: 
+60: A description of the things that are out of scope for this refactor.
+61: 
+62: ## Further Notes (optional)
+63: 
+64: Any further notes about the refactor.
+65: 
+66: </refactor-plan-template>
+
+### .agents/prompts/tdd.md (105 total lines)
+1: ---
+2: description: Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions "red-green-refactor", wants integration tests, or asks for test-first development.
+3: ---
+4: # Test-Driven Development
+5: 
+6: ## Philosophy
+7: 
+8: **Core principle**: Tests should verify behavior through public interfaces, not implementation details. Code can change entirely; tests shouldn't.
+9: 
+10: **Good tests** are integration-style: they exercise real code paths through public APIs. They describe _what_ the system does, not _how_ it does it. A good test reads like a specification - "user can checkout with valid cart" tells you exactly what capability exists. These tests survive refactors because they don't care about internal structure.
+11: 
+12: **Bad tests** are coupled to implementation. They mock internal collaborators, test private methods, or verify through external means (like querying a database directly instead of using the interface). The warning sign: your test breaks when you refactor, but behavior hasn't changed. If you rename an internal function and tests fail, those tests were testing implementation, not behavior.
+13: 
+14: See [tests.md](../skills/dev/tdd/tests.md) for examples and [mocking.md](../skills/dev/tdd/mocking.md) for mocking guidelines.
+15: 
+16: ## Anti-Pattern: Horizontal Slices
+17: 
+18: **DO NOT write all tests first, then all implementation.** This is "horizontal slicing" - treating RED as "write all tests" and GREEN as "write all code."
+19: 
+20: This produces **crap tests**:
+21: 
+22: - Tests written in bulk test _imagined_ behavior, not _actual_ behavior
+23: - You end up testing the _shape_ of things (data structures, function signatures) rather than user-facing behavior
+24: - Tests become insensitive to real changes - they pass when behavior breaks, fail when behavior is fine
+25: - You outrun your headlights, committing to test structure before understanding the implementation
+26: 
+27: **Correct approach**: Vertical slices via tracer bullets. One test → one implementation → repeat. Each test responds to what you learned from the previous cycle. Because you just wrote the code, you know exactly what behavior matters and how to verify it.
+28: 
+29: ```
+30: WRONG (horizontal):
+31:   RED:   test1, test2, test3, test4, test5
+32:   GREEN: impl1, impl2, impl3, impl4, impl5
+33: 
+34: RIGHT (vertical):
+35:   RED→GREEN: test1→impl1
+36:   RED→GREEN: test2→impl2
+37:   RED→GREEN: test3→impl3
+38:   ...
+39: ```
+40: 
+41: ## Workflow
+42: 
+43: ### 1. Planning
+44: 
+45: Before writing any code:
+46: 
+47: - [ ] Confirm with user what interface changes are needed
+48: - [ ] Confirm with user which behaviors to test (prioritize)
+49: - [ ] Identify opportunities for [deep modules](../skills/dev/tdd/deep-modules.md) (small interface, deep implementation)
+50: - [ ] Design interfaces for [testability](../skills/dev/tdd/interface-design.md)
+51: - [ ] List the behaviors to test (not implementation steps)
+52: - [ ] Get user approval on the plan
+53: 
+54: Ask: "What should the public interface look like? Which behaviors are most important to test?"
+55: 
+56: **You can't test everything.** Confirm with the user exactly which behaviors matter most. Focus testing effort on critical paths and complex logic, not every possible edge case.
+57: 
+58: ### 2. Tracer Bullet
+59: 
+60: Write ONE test that confirms ONE thing about the system:
+61: 
+62: ```
+63: RED:   Write test for first behavior → test fails
+64: GREEN: Write minimal code to pass → test passes
+65: ```
+66: 
+67: This is your tracer bullet - proves the path works end-to-end.
+68: 
+69: ### 3. Incremental Loop
+70: 
+71: For each remaining behavior:
+72: 
+73: ```
+74: RED:   Write next test → fails
+75: GREEN: Minimal code to pass → passes
+76: ```
+77: 
+78: Rules:
+79: 
+80: - One test at a time
+81: - Only enough code to pass current test
+82: - Don't anticipate future tests
+83: - Keep tests focused on observable behavior
+84: 
+85: ### 4. Refactor
+86: 
+87: After all tests pass, look for [refactor candidates](../skills/dev/tdd/refactoring.md):
+88: 
+89: - [ ] Extract duplication
+90: - [ ] Deepen modules (move complexity behind simple interfaces)
+91: - [ ] Apply SOLID principles where natural
+92: - [ ] Consider what new code reveals about existing code
+93: - [ ] Run tests after each refactor step
+94: 
+95: **Never refactor while RED.** Get to GREEN first.
+96: 
+97: ## Checklist Per Cycle
+98: 
+99: ```
+100: [ ] Test describes behavior, not implementation
+101: [ ] Test uses public interface only
+102: [ ] Test would survive internal refactor
+103: [ ] Code is minimal for this test
+104: [ ] No speculative features added
+105: ```
+
+### .agents/prompts/write-a-prd.md (72 total lines)
+1: ---
+2: description: Create a PRD through user interview, codebase exploration, and module design, then submit as a GitHub issue. Use when user wants to write a PRD, create a product requirements document, or plan a new feature.
+3: ---
+4: This skill will be invoked when the user wants to create a PRD. You may skip steps if you don't consider them necessary.
+5: 
+6: 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
+7: 
+8: 2. Explore the repo to verify their assertions and understand the current state of the codebase.
+9: 
+10: 3. Interview the user relentlessly about every aspect of this plan until you reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
+11: 
+12: 4. Sketch out the major modules you will need to build or modify to complete the implementation. Actively look for opportunities to extract deep modules that can be tested in isolation.
+13: 
+14: A deep module (as opposed to a shallow module) is one which encapsulates a lot of functionality in a simple, testable interface which rarely changes.
+15: 
+16: Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
+17: 
+18: 5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. The PRD should be submitted as a GitHub issue.
+19: 
+20: <prd-template>
+21: 
+22: ## Problem Statement
+23: 
+24: The problem that the user is facing, from the user's perspective.
+25: 
+26: ## Solution
+27: 
+28: The solution to the problem, from the user's perspective.
+29: 
+30: ## User Stories
+31: 
+32: A LONG, numbered list of user stories. Each user story should be in the format of:
+33: 
+34: 1. As an <actor>, I want a <feature>, so that <benefit>
+35: 
+36: <user-story-example>
+37: 1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
+38: </user-story-example>
+39: 
+40: This list of user stories should be extremely extensive and cover all aspects of the feature.
+41: 
+42: ## Implementation Decisions
+43: 
+44: A list of implementation decisions that were made. This can include:
+45: 
+46: - The modules that will be built/modified
+47: - The interfaces of those modules that will be modified
+48: - Technical clarifications from the developer
+49: - Architectural decisions
+50: - Schema changes
+51: - API contracts
+52: - Specific interactions
+53: 
+54: Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
+55: 
+56: ## Testing Decisions
+57: 
+58: A list of testing decisions that were made. Include:
+59: 
+60: - A description of what makes a good test (only test external behavior, not implementation details)
+61: - Which modules will be tested
+62: - Prior art for the tests (i.e. similar types of tests in the codebase)
+63: 
+64: ## Out of Scope
+65: 
+66: A description of the things that are out of scope for this PRD.
+67: 
+68: ## Further Notes
+69: 
+70: Any further notes about the feature.
+71: 
+72: </prd-template>
+
+### .agents/skills/README.md (63 total lines)
+1: # Agent Workflow Inventory
+2: 
+3: The shared `.agents/` tree now uses a **hybrid model**:
+4: 
+5: - **Common explicitly invoked workflows** live in `.agents/prompts/`
+6: - **Heavyweight specialized capabilities** remain real skills in `.agents/skills/`
+7: - **Support/reference material** for those workflows also lives in `.agents/skills/`
+8: 
+9: This keeps the portable source compatible across all three harnesses while
+10: preserving a distinction between lightweight commands-as-prompts and larger
+11: capability packages.
+12: 
+13: ## Shared harness wiring
+14: 
+15: - **pi prompts**: `.pi/prompts -> /workspace/.agents/prompts`
+16: - **shared commands view**: `.agents/commands -> prompts`
+17: - **Claude Code commands**: `.claude/commands -> /workspace/.agents/commands`
+18: - **OpenCode commands**: `.opencode/commands -> /workspace/.agents/commands`
+19: - **Claude/OpenCode/pi skills** continue to read from `.agents/skills/` via their skill discovery paths or symlinks
+20: 
+21: ## Real skills
+22: 
+23: These remain canonical skills because they are larger, specialized workflow
+24: packages rather than lightweight explicit prompts:
+25: 
+26: - `.agents/skills/planning/plan/SKILL.md` → `/skill:plan`
+27: - `.agents/skills/research/ideation/SKILL.md` → `/skill:ideation`
+28: - `.agents/skills/perf/perf-analysis/SKILL.md` → `/skill:perf-analysis`
+29: - `.agents/skills/dev/fix-test/SKILL.md` → `/skill:fix-test`
+30: 
+31: ## Prompt / command names
+32: 
+33: The filename in `.agents/prompts/` is the invoked prompt/command name.
+34: Examples:
+35: 
+36: - `.agents/prompts/git-status.md` → `/git-status`
+37: - `.agents/prompts/bugfix.md` → `/bugfix`
+38: - `.agents/prompts/fix-test.md` → `/fix-test`
+39: - `.agents/prompts/deep-audit.md` → `/deep-audit`
+40: - `.agents/prompts/write-a-prd.md` → `/write-a-prd`
+41: 
+42: ## Support docs in `.agents/skills/`
+43: 
+44: This directory also contains non-invoked reference material used by prompts or
+45: skills, such as:
+46: 
+47: - `.agents/skills/dev/tdd/*.md`
+48: - `.agents/skills/arch/improve-codebase-architecture/REFERENCE.md`
+49: 
+50: These files are not themselves invoked directly as prompts or standalone skills.
+51: 
+52: ## Important constraints
+53: 
+54: ### `.agents/prompts/`
+55: Keep this directory flat.
+56: 
+57: - pi prompt discovery is non-recursive
+58: - a root markdown file there becomes an invokable prompt/command
+59: - do not add `README.md` or nested documentation trees inside `.agents/prompts/`
+60: 
+61: ### `.agents/skills/`
+62: A real skill must live in its own directory with `SKILL.md`, and the skill
+63: frontmatter `name:` must match the immediate parent directory exactly.
+
+### .agents/skills/arch/improve-codebase-architecture/REFERENCE.md (78 total lines)
+1: # Reference
+2: 
+3: ## Dependency Categories
+4: 
+5: When assessing a candidate for deepening, classify its dependencies:
+6: 
+7: ### 1. In-process
+8: 
+9: Pure computation, in-memory state, no I/O. Always deepenable — just merge the modules and test directly.
+10: 
+11: ### 2. Local-substitutable
+12: 
+13: Dependencies that have local test stand-ins (e.g., PGLite for Postgres, in-memory filesystem). Deepenable if the test substitute exists. The deepened module is tested with the local stand-in running in the test suite.
+14: 
+15: ### 3. Remote but owned (Ports & Adapters)
+16: 
+17: Your own services across a network boundary (microservices, internal APIs). Define a port (interface) at the module boundary. The deep module owns the logic; the transport is injected. Tests use an in-memory adapter. Production uses the real HTTP/gRPC/queue adapter.
+18: 
+19: Recommendation shape: "Define a shared interface (port), implement an HTTP adapter for production and an in-memory adapter for testing, so the logic can be tested as one deep module even though it's deployed across a network boundary."
+20: 
+21: ### 4. True external (Mock)
+22: 
+23: Third-party services (Stripe, Twilio, etc.) you don't control. Mock at the boundary. The deepened module takes the external dependency as an injected port, and tests provide a mock implementation.
+24: 
+25: ## Testing Strategy
+26: 
+27: The core principle: **replace, don't layer.**
+28: 
+29: - Old unit tests on shallow modules are waste once boundary tests exist — delete them
+30: - Write new tests at the deepened module's interface boundary
+31: - Tests assert on observable outcomes through the public interface, not internal state
+32: - Tests should survive internal refactors — they describe behavior, not implementation
+33: 
+34: ## Issue Template
+35: 
+36: <issue-template>
+37: 
+38: ## Problem
+39: 
+40: Describe the architectural friction:
+41: 
+42: - Which modules are shallow and tightly coupled
+43: - What integration risk exists in the seams between them
+44: - Why this makes the codebase harder to navigate and maintain
+45: 
+46: ## Proposed Interface
+47: 
+48: The chosen interface design:
+49: 
+50: - Interface signature (types, methods, params)
+51: - Usage example showing how callers use it
+52: - What complexity it hides internally
+53: 
+54: ## Dependency Strategy
+55: 
+56: Which category applies and how dependencies are handled:
+57: 
+58: - **In-process**: merged directly
+59: - **Local-substitutable**: tested with [specific stand-in]
+60: - **Ports & adapters**: port definition, production adapter, test adapter
+61: - **Mock**: mock boundary for external services
+62: 
+63: ## Testing Strategy
+64: 
+65: - **New boundary tests to write**: describe the behaviors to verify at the interface
+66: - **Old tests to delete**: list the shallow module tests that become redundant
+67: - **Test environment needs**: any local stand-ins or adapters required
+68: 
+69: ## Implementation Recommendations
+70: 
+71: Durable architectural guidance that is NOT coupled to current file paths:
+72: 
+73: - What the module should own (responsibilities)
+74: - What it should hide (implementation details)
+75: - What it should expose (the interface contract)
+76: - How callers should migrate to the new interface
+77: 
+78: </issue-template>
+
+### .agents/skills/dev/fix-test/SKILL.md (286 total lines)
+1: ---
+2: name: fix-test
+3: description: Repair failing or stale tests safely by reproducing the failure, triaging whether the test still matches the intended contract, then fixing product code, tests, fixtures, or docs without regressing current behavior.
+4: argument-hint: "<test failure, suite, file, or cluster to fix>"
+5: ---
+6: 
+7: # Fix Test
+8: 
+9: You are a senior test-recovery engineer. Your job is to fix failing tests in a
+10: stale or drifting test suite **without accidentally regressing product code to
+11: old behavior**.
+12: 
+13: **Test failure / cluster:** $ARGUMENTS
+14: 
+15: This skill is inspired by `/bugfix`, but it is different in one crucial way:
+16: a failing test is not automatically proof that production code is wrong.
+17: 
+18: Every failing test or cluster must first be classified as one of:
+19: 
+20: - **Product regression** — production code no longer satisfies the current intended contract.
+21: - **Stale test contract** — the test asserts old behavior that intentionally changed.
+22: - **Test infrastructure issue** — failure comes from fixtures, mocks, global state, timing, environment, or harness setup.
+23: - **Unresolved contract decision** — both the test expectation and current behavior are plausible; a human/product decision is needed.
+24: 
+25: ---
+26: 
+27: ## CRITICAL: Execution Order
+28: 
+29: You MUST follow these phases in strict sequential order.
+30: 
+31: | # | Phase | Gate before moving on |
+32: |---|---|---|
+33: | 1 | **Reproduce current failure** | Exact failing command captured; failure observed or stale audit disproven |
+34: | 2 | **Contract triage** | Failure classified with evidence |
+35: | 3 | **Propose solution — USER REVIEW** | User approves the exact intended diff target before any file update |
+36: | 4 | **Apply minimal fix** | Only approved target changed |
+37: | 5 | **Verify narrow boundary** | Original failing command passes or classification is revised |
+38: | 6 | **Adjacent validation** | Closest related tests pass or remaining failures are classified separately |
+39: | 7 | **Contract note + summary** | Required contract note included; no auto-commit |
+40: 
+41: Never skip Phase 2. The contract triage gate is the entire point of this skill.
+42: 
+43: ---
+44: 
+45: ## Phase 1: Reproduce Current Failure
+46: 
+47: Start by running the narrowest command that reproduces the reported failure.
+48: 
+49: Examples:
+50: 
+51: ```bash
+52: python3 -m pytest examples/grants/tests/test_auth_flow.py::TestLoginFlow::test_login_with_correct_credentials_returns_token -v
+53: python3 -m pytest examples/grants/tests/test_boot.py examples/grants/tests/test_auth_flow.py -v
+54: cd tests/frontend && npx vitest run tests/transport/Socket.test.js
+55: cd tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/authentication.spec.js
+56: ```
+57: 
+58: ### Requirements
+59: 
+60: - Use the repo’s expected interpreter/environment when known, e.g. `/workspace/.venv/bin/python` if system Python lacks pytest.
+61: - Save the exact command. Reuse it throughout the fix.
+62: - Capture the failure text, assertion, status code, stack trace, or DOM/API mismatch.
+63: - If the reported failure no longer reproduces, stop and report that the audit is stale. Do not invent a fix.
+64: 
+65: ### If no exact command is provided
+66: 
+67: Infer the narrowest reasonable reproducer from the failure description. Prefer one file or one test case before broad suites.
+68: 
+69: ---
+70: 
+71: ## Phase 2: Mandatory Contract Triage
+72: 
+73: Before changing anything, answer:
+74: 
+75: ```text
+76: Failing test or cluster
+77:         |
+78:         v
+79: Does the test assert the current intended contract?
+80:         |
+81:         +-- Yes
+82:         |     -> product regression
+83:         |     -> fix code; preserve or strengthen the test
+84:         |
+85:         +-- No
+86:         |     -> stale test / contract drift
+87:         |     -> update test and docs; do not regress code to old behavior
+88:         |
+89:         +-- Unclear
+90:               -> inspect docs, neighboring code, app behavior, and history
+91:               -> record a contract decision before implementation
+92: ```
+93: 
+94: ### Classification rubric
+95: 
+96: | Classification | Meaning | Required action |
+97: |---|---|---|
+98: | Product regression | Code no longer satisfies the intended current contract | Fix production code; keep or strengthen the failing test |
+99: | Stale test contract | Test asserts old API/DOM/runtime behavior that intentionally changed | Update tests and relevant docs |
+100: | Test infrastructure issue | Fixtures, mocks, global state, timing, stale setup, or environment caused the failure | Fix harness/fixtures/mocks first |
+101: | Unresolved contract decision | Current behavior and test expectation are both plausible | Stop and get a decision before changing code/tests |
+102: 
+103: ### Evidence checklist
+104: 
+105: Collect enough evidence to justify the classification:
+106: 
+107: | Question | Signal | Likely action |
+108: |---|---|---|
+109: | Does current documentation describe the test expectation? | Test matches docs | Product regression more likely |
+110: | Does current documentation describe current implementation instead? | Test contradicts docs | Stale test more likely |
+111: | Does neighboring runtime/app code rely on current behavior? | Current behavior is integrated | Avoid reverting code blindly |
+112: | Does isolated rerun differ from full-suite failure? | Shared-state sensitivity | Test infrastructure issue |
+113: | Would satisfying the test reintroduce older architecture? | Architecture regression risk | Update test or add compatibility intentionally |
+114: | Is there no authoritative contract? | Ambiguous | Unresolved contract decision |
+115: 
+116: ### Read-only diagnosis rules
+117: 
+118: During triage, you may read code, docs, audits, and test files. Do not edit
+119: production code, test code, fixtures, or docs until Phase 3 approval.
+120: 
+121: Useful project-local references when present:
+122: 
+123: - `.project/plans/tests/contract-triage-p-1.md`
+124: - `.project/plans/tests/test-failure-triage-action-plan.md`
+125: - `.project/plans/tests/test-failure-triage-p0-p2-execution-plan.md`
+126: - `.project/plans/tests/full-test-failure-audit-2026-04-24.md`
+127: 
+128: ---
+129: 
+130: ## Phase 3: Decision Checkpoint — USER REVIEW

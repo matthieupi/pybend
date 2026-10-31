@@ -1,0 +1,463 @@
+
+### packages/n3tx-actors/README.md (235 total lines)
+131: | `NetworkAPI` | class | HTTP adapter (FastAPI routes to Matrix) |
+132: | `NetworkWebSocket` | class | WebSocket adapter (persistent connections, lifecycle broadcast) |
+133: | `NetworkMCP` | class | MCP JSON-RPC 2.0 adapter (AI agent tool discovery) |
+134: | `NetworkAP` | class | ActivityPub federation adapter (outbox, inbox, WebFinger) |
+135: | `auth_interceptor` | function | Tier 1 auth gate for NetworkAdapter.request() |
+136: | `create_api_routes()` | function | Generate FastAPI CRUD + custom method routes via actor TX |
+137: | `create_ws_routes()` | function | Generate FastAPI WebSocket endpoint |
+138: | `create_mcp_routes()` | function | Generate FastAPI MCP JSON-RPC endpoint |
+139: | `create_federation_routes()` | function | Generate FastAPI ActivityPub endpoints |
+140: 
+141: ### `TX`
+142: 
+143: ```python
+144: @dataclass
+145: class TX:
+146:     name: str; source: str; target: str
+147:     data: dict = {}; meta: dict = {}
+148:     timestamp: float = ...; uuid: str = ...
+149: 
+150:     def reply(self, data=None, name=None) -> TX: ...
+151:     def error(self, message: str, code: int = 500) -> TX: ...
+152:     def chunk(self, data, seq: int) -> TX: ...
+153:     def end(self, data=None, seq: int = 0) -> TX: ...
+154:     def exception(self, e: Exception) -> TX: ...
+155:     @property
+156:     def is_error(self) -> bool: ...
+157: ```
+158: 
+159: ### `Actor`
+160: 
+161: ```python
+162: class Actor(PydanticBaseModel, metaclass=ActorMeta):
+163:     addr: fullproperty       # class __addr__ or instance _addr
+164:     children: fullproperty   # class __children__ or instance _children
+165:     parent: fullproperty     # class __matrix__ or instance _parent
+166: 
+167:     async def inbox(target, tx: TX) -> None: ...   # fullmethod
+168:     async def handler(target, tx: TX) -> None: ...  # fullmethod
+169:     async def send(target, tx: TX) -> None: ...     # fullmethod
+170:     def register(target, child) -> Actor: ...        # fullmethod
+171:     def spawn(target, addr, actor_cls, ...) -> Actor: ...  # fullmethod
+172:     def has(target, addr: str) -> bool: ...          # fullmethod
+173:     def use(target, interceptor=None, *, on='inbox'): ...  # fullmethod
+174:     @classmethod
+175:     def root(cls, actor=None): ...  # get/set Matrix
+176: ```
+177: 
+178: ### `NetworkAdapter`
+179: 
+180: ```python
+181: class NetworkAdapter(Actor, auto_register=False):
+182:     async def inbox(self, tx: TX) -> None: ...          # correlation check + fallback
+183:     async def request(self, tx: TX, timeout=30.0) -> TX: ...  # send + await reply
+184:     async def stream(self, tx: TX, timeout=120.0): ...  # send + yield chunks
+185: ```
+186: 
+187: ## 💡 Patterns and Conventions
+188: 
+189: A few things that'll save you a headache:
+190: 
+191: 1. **Always initialize a Matrix before defining Actor subclasses.** `ActorMeta` auto-registers subclasses with the root Matrix. Without one, classes silently skip registration. The module-level `matrix` handles this for typical usage, but if you're creating an isolated tree, construct Matrix first.
+192: 
+193: 2. **Use `auto_register=False` for abstract or adapter classes.** Any class that shouldn't appear in the Matrix routing table needs `auto_register=False` in its class definition. All NetworkAdapter subclasses do this already.
+194: 
+195: 3. **Pydantic mock patching requires `object.__setattr__`.** Pydantic's `__setattr__`/`__delattr__` prevent normal mock patching on Actor instances. You'll want the `mock_method()` context manager pattern:
+196:    ```python
+197:    object.__setattr__(instance, 'inbox', mock_fn)
+198:    ```
+199: 
+200: 4. **Two-tier auth for Level 3 routing.** Tier 1 (`auth_interceptor` on `request`) gates at the protocol boundary -- fast reject, sql_filter computation. Tier 2 (`ActorModel._authorize` in `handler_crud`) checks resource-level OWNER rules after fetching the entity. Both tiers are required for correct authorization.
+201: 
+202: 5. **Error/response TX silently dropped by handler.** When `handler()` receives a TX with `is_error=True` or name ending in `_RESPONSE` and has no matching method, it drops silently instead of sending an error reply. This prevents infinite bounce loops between actors. It's intentional, not a bug.
+203: 
+204: ## 🏗️ Package Ecosystem
+205: 
+206: Here's how everything fits together:
+207: 
+208: ```
+209: n3tx-core          <-- n3tx-actors depends on this
+210:   (models, storage,     (actor system, network adapters,
+211:    schema, auth)         ActorModel bridge, interceptors)
+212:        |                       |
+213:        +-------+-------+------+
+214:                |
+215:           n3tx-agents   <-- depends on n3tx-actors
+216:           (AgentMixin, tool discovery, LLM integration)
+217: ```
+218: 
+219: n3tx-actors extends n3tx-core with messaging. It imports `ProtoModel`, `StorableMixin`, `fullmethod`/`fullproperty` descriptors, and `authorize` from n3tx-core. It does not depend on n3tx-agents.
+220: 
+221: ## 📚 Deep Dives
+222: 
+223: Want to go deeper? Each of these docs covers a specific area in detail:
+224: 
+225: | Topic | File | When to read |
+226: |-------|------|--------------|
+227: | Actor Messaging and Routing | [docs/actor-messaging.md](docs/actor-messaging.md) | Understanding message flow, routing rules, handler dispatch |
+228: | Interceptor Pattern | [docs/interceptors.md](docs/interceptors.md) | Adding middleware, auth gates, TX transformation |
+229: | Network Adapters | [docs/network-adapters.md](docs/network-adapters.md) | HTTP, WebSocket, MCP, ActivityPub protocol bridging |
+230: | ActorModel and Two-Tier Auth | [docs/actor-model.md](docs/actor-model.md) | CRUD handling, lifecycle events, authorization flow |
+231: | Release Notes | [RELEASE_NOTES.md](../../RELEASE_NOTES.md) | Breaking changes, migration notes, route grammar updates |
+232: 
+233: ---
+234: 
+235: Happy routing! Your models have a lot to say. 🎭
+
+### packages/n3tx-actors/docs/actor-messaging.md (172 total lines)
+1: # Actor Messaging and Routing
+2: 
+3: > Part of [n3tx-actors](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The Actor messaging lifecycle: how TX messages are created, dispatched through `inbox()`, handled by `handler()`, and routed via `send()`. Covers class-level vs instance-level dispatch, the `ActorMeta` metaclass, address resolution, and the routing algorithm at each level (instance, class, Matrix). Does not cover interceptors (see [interceptors.md](interceptors.md)) or network adapters (see [network-adapters.md](network-adapters.md)).
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: TX created (name, source, target, data, meta)
+13:     |
+14:     v
+15: actor.inbox(tx)
+16:     |-- run 'inbox' interceptors (if any)
+17:     |-- if error TX: send error back, skip handler
+18:     v
+19: actor.handler(tx)
+20:     |-- getattr(target, tx.name) -> method
+21:     |-- call method(data, tx) or method(tx.data, tx)
+22:     |-- wrap return: dict -> reply, TX -> send direct, scalar -> {result: val}
+23:     |-- exception -> tx.exception(e) -> error TX
+24:     v
+25: actor.send(reply_tx)
+26:     |-- run 'send' interceptors (if any)
+27:     |-- INSTANCE: route through parent chain
+28:     |-- CLASS: 3-case routing:
+29:     |     1. direct child match (seg_first in children)
+30:     |     2. strip own prefix, route to child (seg_first == addr)
+31:     |     3. prefix source, bubble to parent (Matrix)
+32:     v
+33: Matrix.inbox(tx)
+34:     |-- self-send prevention (target == 'matrix' -> blocked)
+35:     |-- local child match -> child.inbox(tx)
+36:     |-- no local match -> try adapters -> _route_error()
+37: ```
+38: 
+39: ## Interface
+40: 
+41: ### TX Construction
+42: 
+43: ```python
+44: TX(name='create', source='api', target='products', data={'name': 'W'}, meta={'user': {...}})
+45: ```
+46: 
+47: Required: `name`, `source`, `target`. Optional: `data` (default `{}`), `meta` (default `{}`). Auto-generated: `timestamp` (float), `uuid` (12-char hex).
+48: 
+49: ### TX Methods
+50: 
+51: | Method | Returns | Behavior |
+52: |--------|---------|----------|
+53: | `reply(data, name)` | TX | Swaps source/target, new uuid, stores original in `meta['req']`, default name=`{name}_RESPONSE` |
+54: | `error(msg, code)` | TX | name=`ERROR`, `meta['error']=True`, data=`{message, code}` |
+55: | `chunk(data, seq)` | TX | name=`STREAM`, `meta['stream']=True`, correlates via `meta['req']` |
+56: | `end(data, seq)` | TX | name=`STREAM`, `meta['stream_end']=True` |
+57: | `exception(e)` | TX | Maps exception type to semantic HTTP code (ValidationError->422, ValueError->400, etc.) |
+58: 
+59: ### Handler Return Wrapping
+60: 
+61: | Return type | Wrapped as |
+62: |-------------|------------|
+63: | `TX` | Sent directly (no wrapping) |
+64: | `dict` | `tx.reply(data=result)` |
+65: | Scalar (int, str, etc.) | `tx.reply(data={'result': value})` |
+66: | `None` | `tx.reply()` (empty data) |
+67: | Exception raised | `tx.exception(e)` (error TX) |
+68: 
+69: Unhandled messages (no matching method) produce `tx.error("Unhandled message: {name}")`. Exception: error TXs and `*_RESPONSE` TXs with no handler are silently dropped to prevent infinite bounce loops.
+70: 
+71: `ERROR` remains a normal routable message when the target actor explicitly
+72: implements an `ERROR(data, tx)` handler. That lets fire-and-forget messages
+73: still bubble failures back to their issuer. `ERROR` handlers are catch blocks:
+74: they may update local state, but returned values are ignored. If an `ERROR`
+75: handler itself raises, the framework logs and drops that failure instead of
+76: synthesizing another `ERROR` in response to an `ERROR`.
+77: 
+78: `ERROR_RESPONSE` is not part of the actor protocol. It can only arise as an
+79: accidental generic `*_RESPONSE` wrapper around an `ERROR` handler return value,
+80: so actor `send()` drops it before routing.
+81: 
+82: ### Address Resolution
+83: 
+84: `ActorMeta.__new__` sets `__addr__` on each subclass:
+85: 1. Explicit `__addr__` in namespace -- used as-is
+86: 2. `__tablename__` attribute -- used if present
+87: 3. Class `__name__` -- fallback
+88: 
+89: Instance `_addr` resolution follows this order:
+90: 1. explicit `addr=` kwarg
+91: 2. `f"{__addr__}/{id}"` when the instance has a truthy persisted `id`
+92: 3. class `__addr__`
+93: 
+94: This means hydrated `ActorModel` records such as `Product.get(1)` identify
+95: themselves as `products/1`, while unsaved instances still default to the
+96: class namespace `products`.
+97: 
+98: ### Class-Level Send Routing (3 cases)
+99: 
+100: ```python
+101: segments = tx.target.split('/')
+102: # Case 1: segments[0] in children -> children[segments[0]].inbox(tx)
+103: # Case 2: segments[0] == own addr and segments[1] in children -> strip prefix, route
+104: # Case 3: no match -> prefix source with own addr, bubble to parent (Matrix)
+105: ```
+106: 
+107: ## Usage Patterns
+108: 
+109: ### Class actor with classmethod handler
+110: 
+111: ```python
+112: class Product(Actor):
+113:     __tablename__ = 'products'
+114: 
+115:     @classmethod
+116:     def SCHEMA(cls, data, tx):
+117:         return {'schema': cls.addr}
+118: 
+119: # Product auto-registers with matrix at addr='products'
+120: await matrix.inbox(TX(name='SCHEMA', source='client', target='products'))
+121: ```
+122: 
+123: ### Instance actor with instance method handler
+124: 
+125: ```python
+126: worker = Actor(addr='worker')
+127: matrix.register(worker)
+128: 
+129: class TaskWorker(Actor, auto_register=False):
+130:     def PROCESS(self, data, tx):
+
+### packages/n3tx-actors/docs/actor-messaging.md (172 total lines)
+131:         return {'result': data['input'] * 2}
+132: 
+133: w = TaskWorker(addr='task-1')
+134: matrix.register(w)
+135: ```
+136: 
+137: ### ActorProxy for non-Actor classes
+138: 
+139: ```python
+140: class LegacyService:
+141:     def HEALTH(self, data, tx):
+142:         return {'status': 'ok'}
+143: 
+144: proxy = ActorProxy(LegacyService(), addr='health')
+145: matrix.register(proxy)
+146: # matrix routes TX(target='health') to proxy.inbox() -> proxy.handler() -> LegacyService.HEALTH()
+147: ```
+148: 
+149: ### Local HTTP aliases
+150: 
+151: Actor-routed applications can register another HTTP origin for the same local
+152: service after creation:
+153: 
+154: ```python
+155: app = create_app(models=[Task], routing='actor')
+156: app.add_alias('http://app:7000')
+157: ```
+158: 
+159: The canonical API URL remains authoritative for generated schema and entity
+160: identities. An alias only changes Matrix dispatch: a target such as
+161: `http://app:7000/Task/1` is translated to the registered local actor address
+162: (`tasks/1`) before network adapters are considered. Origins that were not
+163: registered continue through the normal adapter selection path.
+164: 
+165: ## Gotchas
+166: 
+167: - **Auto-registration happens at class definition time**, not instantiation. If no Matrix exists when the class is defined, the class is not registered. The module-level `matrix` created at `n3tx_actors.matrix` import handles this for typical usage.
+168: - **`fullmethod` descriptors must be declared in the class body**, not assigned dynamically. Pydantic's `model_config = ConfigDict(ignored_types=(fullmethod, fullproperty))` prevents them from being treated as model fields.
+169: - **Actor extends `PydanticBaseModel`**, so instances have Pydantic's `__setattr__` protection. Use `object.__setattr__()` to monkey-patch methods in tests. See `mock_method()` context manager in `tests/conftest.py`.
+170: - **`spawn()` raises `ValueError` if the addr already exists** in the parent's children dict. Check with `has()` first if unsure.
+171: - **Matrix blocks self-send** (target == own addr) silently with a log error. This prevents routing loops.
+172: - **Instance `_parent` defaults to `self.__class__`**, mirroring the JS pattern. This means unregistered instances bubble messages to their class, which then routes to Matrix.
+
+### packages/n3tx-actors/docs/actor-model.md (176 total lines)
+1: # ActorModel and Two-Tier Auth
+2: 
+3: > Part of [n3tx-actors](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The `ActorModel` bridge class that makes models into actors: CRUD message handling via `handler_crud()`, custom method dispatch with `@expose_route`, streaming async generators, lifecycle event publishing, and the two-tier authorization flow. Does not cover the base Actor messaging system (see [actor-messaging.md](actor-messaging.md)).
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: TX arrives at ActorModel.handler(target, tx)
+13:     |
+14:     v
+15: handler_crud(tx)  -- checks if tx.name in {schema, create, get, list, update, delete}
+16:     |
+17:     +-- CRUD match: adapt TX to StorableMixin calls
+18:     |     schema  -> cls.schema()
+19:     |     create  -> Tier 2 auth -> cls(**data) -> cls.create(instance)
+20:     |     get     -> cls.get(id) -> Tier 2 auth (with resource) -> model_response()
+21:     |     list    -> cls.list(sql_filter=meta['sql_filter']) -> serialize
+22:     |     update  -> cls.get(id) -> Tier 2 auth -> cls.update(id, data)
+23:     |     delete  -> cls.get(id) -> Tier 2 auth -> cls.delete(id)
+24:     |     lifecycle events published after create/delete; update lifecycle is
+25:     |     centralized in the storage update primitive so direct actor updates
+26:     |     and TX-routed updates behave consistently
+27:     |
+28:     +-- NOT_HANDLED: fall through to generic dispatch
+29:           getattr(target, tx.name) -> method
+30:           |
+31:           +-- has __endpoint__ (@expose_route):
+32:           |     resolve 'self' from data['id'] if instance method
+33:           |     Tier 2 auth check on method-level access
+34:           |       - instance methods: AccessContext(resource=instance)
+35:           |       - class/static methods: AccessContext(resource=None)
+36:           |     inject 'user' from tx.meta if declared
+37:           |     call method(**kwargs)
+38:           |     if async generator -> stream chunks via tx.chunk()/tx.end()
+39:           |
+40:           +-- no __endpoint__: original (data, tx) signature
+41: ```
+42: 
+43: ### Two-Tier Authorization
+44: 
+45: ```
+46: Tier 1: auth_interceptor on NetworkAdapter.request()
+47:     - Runs BEFORE TX enters actor system
+48:     - schema: always pass
+49:     - list: compute sql_filter (WHERE clause for OWNER rules)
+50:     - create: full rule check (no resource needed)
+51:     - read/update/delete: identity gate (has user_id?)
+52:     - custom methods: boundary precheck for @expose_route access= param
+53:       (instance methods defer final resource-aware decisions to Tier 2)
+54: 
+55: Tier 2: ActorModel._authorize() inside handler_crud()
+56:     - Runs AFTER resource instance is fetched from storage
+57:     - Evaluates __access__ rules WITH resource context
+58:     - Enables OWNER checks (user_owner == current user)
+59:     - Internal messages (no meta.user) pass unchecked
+60: 
+61: Tier 2: ActorModel.handler() for @expose_route custom methods
+62:     - Instance methods load data['id'] before final method access evaluation
+63:     - Evaluates method access with AccessContext(resource=instance)
+64:     - Prevents OWNER / Where rules from passing with resource=None
+65:     - Internal messages (no meta.user) preserve the actor-to-actor bypass
+66: ```
+67: 
+68: Both tiers are required for correct authorization. Tier 1 is fast rejection at the boundary. Tier 2 handles resource-dependent rules that Tier 1 cannot evaluate.
+69: 
+70: ## Interface
+71: 
+72: ### ActorModel
+73: 
+74: ```python
+75: class ActorModel(Actor, ProtoModel):
+76:     # MRO: YourModel -> ActorModel -> Actor -> ProtoModel -> PydanticBaseModel
+77: 
+78:     @fullmethod
+79:     async def handler(target, tx: TX) -> None: ...  # CRUD adapter + generic fallback
+80: 
+81:     @classmethod
+82:     def handler_crud(cls, tx: TX): ...  # returns result or _NOT_HANDLED sentinel
+83: 
+84:     @classmethod
+85:     def _authorize(cls, action, tx, resource=None): ...  # Tier 2 auth guard
+86: 
+87:     @classmethod
+88:     def _publish_lifecycle(cls, event, data): ...  # fire-and-forget to subscribers
+89: ```
+90: 
+91: ### handler_crud TX-to-StorableMixin mapping
+92: 
+93: | TX name | StorableMixin call | Auth |
+94: |---------|--------------------|------|
+95: | `schema` | `cls.schema()` | None |
+96: | `create` | `cls.create(cls(**data))` | Tier 2 create |
+97: | `get` | `cls.get(id)` | Tier 2 read (with resource) |
+98: | `list` | `cls.list(sql_filter=...)` | Tier 1 sql_filter |
+99: | `update` | `cls.update(id, data)` | Tier 2 update (with resource) |
+100: | `delete` | `cls.delete(id)` | Tier 2 delete (with resource) |
+101: 
+102: `update` lifecycle publication is centralized in `StorableMixin.update()` for
+103: actor models. This means all mutation paths publish the same `after_update`
+104: event exactly once:
+105: 
+106: ```python
+107: Product.update(1, {'name': 'new'})   # class-level storage API
+108: product.update({'name': 'new'})      # instance actor-friendly API
+109: product.update(1, {'name': 'new'})   # explicit-id compatibility
+110: ```
+111: 
+112: ### Lifecycle Events
+113: 
+114: After successful create/update/delete, `_publish_lifecycle(event, data)` fires TX to subscriber addresses:
+115: 
+116: ```python
+117: TX(name='LIFECYCLE', source=cls.__addr__, target=subscriber_addr,
+118:    data={'event': 'after_create', 'entity': result.model_response()})
+119: ```
+120: 
+121: Subscribers are future consumers (federation, agents, audit, WebSocket broadcast). Registered via `cls._subscribers.append('ws')`.
+122: 
+123: `after_update` is emitted by the shared update primitive rather than only by the
+124: TX CRUD adapter, so internal actor methods can call `self.update(patch)` and get
+125: the same lifecycle behavior as external `update` messages.
+126: 
+127: ## Usage Patterns
+128: 
+129: ### Basic ActorModel
+130: 
+
+### packages/n3tx-actors/docs/actor-model.md (176 total lines)
+131: ```python
+132: from n3tx_actors.models.actor_model import ActorModel
+133: from pydantic import Field
+134: 
+135: class Product(ActorModel):
+136:     __tablename__ = 'products'
+137:     __storable__ = True
+138:     __access__ = {'read': ANYONE, 'create': AUTHENTICATED, 'update': OWNER, 'delete': ROLE('admin')}
+139:     name: str = Field(min_length=1)
+140:     price: float = Field(gt=0)
+141: ```
+142: 
+143: One import change from `ProtoModel`. CRUD messages handled automatically. Auto-registered with Matrix at `addr='products'`.
+144: 
+145: ### Streaming custom method
+146: 
+147: ```python
+148: @expose_route('/generate', methods=['POST'], stream=True, access=AUTHENTICATED)
+149: async def generate(self):
+150:     for i in range(5):
+151:         await asyncio.sleep(0.1)
+152:         yield {'chunk': f'Part {i}'}
+153: ```
+154: 
+155: The handler detects async generators, sends `tx.chunk()` for each yielded value, then `tx.end()` when the generator completes.
+156: 
+157: ### Lifecycle subscriber wiring
+158: 
+159: ```python
+160: ws = NetworkWebSocket()
+161: matrix.register(ws)
+162: Product._subscribers.append('ws')  # lifecycle events broadcast to WS clients
+163: ```
+164: 
+165: ## Gotchas
+166: 
+167: - **`handler_crud` is a `@classmethod`, not a `@fullmethod`.** It always operates on the class, even when the handler is invoked on an instance. CRUD operations are always class-level (create, get, list, etc.).
+168: - **`update` lifecycle is centralized.** `ActorModel` subclasses publish
+169:   `after_update` from `StorableMixin.update()`, not from `handler_crud()`.
+170:   Direct `Product.update(id, patch)`, `product.update(patch)`, and TX-routed
+171:   updates therefore emit one lifecycle event consistently.
+172: - **`_NOT_HANDLED` sentinel distinguishes "not CRUD" from "CRUD returned None".** The handler checks `result is not _NOT_HANDLED`, not truthiness. Do not return `None` from custom code paths that should indicate "not handled".
+173: - **Custom `@expose_route` methods on ActorModel use kwargs dispatch**, not `(data, tx)`. The handler unpacks `tx.data` as keyword arguments, resolves `self` from `data['id']`, evaluates method-level access with `resource=self` for instance methods, and injects `user` from `tx.meta`. This differs from plain Actor handler methods which receive `(data, tx)`.
+174: - **Streaming error handling**: if an async generator raises mid-stream, the handler catches the exception and sends `tx.exception(e)`. The client receives the error as a stream event, not a clean stream-end.
+175: - **`_authorize` returns `None` for internal messages** (no `tx.meta['user']`). This means actor-to-actor messages bypass auth. If you route external input without setting `meta.user`, it will pass Tier 2 unchecked.
+176: - **Lifecycle `_publish_lifecycle` uses `asyncio.create_task`** -- fire-and-forget. Failures in subscriber delivery are not propagated back to the CRUD operation.

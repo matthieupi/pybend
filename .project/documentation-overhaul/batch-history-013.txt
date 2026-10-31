@@ -1,0 +1,375 @@
+
+### .project/reports/vision/11-02-cli-tui-whitepaper.md (456 total lines)
+1: # CLI & TUI Applied: A Technical Whitepaper
+2: 
+3: > *How principles from CLI/TUI can reshape our architecture -- and where they cannot.*
+4: > *Companion to the [propositions document](12-01-cli-tui-propositions.md).*
+5: 
+6: ---
+7: 
+8: ## Abstract
+9: 
+10: N3TX is a schema-driven framework where a Python model definition is the single source of truth for the entire stack: API, validation, storage, UI, permissions. The web frontend already proves this -- `form.js` reads JSON Schema and renders forms without knowing the model's implementation. This whitepaper examines what happens when we extend that schema contract to the terminal.
+454: 31. `/workspace/src/n3tx/static/core/Actor.js` -- Actor model, subclass(), register()
+455: 32. `/workspace/src/n3tx/core/utils/decorators.py` -- @expose_route()
+456: 33. `/workspace/src/n3tx/__init__.py` -- Public API, __version__
+
+### .project/reports/vision/AI-agents-summary.md (217 total lines)
+1: # N3TX as Schema-Driven AI Agent Orchestration: Executive Summary
+2: 
+3: > *Standalone summary. Full analysis: [../research/ai-agents/ai-agents-analysis.md](../research/ai-agents/ai-agents-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: **Should N3TX evolve into a schema-driven AI agent orchestration platform, and if so, how?**
+10: 
+215: ---
+216: 
+217: *Summary prepared February 2026. Based on analysis of 5 research documents, 7 codebase source files, and 50+ external sources. Full analysis available in [ai-agents-analysis.md](../research/ai-agents/ai-agents-analysis.md).*
+
+### .project/reports/vision/CDN-agents-propositions.md (343 total lines)
+1: # CDN Capabilities x N3TX Agents: Technical Propositions
+2: 
+3: > *How CDN and edge computing principles can make N3TX agents cheaper, faster, and globally distributable.*
+4: > *Based on research in `.traces/research/CDN-agents/` and codebase analysis of the actor, agent, and schema pipeline systems.*
+5: 
+6: ---
+7: 
+8: ## The Bridge
+9: 
+10: N3TX was built around a single conviction: **the model is the app**. Define a Python class, get a schema, an API, a UI, and an agent. That philosophy created something most frameworks lack -- a **self-describing contract** (JSON Schema) that travels with every response and governs every interaction. CDN architectures solve a different problem -- distributing content and computation across geographic edge nodes -- but they share an identical core requirement: **metadata that governs caching, routing, and validation decisions at the boundary**.
+341: - **P6 (AI Gateway):** Full visibility into LLM usage. ~18% cost savings from exact-match caching. Validation: compare LLM spend before/after with gateway dashboard.
+342: 
+343: **Decision gate for Phase 2:** If LLM spend exceeds $500/month AND query analysis shows >30% repetition, proceed to P4 (Semantic Cache) + P5 (NetworkEdge). Measure cache hit rates in staging before deploying to production.
+
+### .project/reports/vision/CDN-agents-summary.md (208 total lines)
+1: # :clipboard: Integrating a CDN Capability to N3TX Agents: Executive Summary
+2: 
+3: > *This is a standalone summary of the full strategic analysis report.*
+4: > *For the complete analysis with technical details, case studies, and*
+5: > *appendices, see [05-CDN-agents-analysis.md](../research/CDN-agents/05-CDN-agents-analysis.md).*
+6: >
+7: > *See also: [CDN-agents-propositions.md](CDN-agents-propositions.md) | [CDN-agents-whitepaper.md](CDN-agents-whitepaper.md)*
+8: 
+9: ---
+10: 
+206: ---
+207: 
+208: > :bulb: **The bottom line:** Phase 1 is worth doing today. It requires minimal effort, costs near-zero, provides immediate benefits, and -- critically -- generates the observability data to make intelligent decisions about Phase 2 and beyond. N3TX has a unique architectural advantage: schemas that carry enough metadata for edge nodes to make caching, routing, and validation decisions autonomously. No other agent framework has this. The worst outcome is not doing the wrong thing at the edge. It is doing nothing while LLM costs grow and competitors discover what schema-driven edge intelligence can do.
+
+### .project/reports/vision/CDN-agents-whitepaper.md (401 total lines)
+1: # CDN Capabilities Applied to N3TX Agents: A Technical Whitepaper
+2: 
+3: > *How principles from CDN architecture and edge computing can reshape N3TX's agent cost structure and global performance -- and where they cannot.*
+4: > *Companion to the [propositions document](CDN-agents-propositions.md).*
+5: 
+6: ---
+7: 
+8: ## Abstract
+9: 
+10: N3TX agents are the framework's most expensive and latency-sensitive operation. A single `agentic()` call triggers multiple LLM API requests costing $0.01-1.00, takes 2-30 seconds, and produces results that are frequently similar to prior queries. CDN and edge computing principles -- caching, distribution, boundary classification -- can reduce these costs by 50-65% without changing how agents reason. N3TX is uniquely positioned for this integration because its schema-driven architecture already provides the metadata CDN systems need: access rules that determine cacheability, self-describing responses with `$schema` and `$id`, and a lifecycle event system that enables invalidation. This whitepaper argues for a three-phase approach: (1) cache headers and AI gateway integration as immediate wins, (2) semantic caching in `AgentMixin.run()` as a medium-term investment, and (3) a `NetworkEdge` adapter for event-driven invalidation. The core principle: move *decisions about inference* to the boundary, not inference itself.
+399: - Cloudflare AI Gateway -- Caching, rate limiting, observability for 20+ LLM providers
+400: - Cloudflare Agents SDK -- Durable Objects, stateful edge agents, MCP support
+401: - Helicone -- 18% exact-match cache hit rate in production
+
+### .project/reports/vision/CLI-TUI-propositions.md (499 total lines)
+1: # CLI & TUI x N3TX: Technical Propositions
+2: 
+3: > *How CLI/TUI principles can improve our architecture.*
+4: > *Based on research in .traces/research/cli-tui/ and codebase analysis.*
+5: > *Companion to the [whitepaper](12-02-cli-tui-whitepaper.md).*
+6: 
+7: ---
+8: 
+9: ## The Bridge
+10: 
+497: 3. **P3 (inspect command, 8-12 hours):** This is the *signature* command -- the one that makes a developer say "wow, this framework understands itself." No other framework CLI can show you a model's fields, validation constraints, access rules, routes, methods, and UI configuration in one command. It is the CLI manifestation of N3TX's "the model is the app" philosophy.
+498: 
+499: Total: **18-32 hours of work** to deliver a CLI that matches Django's `manage.py` functionality and surpasses it with schema-aware inspection. This is achievable in a single focused week and immediately improves the developer experience for every N3TX user.
+
+### .project/reports/vision/CLI-TUI-summary.md (117 total lines)
+1: # CLI and TUI for N3TX: Executive Summary
+2: 
+3: > *This is a standalone summary of the full strategic analysis report.*
+4: > *For the complete analysis, see [cli-tui-analysis.md](../research/cli-tui/cli-tui-analysis.md).*
+5: > *See also: [propositions](12-01-cli-tui-propositions.md) | [whitepaper](12-02-cli-tui-whitepaper.md)*
+6: 
+7: ---
+8: 
+9: ## The Question
+10: 
+115: ---
+116: 
+117: *Analysis based on 5 research documents comprising ~4,500 lines of technical research with 80+ cited sources, cross-referenced against N3TX v0.7.0 codebase architecture. All statistics reflect data available as of February 2026.*
+
+### .project/reports/vision/CLI-TUI-whitepaper.md (456 total lines)
+1: # CLI & TUI Applied: A Technical Whitepaper
+2: 
+3: > *How principles from CLI/TUI can reshape our architecture -- and where they cannot.*
+4: > *Companion to the [propositions document](12-01-cli-tui-propositions.md).*
+5: 
+6: ---
+7: 
+8: ## Abstract
+9: 
+10: N3TX is a schema-driven framework where a Python model definition is the single source of truth for the entire stack: API, validation, storage, UI, permissions. The web frontend already proves this -- `form.js` reads JSON Schema and renders forms without knowing the model's implementation. This whitepaper examines what happens when we extend that schema contract to the terminal.
+454: 31. `/workspace/src/n3tx/static/core/Actor.js` -- Actor model, subclass(), register()
+455: 32. `/workspace/src/n3tx/core/utils/decorators.py` -- @expose_route()
+456: 33. `/workspace/src/n3tx/__init__.py` -- Public API, __version__
+
+### .project/reports/vision/Category-theory-propositions.md (319 total lines)
+1: # Category Theory x Our System: Technical Propositions
+2: 
+3: > *How categorical abstractions can improve our architecture.*
+4: > *Based on research in `.traces/research/category-theory/` and codebase analysis.*
+5: 
+6: ---
+7: 
+8: ## The Bridge
+9: 
+10: N3TX's core promise -- "the model is the app" -- is a categorical claim. It asserts the existence of a structure-preserving transformation (a functor) from the category of Python model definitions to the category of working full-stack applications. Every field, every constraint, every access rule, every method signature must survive the journey from `ProtoModel` subclass through JSON Schema, across the network, into a JavaScript DynamicClass, and finally into rendered HTML -- without losing information, without gaining phantom state, and without contradicting itself at any layer.
+317: **Then proceed to Proposition 1 (2-3 days).** The `model_dump()` decomposition is a small, well-scoped refactor that makes the principle visible: separate concerns, name the morphisms, test them independently. It touches only `proto_model.py` and 6 call sites in the route/storage layer.
+318: 
+319: **Validation approach:** Before and after each change, run snapshot tests comparing the output of `schema()`, `model_dump()`, and `model_dump(response=True)` for every model in the example app. The output must be byte-identical (or semantically equivalent where key ordering differs). If a snapshot changes unexpectedly, the refactor has introduced a regression. This is the functor law test in practice: the same input must produce the same output, regardless of how the internals are structured.
+
+### .project/reports/vision/Category-theory-summary.md (220 total lines)
+1: # Category Theory & N3TX: Executive Summary
+2: 
+3: > *Standalone summary. For the full analysis, see [category-theory-analysis.md](../research/category-theory/category-theory-analysis.md).*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: **How does N3TX relate to category theory? Where are our abstractions impure, and what can we improve?**
+10: 
+218: ---
+219: 
+220: *Summary based on 5 research documents (5,491 lines), 30+ external sources, and audit of 7 key framework files. Full analysis: [category-theory-analysis.md](../research/category-theory/category-theory-analysis.md). N3TX at commit `7550aeb`, February 2026.*
+
+### .project/reports/vision/Category-theory-whitepaper.md (431 total lines)
+1: # Category Theory Applied: A Technical Whitepaper
+2: 
+3: > *How categorical principles can reshape our architecture -- and where they can't.*
+4: > *Companion to the [propositions document](category-theory-propositions.md).*
+5: 
+6: ---
+7: 
+8: ## Abstract
+9: 
+10: N3TX's architecture -- where a Python model definition generates an API, schema, storage, access control, and a runtime frontend -- is a composition of functors in disguise. This paper argues that recognizing and formalizing these implicit categorical structures is the highest-leverage improvement available to the framework, not because category theory is fashionable, but because it provides the exact vocabulary and laws needed to detect, prevent, and diagnose the hardest class of bugs in a schema-driven system: silent failures at layer boundaries. We trace the full-stack pipeline from `ProtoModel` through JSON Schema to `DynamicClass` to rendered HTML, mapping each transformation to its categorical structure. We identify eight specific points where the pipeline's algebraic laws break, correlate three of those with documented bug classes (including the "200-OK error" case study), and propose a phased remediation that costs 12-19 engineering days and eliminates an entire category of silent-failure bugs. We also draw clear boundaries: where categorical formalism helps (composable pipelines, algebraic rule systems, round-trip contracts) and where it hurts (dynamic typing, actor state, simple CRUD). The conclusion is pragmatic: use the structure, not the vocabulary. Fix the laws, not the names.
+429: The path forward is conservative: test the laws we already obey, fix the three impurities that cause real bugs, decompose the monoliths into composable pipelines. The total investment is 12-19 engineering days for Phases 0-1. The return is the elimination of an entire bug category (silent layer-boundary failures), a 40-60% reduction in integration test surface area (functor law tests replace many scenario tests), and a schema pipeline that any developer can extend by adding one function to a list.
+430: 
+431: Category theory did not design this architecture. Good engineering intuition did. But category theory provides the vocabulary to name what we built, the laws to test whether it is consistent, and the diagnostics to find where it leaks. The value is not in the abstraction. It is in the confidence that when a developer changes a model, the change propagates faithfully through every layer -- because we tested the laws that guarantee it.
+
+### .project/reports/vision/Decentralized-protocols-propositions.md (451 total lines)
+1: # 🔧 Decentralized Protocols × Our System: Technical Propositions
+2: 
+3: > *How decentralized protocol principles can improve our architecture.*
+4: > *Based on research in `.traces/research/decentralized-protocols/` and codebase analysis.*
+5: 
+6: ---
+7: 
+8: ## 🎯 The Bridge
+9: 
+10: N3TX and decentralized protocols are solving the same problem from opposite ends. N3TX says: "Define a model once, derive the entire stack." Decentralized protocols say: "Carry a schema everywhere, and any node can participate." Both are schema-driven, self-describing, and derive behavior from data definitions. The difference is scope: N3TX operates within a single deployment; decentralized protocols operate across trust boundaries.
+449: **Validation approach:** Deploy a N3TX instance with WebFinger enabled. Search for a N3TX user from a Mastodon instance. If the discovery resolves correctly, the interoperability path is validated. Measure: can a Mastodon user find a N3TX user without knowing the URL structure?
+450: 
+451: Total investment: **~1 week**. Total risk: **near zero** (all changes are additive). Signal strength: **high** (real interoperability test with real Fediverse servers).
+
+### .project/reports/vision/Decentralized-protocols-summary.md (215 total lines)
+1: # 📋 Decentralized Protocols for N3TX: Executive Summary
+2: 
+3: > *Full analysis: [decentralized-protocols-analysis.md](../research/decentralized-protocols/decentralized-protocols-analysis.md)*
+4: 
+5: ---
+6: 
+7: **For:** CEO & Engineering Team
+8: **Date:** February 2026
+9: **Read time:** 10 minutes
+10: 
+213: ---
+214: 
+215: *This summary synthesizes five research documents (4,700+ lines) into actionable findings. For technical depth, protocol comparisons, implementation code, and the full risk register, see the [complete analysis](../research/decentralized-protocols/decentralized-protocols-analysis.md).*
+
+### .project/reports/vision/Decentralized-protocols-whitepaper.md (306 total lines)
+1: # The Self-Describing Stack: How Decentralized Protocol Principles Can Transform Schema-Driven Architecture
+2: 
+3: > *A whitepaper on importing the right ideas from the federated web into a centralized framework -- without importing the complexity.*
+4: 
+5: ---
+6: 
+7: ## Abstract
+8: 
+9: Schema-driven frameworks and decentralized protocols are converging on the same architectural insight: when data describes itself completely -- its type, its identity, its access rules, its relationships -- systems that consume it can adapt at runtime instead of being configured at build time. N3TX's model-driven architecture, where a Python class definition generates a full-stack application, shares deep structural DNA with the protocols powering the federated web. ActivityPub's self-describing JSON-LD objects, AT Protocol's content-addressed repositories, and Nostr's cryptographically signed events all embody the same principle that N3TX applies locally: derive behavior from data definitions. This whitepaper examines which principles from decentralized systems strengthen a centralized framework, where the two worlds naturally meet, and where forcing convergence would do more harm than good. The argument is not that N3TX should become a federation framework. It is that the ideas that make federation possible -- portable identity, content integrity, composable trust, and event-driven mutation -- are independently valuable, and our architecture is uniquely positioned to absorb them.
+10: 
+304: ---
+305: 
+306: *This whitepaper was produced as part of a research series on decentralized protocols and their relevance to N3TX's schema-driven architecture. It reflects information available as of February 2026. Standards, market data, and protocol specifications are evolving rapidly. Key review dates: May 2026 (DMA social network interoperability review), November 2026 (eIDAS wallet deadline), Q3 2026 (W3C spec updates).*
+
+### .project/reports/vision/HTML-compiler-summary.md (236 total lines)
+1: # HTML Compiler for N3TX: Executive Summary
+2: 
+3: > *Standalone summary. Full analysis: [../research/html-compiler/html-compiler-analysis.md](../research/html-compiler/06-html-compiler-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: **Should N3TX build a system that pre-compiles JSON Schema definitions into static HTML, eliminating the runtime overhead of constructing UI from schema on every page load?**
+10: 
+234: ---
+235: 
+236: *Summary prepared February 2026. Based on analysis of 4 research documents, 70+ external sources, and direct codebase review. Full analysis available in [html-compiler-analysis.md](../research/html-compiler/06-html-compiler-analysis.md).*
+
+### .project/reports/vision/Microservices-summary.md (248 total lines)
+1: # N3TX as a Microservice Backbone: Executive Summary
+2: 
+3: > *Standalone summary for leadership. Full analysis: [microservices-analysis.md](../research/microservices/microservices-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: Should N3TX evolve toward a microservice architecture? If so, when, and at what cost?
+10: 
+246: ---
+247: 
+248: *This executive summary distills a 900+ line strategic analysis. For detailed cost breakdowns, code-level evidence, risk matrices, and the full decision framework, see the [complete report](../research/microservices/microservices-analysis.md).*
+
+### .project/reports/vision/Polymorphic-system-summary.md (207 total lines)
+1: # Polymorphic Systems for N3TX: Executive Summary
+2: 
+3: > *Standalone summary. Full analysis: [polymorphic-system-analysis.md](../research/polymorphic-system/polymorphic-system-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: **Should N3TX add first-class support for polymorphic data models -- where multiple specialized types (Article, Video, Podcast) share a common base (Content) with automatic storage discrimination, schema union generation, and type-aware rendering?**
+10: 
+205: ---
+206: 
+207: *Summary based on analysis of 5 research documents, 25+ primary sources, and direct codebase audit of 8 key framework files. Full analysis: [polymorphic-system-analysis.md](../research/polymorphic-system/polymorphic-system-analysis.md)*
+
+### .project/reports/vision/RX-as-TX-responses-propositions.md (394 total lines)
+1: # :wrench: Reactive TX Responses x N3TX: Technical Propositions
+2: 
+3: > *How reactive observable patterns can extend N3TX's actor messaging --
+4: > without breaking the model-is-the-app philosophy.*
+5: > *Based on research in `.traces/research/rx-as-tx-responses/` and codebase analysis.*
+6: 
+7: ---
+8: 
+9: ## :dart: The Bridge
+10: 
+392: 2. Implement P4 in the same or parallel branch. Add retry to one agent tool call in `agents/mixin.py`. Verify that `await request(tx)` still works without `.retry()`.
+393: 
+394: 3. If both validate, merge and proceed to P2 (request_stream) as the next step toward agent progress streaming (P3).
+
+### .project/reports/vision/RX-as-TX-responses-whitepaper.md (491 total lines)
+1: # :page_facing_up: Reactive TX Responses Applied: A Technical Whitepaper
+2: 
+3: > *How principles from reactive extensions can reshape N3TX's actor messaging --
+4: > and where they cannot.*
+5: > *Companion to the [propositions document](RX-as-TX-responses-propositions.md).*
+6: 
+7: ---
+8: 
+9: ## Abstract
+10: 
+489: - [Reactive Streams specification](https://www.reactive-streams.org/) -- Publisher/Subscriber/Subscription protocol
+490: - [Zalando: Comparing Akka Streams, Actors, and Plain Futures](https://engineering.zalando.com/posts/2016/06/comparing-akka-streams-actors-and-plain-futures.html)
+491: - [Colin Breck: Integrating Akka Streams and Akka Actors](https://blog.colinbreck.com/integrating-akka-streams-and-akka-actors-part-i/)
+
+### .project/reports/vision/SSR-summary.md (228 total lines)
+1: # 📋 SSR for N3TX: Executive Summary
+2: 
+3: > *Full analysis: [ssr-analysis.md](../research/ssr/ssr-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## 🎯 The Question
+8: 
+9: Should N3TX adopt server-side rendering, and if so, how?
+10: 
+226: ---
+227: 
+228: *Summary prepared February 2026. Full analysis with technical depth, risk register (9 risks), codebase references, and 25+ industry sources available in [ssr-analysis.md](../research/ssr/ssr-analysis.md).*
+
+### .project/reports/vision/Schema-agentic-system-propositions.md (424 total lines)
+1: # 🔧 Schema-Driven Agentic Systems x Our System: Technical Propositions
+2: 
+3: > *How schema-as-agent-protocol principles can improve our architecture.*
+4: > *Based on research in `.traces/research/schema-agentic-system/` and codebase analysis.*
+5: 
+6: ---
+7: 
+8: ## 🎯 The Bridge
+9: 
+10: N3TX's fundamental axiom -- **the model is the app** -- maps onto an insight the entire AI agent industry arrived at independently between 2023 and 2026: **the schema is the agent**. OpenAI, Anthropic, Google, and Microsoft all converged on JSON Schema as the universal contract for defining what an agent can do, what inputs it accepts, and what outputs it produces. N3TX already generates rich, typed, access-controlled JSON Schema from Python model definitions. The structural alignment is not a metaphor -- it is architectural isomorphism.
+422: 4. If successful: proceed to Proposition 4 (agent ABAC rules) and Proposition 7 (guardrails) to harden the foundation before adding LLM-powered agents in Proposition 5
+423: 
+424: **Decision gate:** If MCP tool exposure does not achieve >90% tool call accuracy after prompt tuning, investigate whether the issue is schema quality (fix descriptions) or architectural (reassess approach). Do not proceed to Proposition 5 until Propositions 1-4 are validated.
+
+### .project/reports/vision/Schema-agentic-system-summary.md (201 total lines)
+1: # Schema-Driven Agentic Systems: Executive Summary
+2: 
+3: > *This is a standalone summary of the full strategic analysis report.*
+4: > *For the complete analysis with technical details, case studies, and*
+5: > *appendices, see [schema-agentic-system-analysis.md](../research/schema-agentic-system/schema-agentic-system-analysis.md).*
+6: 
+7: **Date:** February 26, 2026
+8: **Prepared by:** Architecture Team
+9: 
+10: ---
+199: ---
+200: 
+201: *The model is the app. The schema is the agent. We already built the schema engine -- now we connect it to the agent ecosystem.*
+
+### .project/reports/vision/Schema-agentic-system-whitepaper.md (401 total lines)
+1: # 📄 Schema-Driven Agentic Systems Applied: A Technical Whitepaper
+2: 
+3: > *How principles from schema-driven agent architectures can reshape our system -- and where they can't.*
+4: > *Companion to the [propositions document](schema-agentic-system-propositions.md).*
+5: 
+6: ---
+7: 
+8: ## Abstract
+9: 
+10: Between 2023 and 2026, the AI agent industry converged on a single architectural insight: JSON Schema is the universal contract for defining what agents can do, what data they accept, and how they communicate. OpenAI's function calling, Anthropic's Model Context Protocol (97M+ monthly SDK downloads), Google's Agent-to-Agent protocol (150+ organizations), and Microsoft's declarative agent manifests all use JSON Schema as their interface layer. N3TX's architecture -- where a Python model definition generates the entire application stack via JSON Schema -- is structurally isomorphic to what the agent ecosystem is independently building. This whitepaper examines that alignment in detail, identifies where our existing primitives (`ProtoModel.schema()`, `@expose_route`, `Actor/Matrix/TX`, ABAC authorization, `DynamicClass` via `prototype()`) directly map onto agent system requirements, and proposes a phased integration path. The core argument: we should not become an agent framework. We should recognize that our schema pipeline -- the most expensive piece of infrastructure in the agent ecosystem -- already exists, and make it accessible to the agents that need it. The estimated gap is 35% additive infrastructure (LLM integration, planning loops, memory management), achievable in 10-14 weeks, layered on top of an architecture that does not need to change.
+399: The path forward is not to pivot toward agents. It is to recognize the structural alignment, make our schemas accessible through standard protocols, and let the agent ecosystem come to us. Phase 0 costs 2-4 weeks and zero LLM spend. It creates permanent optionality. If the agent ecosystem delivers on its trajectory -- and with $690B in hyperscaler AI capex committed for 2026, the infrastructure investment is real -- our schema pipeline becomes exponentially more valuable with each new MCP client, each new A2A-compatible orchestrator, and each new agent that discovers our capabilities through a published schema.
+400: 
+401: The model is the app. The schema is the agent. The bridge is within reach.
+
+### .project/reports/vision/Static-site-summary.md (218 total lines)
+1: # Static Site Generation for N3TX: Executive Summary
+2: 
+3: > *Full analysis: [static-site-analysis.md](../research/html-compiler/static-site-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: Should N3TX offer a `n3tx export` command that generates a complete, deployable static website -- HTML pages, CSS, pagination, navigation -- directly from schema-driven model definitions, with near-zero JavaScript?
+10: 
+216: > *This summary covers findings from 10 research documents, two research syntheses, and direct codebase analysis. Full technical details, risk register, implementation blueprints, and source references are in the [complete analysis](../research/html-compiler/static-site-analysis.md).*
+217: >
+218: > *Compiled February 2026.*
+
+### .project/reports/vision/TX-sagas-propositions.md (371 total lines)
+1: # TX Sagas x N3TX: Technical Propositions
+2: 
+3: > *How transaction composition, causal tracing, and saga patterns can
+4: > extend N3TX's actor system -- without breaking anything it already does well.*
+5: > *Based on research in `.traces/research/tx-sagas/` and codebase analysis of
+6: > `actors/tx.py`, `actors/actor.py`, `actors/matrix.py`, `models/actor_model.py`,
+7: > and `api/network_adapter.py`.*
+8: 
+9: ---
+10: 
+369: 5. P3 validates saga demand before investing in P4-P7
+370: 
+371: This follows N3TX's philosophy: **zero to working, then customize**.

@@ -1,0 +1,540 @@
+
+### .agents/skills/research/ideation/SKILL.md (337 total lines)
+1: ---
+2: name: ideation
+3: description: Strategic technology analysis and vision report generator. Launches parallel research agents to investigate a topic from multiple angles, then synthesizes findings into a numbered analysis report (in research/), plus executive summary, technical propositions, and whitepaper (all three in vision/ with capitalized slug names).
+4: argument-hint: "<topic> [agents:<N>] [synthesis:full|technical]  e.g. 'micro-frontend architecture', 'event sourcing agents:6', 'CLI theming agents:3 synthesis:technical'"
+5: ---
+6: 
+7: # Ideation: Strategic Analysis Pipeline
+8: 
+9: You are an architecture research orchestrator. Your job is to produce a
+10: comprehensive, data-driven, visually polished strategic analysis of a
+11: technology topic by coordinating parallel research agents and synthesis
+12: agents.
+13: 
+14: All documents produced by this pipeline serve a **dual audience** — a
+15: semi-technical CEO who grasps architecture but isn't writing code daily,
+16: AND the engineering team who will evaluate and implement. The tone should
+17: be **confident, direct, and engaging** — accessible "so what?" intros
+18: followed by technical depth, with icons and diagrams as the bridge.
+19: 
+20: **Raw arguments:** $ARGUMENTS
+21: 
+22: ### Argument Parsing
+23: 
+24: Parse `$ARGUMENTS` to extract:
+25: - **Topic**: The main topic string (everything except recognized parameters)
+26: - **Agent count** (optional): `agents:N` where N is an integer (default: **4**)
+27: - **Synthesis mode** (optional): `synthesis:full` (default) or `synthesis:technical`
+28:   - `full` — launches all 3 synthesis agents (analysis report + executive summary + technical propositions & whitepaper)
+29:   - `technical` — launches only the `ideation-technical` agent (propositions + whitepaper). Skips the full analysis report and executive summary. Use for smaller/focused topics where the vision documents are sufficient.
+30: 
+31: Examples:
+32: - `"micro-frontend architecture"` → topic="micro-frontend architecture", agents=4, synthesis=full
+33: - `"event sourcing agents:6"` → topic="event sourcing", agents=6, synthesis=full
+34: - `"GraphQL migration agents:2"` → topic="GraphQL migration", agents=2, synthesis=full
+35: - `"CLI theming agents:3 synthesis:technical"` → topic="CLI theming", agents=3, synthesis=technical
+36: 
+37: If no topic is provided, ask the user what they'd like to investigate.
+38: 
+39: ---
+40: 
+41: ## Phase 1: Scope & Angle Definition
+42: 
+43: Define **N research angles** (where N = agent count) that together cover the
+44: topic comprehensively. The angles scale as follows:
+45: 
+46: - **N=2**: Pick the 2 most relevant standard angles for this topic
+47: - **N=3**: The 3 standard angles (industry, technical, stack relevance)
+48: - **N=4** (default): 3 standard + 1 wildcard
+49: - **N>4**: 3 standard + (N−3) wildcards, each covering a distinct angle
+50: 
+51: The standard angles are (use when N ≥ 3):
+52: 
+53: 1. **🏢 Industry landscape & decision framework** — Who uses this? Success
+54:    stories, failures, adoption statistics, measured business outcomes. PLUS:
+55:    build-vs-buy analysis, ROI calculations, when to adopt vs. avoid, decision
+56:    trees with measurable criteria, anti-patterns, maintenance economics. This
+57:    combined angle ensures the downstream synthesis agents have both the "what's
+58:    out there" evidence AND the "should we do it" framework in one document.
+59: 2. **⚡ Technical deep dive** — Architecture patterns, implementation approaches,
+60:    security considerations, DevOps implications, testing strategies
+61: 3. **🔍 Relevance to our stack** — How our current architecture compares, what we
+62:    already have, what gaps exist, competitive positioning
+63: 
+64: Each **wildcard** slot (N=4 gets 1 wildcard, N=6 gets 3, etc.) is an angle
+65: chosen based on the specific topic. Pick angles that each add unique value and
+66: don't overlap with each other. Examples of wildcard angles:
+67: - For "WebAssembly": `🔬 Benchmarking methodology` (how to properly measure Wasm vs JS)
+68: - For "micro-frontends": `🧩 Developer experience & DX impact` (how it changes daily workflow)
+69: - For "GraphQL migration": `🔄 Migration patterns from REST` (incremental adoption strategies)
+70: - For "event sourcing": `📦 Data modeling & schema evolution` (how schemas change over time)
+71: - For "HTML compiler": `🎨 Design system compilation` (pre-compiling component variants)
+72: 
+73: Adapt all angles to the specific topic as needed.
+74: 
+75: Present the N angles to the user briefly before proceeding:
+76: 
+77: > I'll research this topic from **N** angles:
+78: > 1. 🏢 [angle 1 — one line]
+79: > 2. ⚡ [angle 2 — one line]
+80: > 3. 🔍 [angle 3 — one line]
+81: > 4. 🎯 [wildcard angle — one line, with why this angle matters]
+82: > *(list all N angles)*
+83: >
+84: > Synthesis mode: **full** / **technical-only**
+85: > Research + full analysis go to `.traces/research/<slug>/`, vision docs go to `.traces/vision/`.
+86: 
+87: ---
+88: 
+89: ## Phase 2: Parallel Research
+90: 
+91: Generate a **slug** from the topic (e.g., "micro-frontend architecture" ->
+92: "micro-frontend", "event sourcing" -> "event-sourcing", "WebAssembly for
+93: compute-heavy operations" -> "webassembly"). Use this slug for both the
+94: research folder and the vision output files.
+95: 
+96: Create the output directories:
+97: ```
+98: .traces/research/<slug>/
+99: .traces/vision/
+100: ```
+101: 
+102: Each run gets its **own dedicated folder** under `.traces/research/` so
+103: multiple ideation runs don't collide. For example:
+104: - `.traces/research/micro-frontend/`
+105: - `.traces/research/webassembly/`
+106: - `.traces/research/html-compiler/`
+107: 
+108: Launch **N parallel Task agents** (where N = agent count) using
+109: `subagent_type: "ideation-researcher"`. Each agent gets:
+110: 
+111: - **Topic**: The overall topic from the user
+112: - **Angle**: One of the N research angles defined in Phase 1
+113: - **Output path**: `.traces/research/<slug>/0N-<angle-slug>.md` (e.g., `.traces/research/webassembly/01-industry-and-decisions.md`). Use zero-padded two-digit numbering (01, 02, ... 09, 10, ...).
+114: - **Audience context**: "This research will feed into a strategic analysis
+115:   report for a semi-technical CEO and the engineering team. Write for both:
+116:   accessible 'so what?' intros for the CEO, then technical depth for the
+117:   engineers. Include concrete numbers, real company examples, source URLs,
+118:   and use visual formatting (icons, callout boxes, bold for scannability)."
+119: 
+120: Launch all N agents **in parallel** (single message, N Task tool calls).
+121: 
+122: Use descriptive filenames that match the angle. For the default N=4:
+123: - `01-industry-and-decisions.md`
+124: - `02-technical-deep-dive.md`
+125: - `03-our-stack-relevance.md`
+126: - `04-<wildcard-slug>.md` (e.g., `04-benchmarking-methodology.md`)
+127: 
+128: For N>4, continue numbering: `05-<wildcard-2-slug>.md`, `06-<wildcard-3-slug>.md`, etc.
+129: 
+130: **Important for angle 1 (combined):** The researcher prompt for the industry +
+
+### .agents/skills/research/ideation/SKILL.md (337 total lines)
+131: decision framework angle should explicitly request BOTH halves:
+132: - **Part A — Industry landscape:** Who uses this, success stories with measured
+133:   outcomes, failure post-mortems, adoption statistics, market data, company
+134:   case studies with team sizes and costs
+135: - **Part B — Decision framework:** Build-vs-buy analysis, ROI calculations,
+136:   decision trees with measurable criteria, when to adopt vs. avoid, anti-patterns,
+137:   maintenance economics, cost formulas
+138: 
+139: Target **800-1200 lines** for this combined angle (vs. 500-1000 for others)
+140: to ensure both halves are covered with sufficient depth.
+141: 
+142: Each researcher prompt should include:
+143: 1. The specific topic
+144: 2. The assigned angle with detailed sub-questions to investigate
+145: 3. The output file path
+146: 4. Instruction to search the web extensively (5-10+ searches)
+147: 5. Instruction to read relevant codebase files (for angle 3 especially)
+148: 6. Target of 500-1000 lines of data-dense content (800-1200 for angle 1)
+149: 7. Reminder: dual audience (CEO + engineers), use visual formatting
+150: 
+151: **Wait for all N research agents to complete before proceeding.**
+152: 
+153: ---
+154: 
+155: ## Phase 3: Synthesis
+156: 
+157: Once all research is complete, verify the research files exist and show the
+158: user a brief summary of what was gathered:
+159: 
+160: > ✅ Research complete (`.traces/research/<slug>/`):
+161: > - `01-<angle>.md` — N lines
+162: > - `02-<angle>.md` — N lines
+163: > - *(list all research files with line counts)*
+164: >
+165: > Synthesis mode: **full** / **technical-only**
+166: > Now synthesizing...
+167: 
+168: ### Vision Filename Convention
+169: 
+170: Vision filenames use a **capitalized slug** — no run numbers, no document
+171: numbers. Capitalize the first word of the slug, and capitalize known
+172: acronyms (AI, SSR, CLI, TUI, HTML, GraphQL, API, etc.).
+173: 
+174: Examples:
+175: - `cli-tui` → `CLI-TUI-summary.md`, `CLI-TUI-propositions.md`, `CLI-TUI-whitepaper.md`
+176: - `ai-agents` → `AI-agents-summary.md`
+177: - `server-side-rendering` → `SSR-summary.md` (use the common acronym)
+178: - `category-theory` → `Category-theory-summary.md`
+179: - `html-compiler` → `HTML-compiler-summary.md`
+180: 
+181: Vision documents for this run (depends on synthesis mode):
+182: - `<Slug>-summary.md` (executive summary — full mode only)
+183: - `<Slug>-propositions.md` (technical propositions — both modes)
+184: - `<Slug>-whitepaper.md` (whitepaper — both modes)
+185: 
+186: ### Research Analysis Numbering
+187: 
+188: The full analysis report in the research directory gets a **numbered prefix**
+189: following the research files. With N research docs (01 through N), the analysis
+190: is numbered `0{N+1}` (zero-padded). Examples:
+191: - 4 researchers → `05-<slug>-analysis.md`
+192: - 6 researchers → `07-<slug>-analysis.md`
+193: - 2 researchers → `03-<slug>-analysis.md`
+194: 
+195: ### Synthesis Mode: `full` (default)
+196: 
+197: Launch **3 Task agents in parallel** (single message, 3 Task tool calls):
+198: 
+199: #### Agent 1: Full Analysis Report
+200: `subagent_type: "ideation-agent"` with:
+201: - **Topic**: The strategic question
+202: - **Mode**: `analysis`
+203: - **Research directory**: `.traces/research/<slug>/`
+204: - **Output path**: `.traces/research/<slug>/0{N+1}-<slug>-analysis.md`
+205: - **Codebase context**: List the key source files the agent should read
+206:   for architecture assessment (identify these from the codebase structure)
+207: 
+208: #### Agent 2: Executive Summary
+209: `subagent_type: "ideation-agent"` with:
+210: - **Topic**: The strategic question
+211: - **Mode**: `summary`
+212: - **Research directory**: `.traces/research/<slug>/`
+213: - **Output path**: `.traces/vision/<Slug>-summary.md`
+214: - **Codebase context**: List the key source files the agent should read
+215:   for architecture assessment (identify these from the codebase structure)
+216: 
+217: #### Agent 3: Technical Propositions & Whitepaper
+218: `subagent_type: "ideation-technical"` with:
+219: - **Topic**: The strategic question
+220: - **Research directory**: `.traces/research/<slug>/`
+221: - **Propositions path**: `.traces/vision/<Slug>-propositions.md`
+222: - **Whitepaper path**: `.traces/vision/<Slug>-whitepaper.md`
+223: - **Codebase context**: List the key source files the agent should read
+224:   for architecture assessment (identify these from the codebase structure)
+225: 
+226: Full mode produces:
+227: 1. A focused **900–1,200 line full analysis report** in `.traces/research/<slug>/`
+228: 2. A standalone **200–350 line executive summary** in `.traces/vision/`
+229: 3. A **200–400 line technical propositions** document in `.traces/vision/`
+230: 4. A **300–500 line whitepaper** in `.traces/vision/`
+231: 
+232: ### Synthesis Mode: `technical`
+233: 
+234: Launch **1 Task agent** only:
+235: 
+236: #### Agent: Technical Propositions & Whitepaper
+237: `subagent_type: "ideation-technical"` with:
+238: - **Topic**: The strategic question
+239: - **Research directory**: `.traces/research/<slug>/`
+240: - **Propositions path**: `.traces/vision/<Slug>-propositions.md`
+241: - **Whitepaper path**: `.traces/vision/<Slug>-whitepaper.md`
+242: - **Codebase context**: List the key source files the agent should read
+243:   for architecture assessment (identify these from the codebase structure)
+244: 
+245: Technical mode produces:
+246: 1. A **200–400 line technical propositions** document in `.traces/vision/`
+247: 2. A **300–500 line whitepaper** in `.traces/vision/`
+248: 
+249: No analysis report or executive summary is generated.
+250: 
+251: ### Common to both modes
+252: 
+253: All agents use tables, icons, callout boxes, and decision trees throughout.
+254: All write for the dual audience: CEO-accessible intros + engineer-depth detail.
+255: 
+256: **Wait for all synthesis agents to complete.**
+257: 
+258: ---
+259: 
+260: ## Phase 4: Delivery
+
+### .agents/skills/research/ideation/SKILL.md (337 total lines)
+261: 
+262: After all documents are written, verify they exist and report to the user:
+263: 
+264: 1. Show the final file sizes (lines and words) for all documents
+265: 2. Summarize the report structure (major sections)
+266: 3. Highlight the key recommendation
+267: 4. List all files produced (research + all synthesis artifacts)
+268: 
+269: ### Full mode delivery example:
+270: 
+271: > **📋 Analysis complete!** (N researchers, full synthesis)
+272: >
+273: > | Deliverable | File | Size |
+274: > |------------|------|------|
+275: > | Full Analysis | `.traces/research/<slug>/0{N+1}-<slug>-analysis.md` | ~1,000 lines |
+276: > | Executive Summary | `.traces/vision/<Slug>-summary.md` | ~250 lines |
+277: > | Technical Propositions | `.traces/vision/<Slug>-propositions.md` | ~300 lines |
+278: > | Whitepaper | `.traces/vision/<Slug>-whitepaper.md` | ~400 lines |
+279: >
+280: > **💡 Key recommendation:** [one-line summary]
+281: >
+282: > **📊 All research files:**
+283: > *(list all N research files with line counts)*
+284: >
+285: > **📄 How to read these:**
+286: > - **5 min**: Executive summary (`.traces/vision/<Slug>-summary.md`) — the board-meeting briefing
+287: > - **15 min**: Add the propositions (`.traces/vision/<Slug>-propositions.md`) — see what we could build
+288: > - **30 min**: Add the whitepaper (`.traces/vision/<Slug>-whitepaper.md`) — understand the deeper argument
+289: > - **60 min**: The full analysis (`.traces/research/<slug>/0{N+1}-*-analysis.md`) — every detail, every number, every tradeoff
+290: 
+291: ### Technical mode delivery example:
+292: 
+293: > **📋 Analysis complete!** (N researchers, technical synthesis)
+294: >
+295: > | Deliverable | File | Size |
+296: > |------------|------|------|
+297: > | Technical Propositions | `.traces/vision/<Slug>-propositions.md` | ~300 lines |
+298: > | Whitepaper | `.traces/vision/<Slug>-whitepaper.md` | ~400 lines |
+299: >
+300: > **💡 Key recommendation:** [one-line summary]
+301: >
+302: > **📊 All research files:**
+303: > *(list all N research files with line counts)*
+304: >
+305: > **📄 How to read these:**
+306: > - **10 min**: Propositions (`.traces/vision/<Slug>-propositions.md`) — see what we could build
+307: > - **20 min**: Whitepaper (`.traces/vision/<Slug>-whitepaper.md`) — understand the deeper argument
+308: > - **Browse**: Research files in `.traces/research/<slug>/` — raw data and evidence
+309: 
+310: ---
+311: 
+312: ## Error Handling
+313: 
+314: - If a research agent fails or produces an empty file, relaunch it once
+315:   with the same prompt
+316: - If the analysis agent produces fewer than 800 lines for the full report,
+317:   resume it with instructions to expand thin sections
+318: - If the executive summary is missing or under 100 lines, resume the agent
+319:   with instructions to write/expand it
+320: - If the technical agent produces an empty propositions or whitepaper file,
+321:   resume it with instructions to complete the missing artifact
+322: - If the user's topic is too vague, ask one clarifying question before
+323:   launching research (use AskUserQuestion)
+324: 
+325: ---
+326: 
+327: ## Customization
+328: 
+329: ### Inline parameters (parsed from $ARGUMENTS)
+330: - **`agents:N`** — Number of research agents to launch (default: 4). Min: 2, max: 8.
+331: - **`synthesis:full|technical`** — Synthesis mode (default: full). `technical` skips analysis report and executive summary, produces only propositions + whitepaper.
+332: 
+333: ### Natural language modifiers (in the topic string)
+334: - **Focus area**: "focus on security implications" — weight angle 2 toward security
+335: - **Audience**: "for engineering team only" — adjust tone to be more technical, less business
+336: - **Depth**: "quick overview" — equivalent to `agents:2 synthesis:technical`
+337: - **Comparison**: "compare X vs Y" — restructure angles around the two options
+
+### .opencode/commands/git-smart.md (193 total lines)
+1: ---
+2: description: Analyzes dirty working tree, groups changes into logically cohesive commits by scope/type/dependency, and executes them with proper conventions.
+3: agent: build
+4: argument-hint: "[--dry-run to stop after grouping, or blank to execute]"
+5: ---
+6: 
+7: # Smart Commit
+8: 
+9: You are a release engineer. Your job is to turn a messy working tree into a
+10: clean, logical commit history. You analyze all pending changes, group them
+11: by scope and type, order by dependency, and execute focused commits.
+12: 
+13: **Arguments:** $ARGUMENTS
+14: 
+15: If `--dry-run` is passed, stop after Phase 2 (show the plan but don't commit).
+16: 
+17: ---
+18: 
+19: ## Phase 1: Context Gathering
+20: 
+21: Run these commands in parallel using the Bash tool:
+22: 
+23: 1. `git log --oneline -20` — understand the current wave, conventions, and recent context
+24: 2. `git status` — see all modified, staged, and untracked files (never use `-uall`)
+25: 3. `git diff --stat` — see the scope of changes across files
+26: 4. `git diff --name-status` — see which files are modified (M), added (A), deleted (D), renamed (R)
+27: 
+28: After gathering, do a **secrets scan**: check untracked files for dangerous
+29: patterns (`.env`, `*.key`, `*.pem`, `*.secret`, `credentials*`, `*token*`).
+30: If any are found, **exclude them** from all commit groups and warn the user.
+31: 
+32: Also check for any **large binary files** (images, compiled assets, databases)
+33: in untracked files — flag these for the user but don't auto-exclude.
+34: 
+35: ---
+36: 
+37: ## Phase 2: Intelligent Grouping
+38: 
+39: ### Step 1 — Detect wave tag
+40: 
+41: Read the most recent commits from Phase 1 output. Extract the wave tag
+42: (e.g., `[0.9.6]`, `[0.10]`). Use this tag on all commits unless a group
+43: clearly belongs to a different wave.
+44: 
+45: ### Step 2 — Map files to scopes
+46: 
+47: Use this project's directory-to-scope mapping:
+48: 
+49: | Directory pattern | Scope |
+50: |---|---|
+51: | `core/agents/` | `agents` |
+52: | `core/actors/` | `actors` |
+53: | `core/api/` | `api` |
+54: | `core/models/` | `models` |
+55: | `core/storage/` | `storage` |
+56: | `core/authorize/` | `auth` |
+57: | `core/ssr/` | `ssr` |
+58: | `core/utils/` | `utils` |
+59: | `core/tests/` | (inherits scope from what it tests) |
+60: | `static/core/` | `frontend` |
+61: | `static/components/` | `frontend` |
+62: | `static/generators/` | `frontend` |
+63: | `static/utils/` | `frontend` |
+64: | `static/tests/` | `frontend` |
+65: | `static/docs/` | (docs) |
+66: | `example_actor/` | `example` |
+67: | `example_api/` | `example` |
+68: | `example_grants/` | `example` |
+69: | `example/` | `example` |
+70: | `docs/` | (docs) |
+71: | `CHANGELOG.md`, `ROADMAP.md` | (docs) |
+72: | `CLAUDE.md` | (chore) |
+73: | `.project/`, `.claude/` | (chore) |
+74: 
+75: ### Step 3 — Group by cohesion
+76: 
+77: Apply these grouping rules in order:
+78: 
+79: 1. **Implementation + its tests together**: If `foo.py` changed and
+80:    `test_foo.py` also changed, they belong in the same commit.
+81: 
+82: 2. **Separate by commit type**: Don't mix these types in one commit:
+83:    - `feat` — new functionality
+84:    - `fix` — bug fixes
+85:    - `refactor` — restructuring without behavior change
+86:    - `test` — test-only changes (no implementation counterpart)
+87:    - `docs` — documentation-only changes
+88:    - `chore` — tooling, config, meta-files
+89: 
+90: 3. **Bulk mechanical changes together**: If many files have the same kind
+91:    of change (e.g., all e2e tests updated for a rename, all example apps
+92:    getting the same HTML change), group them into one commit even if they
+93:    span multiple scopes.
+94: 
+95: 4. **New files vs modified files**: Untracked files that constitute a new
+96:    feature should be grouped with related modified files. Standalone new
+97:    files get their own commit.
+98: 
+99: ### Step 4 — Order by dependency
+100: 
+101: Sort commit groups in this order:
+102: 1. Core framework changes (models, storage, utils, actors)
+103: 2. Feature implementations (agents, api, ssr)
+104: 3. Frontend changes (static/)
+105: 4. Example app changes (example_*)
+106: 5. Test-only changes
+107: 6. Documentation
+108: 7. Chore (meta-files, config, traces)
+109: 
+110: ### Step 5 — Flag mixed-concern files
+111: 
+112: Since `git add -p` (interactive patching) is not supported, identify any
+113: files where `git diff` shows hunks belonging to different logical groups.
+114: **Flag these to the user** with a note like:
+115: > "⚠ `file.py` has changes for both [group A] and [group B]. Committing
+116: > with [group A] since it has the primary changes."
+117: 
+118: Assign the file to the group with the most relevant changes.
+119: 
+120: ### Step 6 — Draft commit messages
+121: 
+122: For each group, draft a message following project conventions:
+123: ```
+124: type(scope): Description [wave]
+125: 
+126: Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+127: ```
+128: 
+129: - **type**: feat, fix, refactor, test, docs, chore
+130: - **scope**: from the scope mapping above
+
+### .opencode/commands/git-smart.md (193 total lines)
+131: - **Description**: imperative mood, capitalized, concise (under 70 chars)
+132: - **[wave]**: detected wave tag
+133: 
+134: ### Step 7 — Present the plan
+135: 
+136: Display the commit plan as a numbered list:
+137: 
+138: ```
+139: Commit plan (N commits):
+140: 
+141: 1. type(scope): Message [wave]
+142:    Files: file1.py, file2.py, test_file1.py
+143: 
+144: 2. type(scope): Message [wave]
+145:    Files: file3.js, file4.css
+146: 
+147: ...
+148: 
+149: Total: N commits, M files
+150: ```
+151: 
+152: If `--dry-run` was passed, **STOP HERE**. Do not proceed to Phase 3.
+153: 
+154: ---
+155: 
+156: ## Phase 3: Execute Commits
+157: 
+158: Execute each commit group sequentially. For each group:
+159: 
+160: 1. **Stage specific files**: `git add file1.py file2.py` — list every file
+161:    explicitly. **NEVER use `git add .` or `git add -A`.**
+162: 
+163: 2. **Commit with HEREDOC format**:
+164:    ```bash
+165:    git commit -m "$(cat <<'EOF'
+166:    type(scope): Description [wave]
+167: 
+168:    Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+169:    EOF
+170:    )"
+171:    ```
+172: 
+173: 3. **Verify**: After each commit, run `git status` to confirm the right
+174:    files were committed and the working tree looks correct.
+175: 
+176: 4. If a **pre-commit hook fails**: fix the issue, re-stage, and create a
+177:    **NEW** commit (never `--amend`).
+178: 
+179: After all commits are done, run `git log --oneline -N` (where N = number
+180: of commits created) to show the final result.
+181: 
+182: ---
+183: 
+184: ## Safety Rails — NEVER Do These
+185: 
+186: - **NEVER** `git add .` or `git add -A` — always stage specific files
+187: - **NEVER** `git commit --amend` — always create new commits
+188: - **NEVER** `git push` — unless the user explicitly requests it
+189: - **NEVER** `git push --force` — refuse even if asked, warn instead
+190: - **NEVER** commit files matching: `.env*`, `*.key`, `*.pem`, `*.secret`,
+191:   `credentials*`, `*token*` (file-path patterns, not content)
+192: - **NEVER** use `--no-verify` to skip pre-commit hooks
+193: - **NEVER** use `-i` flag (interactive mode is unsupported)

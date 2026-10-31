@@ -1,0 +1,857 @@
+
+### docs/GETTING_STARTED.md (726 total lines)
+261: 
+262: ### For Post Model:
+263: - ✅ `GET /posts` - List all posts
+264: - ✅ `POST /posts` - Create a post
+265: - ✅ `GET /posts/{id}` - Get post by ID
+266: - ✅ `PUT /posts/{id}` - Update post
+267: - ✅ `DELETE /posts/{id}` - Delete post
+268: - ✅ `GET /Post` - Get JSON schema
+269: 
+270: ### Database:
+271: - ✅ SQLite database `blog.db` created
+272: - ✅ Tables `users` and `posts` created
+273: - ✅ Foreign key relationship configured
+274: - ✅ Auto-incrementing IDs
+275: 
+276: ### Validation:
+277: - ✅ All inputs validated via Pydantic
+278: - ✅ Type checking enforced
+279: - ✅ Required fields enforced
+280: - ✅ JSON serialization automatic
+281: 
+282: ## Adding Custom Logic
+283: 
+284: Let's add custom endpoints to our models.
+285: 
+286: ### Step 1: Add Custom Methods
+287: 
+288: Edit `models/blog_models.py`:
+289: 
+290: ```python
+291: from utils.decorators import expose_route
+292: 
+293: class User(ProtoModel):
+294:     __storable__: ClassVar[bool] = True
+295:     __tablename__: ClassVar[str] = 'users'
+296:     
+297:     username: str
+298:     email: str
+299:     bio: Optional[str] = ''
+300:     
+301:     @staticmethod
+302:     @expose_route('/login', methods=['POST'])
+303:     def login(username: str, password: str) -> User:
+304:         """
+305:         Custom login endpoint
+306:         Creates: POST /users/login
+307:         """
+308:         users = User.list()
+309:         user = next((u for u in users if u.username == username), None)
+310:         if user:
+311:             # In production, check password hash
+312:             return user
+313:         raise ValueError("Invalid credentials")
+314:     
+315:     @expose_route('/posts', methods=['GET'])
+316:     def get_posts(self) -> List[Post]:
+317:         """
+318:         Get all posts by this user
+319:         Creates: GET /users/{id}/posts
+320:         """
+321:         all_posts = Post.list()
+322:         return [p for p in all_posts if int(p.author) == self.id]
+323: 
+324: class Post(ProtoModel):
+325:     __storable__: ClassVar[bool] = True
+326:     __tablename__: ClassVar[str] = 'posts'
+327:     
+328:     title: str
+329:     content: str
+330:     published: bool = False
+331:     author: Ref[User]
+332:     
+333:     @expose_route('/publish', methods=['POST'])
+334:     def publish(self) -> Post:
+335:         """
+336:         Publish this post
+337:         Creates: POST /posts/{id}/publish
+338:         """
+339:         self.published = True
+340:         self.save()  # Built-in save method
+341:         return self
+342:     
+343:     @classmethod
+344:     @expose_route('/published', methods=['GET'])
+345:     def get_published(cls) -> List[Post]:
+346:         """
+347:         Get all published posts
+348:         Creates: GET /posts/published
+349:         """
+350:         return [p for p in cls.list() if p.published]
+351: ```
+352: 
+353: ### Step 2: Restart Server
+354: 
+355: ```bash
+356: # Ctrl+C to stop, then:
+357: python app.py
+358: ```
+359: 
+360: ### Step 3: Test Custom Endpoints
+361: 
+362: **Login**:
+363: ```bash
+364: curl -X POST http://localhost:8000/users/login \
+365:   -H "Content-Type: application/json" \
+366:   -d '{
+367:     "username": "alice",
+368:     "password": "secret123"
+369:   }'
+370: ```
+371: 
+372: **Get user's posts**:
+373: ```bash
+374: curl http://localhost:8000/users/1/posts
+375: ```
+376: 
+377: **Publish a post**:
+378: ```bash
+379: curl -X POST http://localhost:8000/posts/1/publish
+380: ```
+381: 
+382: **Get all published posts**:
+383: ```bash
+384: curl http://localhost:8000/posts/published
+385: ```
+386: 
+387: ## Adding Validation
+388: 
+389: Use Pydantic's validation features:
+390: 
+
+### docs/GETTING_STARTED.md (726 total lines)
+391: ```python
+392: from pydantic import field_validator, EmailStr
+393: 
+394: class User(ProtoModel):
+395:     __storable__: ClassVar[bool] = True
+396:     __tablename__: ClassVar[str] = 'users'
+397:     
+398:     username: str
+399:     email: EmailStr  # Automatic email validation
+400:     
+401:     @field_validator('username')
+402:     @classmethod
+403:     def username_alphanumeric(cls, v):
+404:         if not v.isalnum():
+405:             raise ValueError('Username must be alphanumeric')
+406:         return v
+407:     
+408:     @field_validator('email')
+409:     @classmethod
+410:     def lowercase_email(cls, v):
+411:         return v.lower()
+412: ```
+413: 
+414: Now invalid data will be rejected automatically:
+415: 
+416: ```bash
+417: # This will fail (invalid email)
+418: curl -X POST http://localhost:8000/users \
+419:   -H "Content-Type: application/json" \
+420:   -d '{"username": "bob", "email": "not-an-email"}'
+421: 
+422: # Response: 422 Unprocessable Entity
+423: ```
+424: 
+425: ## Many-to-Many Relationships
+426: 
+427: Let's add tags to posts:
+428: 
+429: ### Step 1: Define Tag Model
+430: 
+431: ```python
+432: class Tag(ProtoModel):
+433:     __storable__: ClassVar[bool] = True
+434:     __tablename__: ClassVar[str] = 'tags'
+435:     
+436:     name: str
+437:     color: str = '#000000'
+438: 
+439: class Post(ProtoModel):
+440:     # ... existing fields ...
+441:     tags: list[Tag] = Field(default=[])
+442: ```
+443: 
+444: ### Step 2: Register Models
+445: 
+446: ```python
+447: register_model(Post, storage=storage)
+448: register_model(Tag, storage=storage)
+449: ```
+450: 
+451: N3TX stores `Post.tags` as an ordered JSON list of local `Tag` ids and hydrates
+452: the field into `Tag` objects in API responses. For shared relationship metadata,
+453: prefer an explicit link model; `ManyToMany[T]` is a legacy helper for existing
+454: shared-link cases.
+455: 
+456: ### Step 3: Add Tags to Posts
+457: 
+458: ```bash
+459: # Create tags
+460: curl -X POST http://localhost:8000/tags \
+461:   -H "Content-Type: application/json" \
+462:   -d '{"name": "python", "color": "#3776ab"}'
+463: 
+464: curl -X POST http://localhost:8000/tags \
+465:   -H "Content-Type: application/json" \
+466:   -d '{"name": "tutorial", "color": "#ff6b6b"}'
+467: 
+468: # Update post tags by replacing the ordered list
+469: curl -X PUT http://localhost:8000/Post/1 \
+470:   -H "Content-Type: application/json" \
+471:   -d '{
+472:     "title": "My First Post",
+473:     "content": "Hello N3TX!",
+474:     "published": true,
+475:     "author": 1,
+476:     "tags": [1, 2]
+477:   }'
+478: ```
+479: 
+480: ## Switching Storage Backends
+481: 
+482: N3TX supports multiple storage backends. Let's switch to JSON files:
+483: 
+484: ### Step 1: Change Storage Backend
+485: 
+486: Edit `app.py`:
+487: 
+488: ```python
+489: # Change this:
+490: # from storage.sqlite_storage import SQLiteStorage
+491: # storage = SQLiteStorage('blog.db')
+492: 
+493: # To this:
+494: from storage.json_storage import JSONStorage
+495: storage = JSONStorage(directory='data')  # Creates data/ folder
+496: ```
+497: 
+498: ### Step 2: Restart Server
+499: 
+500: ```bash
+501: python app.py
+502: ```
+503: 
+504: Now your data is stored in `data/users.json` and `data/posts.json` as human-readable JSON files.
+505: 
+506: ## Using Actor Routing (Level 3)
+507: 
+508: For full actor-system routing where every HTTP request flows through the Matrix as TX messages:
+509: 
+510: ### Step 1: Use ActorModel
+511: 
+512: Change your model base class from `ProtoModel` to `ActorModel`:
+513: 
+514: ```python
+515: from n3tx.core.models.actor_model import ActorModel
+516: 
+517: class User(ActorModel):
+518:     __storable__: ClassVar[bool] = True
+519:     __tablename__: ClassVar[str] = 'users'
+520: 
+
+### docs/GETTING_STARTED.md (726 total lines)
+521:     username: str
+522:     email: str
+523: 
+524: class Post(ActorModel):
+525:     __storable__: ClassVar[bool] = True
+526:     __tablename__: ClassVar[str] = 'posts'
+527: 
+528:     title: str
+529:     content: str
+530:     author: Ref[User]
+531: ```
+532: 
+533: ### Step 2: Enable Actor Routing
+534: 
+535: ```python
+536: from n3tx import create_app
+537: 
+538: app = create_app(
+539:     models=[User, Post],
+540:     storage="sqlite:///blog.db",
+541:     routing='actor',  # Routes through Matrix via NetworkAPI adapter
+542: )
+543: ```
+544: 
+545: ### What Changes
+546: 
+547: - HTTP requests become TX messages routed through the Matrix
+548: - Interceptors can be added at the protocol boundary (auth, rate limiting, logging)
+549: - Two-tier authorization: Tier 1 (fast gate) + Tier 2 (resource-level OWNER checks)
+550: - Lifecycle events (`after_create`, `after_update`, `after_delete`) are published
+551: - MCP and ActivityPub adapters can be added alongside HTTP
+552: 
+553: ### What Stays the Same
+554: 
+555: - All API endpoints, paths, and response formats are identical
+556: - Frontend code works without changes
+557: - Authentication via JWT `x-access-token` header
+558: - `__access__` rules enforced the same way
+559: 
+560: ## Using Flask Instead of FastAPI
+561: 
+562: N3TX supports multiple web frameworks:
+563: 
+564: ### Change Backend
+565: 
+566: Edit `app.py`:
+567: 
+568: ```python
+569: # Change this:
+570: # from api.backend import FastAPIBackend
+571: # backend = FastAPIBackend(...)
+572: 
+573: # To this:
+574: from api.backend import FlaskBackend
+575: backend = FlaskBackend(
+576:     name="Blog API",
+577:     version="1.0.0",
+578:     description="Flask-powered blog API"
+579: )
+580: ```
+581: 
+582: Everything else stays the same!
+583: 
+584: ## Next Steps
+585: 
+586: Now that you have a working API, explore:
+587: 
+588: ### Advanced Features
+589: - [Custom validation](./API_REFERENCE.md#validation)
+590: - [Middleware and hooks](./ARCHITECTURE.md#middleware-hooks)
+591: - [Authentication](./EXAMPLES.md#authentication)
+592: - [Pagination](./EXAMPLES.md#pagination)
+593: - [File uploads](./EXAMPLES.md#file-uploads)
+594: 
+595: ### Production Deployment
+596: - [Deployment guide](./DEPLOYMENT.md)
+597: - [Security best practices](./SECURITY.md)
+598: - [Performance optimization](./PERFORMANCE.md)
+599: 
+600: ### Documentation
+601: - [Full API Reference](./API_REFERENCE.md)
+602: - [Architecture Overview](./ARCHITECTURE.md)
+603: - [More Examples](./EXAMPLES.md)
+604: 
+605: ## Common Issues
+606: 
+607: ### Import Error: "No module named 'models'"
+608: 
+609: Make sure you're running from the project root:
+610: ```bash
+611: cd n3tx
+612: python app.py
+613: ```
+614: 
+615: ### Database Locked Error
+616: 
+617: SQLite only supports one writer at a time. For concurrent writes:
+618: ```python
+619: # Use connection pooling or switch to PostgreSQL
+620: # Coming soon in N3TX
+621: ```
+622: 
+623: ### Foreign Key Not Resolving
+624: 
+625: Foreign keys are stored as IDs. To get the full object:
+626: ```python
+627: post = Post.get(1)
+628: user_id = int(post.author)  # Get ID
+629: user = User.get(user_id)    # Fetch full user
+630: ```
+631: 
+632: Or implement lazy loading:
+633: ```python
+634: class Post(ProtoModel):
+635:     @property
+636:     def author_obj(self):
+637:         return User.get(int(self.author))
+638: ```
+639: 
+640: ### Port Already in Use
+641: 
+642: Change the port in `app.py`:
+643: ```python
+644: backend = FastAPIBackend(port=8080)  # Use different port
+645: ```
+646: 
+647: ## Tips and Tricks
+648: 
+649: ### 1. Enable Debug Mode
+650: 
+
+### docs/GETTING_STARTED.md (726 total lines)
+651: ```python
+652: if __name__ == "__main__":
+653:     import uvicorn
+654:     uvicorn.run(
+655:         "app:app",
+656:         host="0.0.0.0",
+657:         port=8000,
+658:         reload=True,  # Auto-reload on code changes
+659:         log_level="debug"
+660:     )
+661: ```
+662: 
+663: ### 2. Generate Documentation
+664: 
+665: ```bash
+666: GENERATE_DOCS=true python app.py
+667: # Creates docs/*.md files
+668: ```
+669: 
+670: ### 3. Use Type Hints
+671: 
+672: Enable autocomplete in your IDE:
+673: ```python
+674: from typing import TYPE_CHECKING
+675: 
+676: if TYPE_CHECKING:
+677:     from models.blog_models import User
+678: 
+679: def get_user() -> User:
+680:     return User.get(1)  # IDE knows it returns User
+681: ```
+682: 
+683: ### 4. Test Your API
+684: 
+685: ```python
+686: import pytest
+687: 
+688: def test_create_user():
+689:     user = User.create(User(username="test", email="test@example.com"))
+690:     assert user.id is not None
+691:     assert user.username == "test"
+692: ```
+693: 
+694: ### 5. Environment Variables
+695: 
+696: ```python
+697: import os
+698: 
+699: DATABASE_URL = os.getenv('DATABASE_URL', 'blog.db')
+700: storage = SQLiteStorage(DATABASE_URL)
+701: ```
+702: 
+703: ## Getting Help
+704: 
+705: - 📖 [Read the documentation](./README.md)
+706: - 🐛 [Report issues](https://github.com/yourusername/n3tx/issues)
+707: - 💬 [Join discussions](https://github.com/yourusername/n3tx/discussions)
+708: - 📧 [Email support](mailto:support@n3tx.dev)
+709: 
+710: ## What's Next?
+711: 
+712: You now have a fully functional REST API with:
+713: - ✅ Automatic CRUD operations
+714: - ✅ Type-safe validation
+715: - ✅ Foreign key relationships
+716: - ✅ Custom business logic
+717: - ✅ Automatic documentation
+718: - ✅ Flexible storage backends
+719: 
+720: **Continue learning**:
+721: - Build a more complex app in [Examples](./EXAMPLES.md)
+722: - Understand the architecture in [Architecture Guide](./ARCHITECTURE.md)
+723: - Deploy to production in [Deployment Guide](./DEPLOYMENT.md)
+724: - Learn advanced patterns in [API Reference](./API_REFERENCE.md)
+725: 
+726: Happy coding with N3TX! 🚀
+
+### docs/JSON_FIELDS.md (377 total lines)
+1: # N3TX JSON Fields
+2: 
+3: This guide explains how N3TX stores `dict` and `list` model fields as JSON,
+4: when to use them, how they differ from relationships, and which implementation
+5: points agents and developers should inspect before changing this part of the
+6: system.
+7: 
+8: ## Mental Model
+9: 
+10: JSON fields are ordinary model fields whose Python value is a `dict` or `list`,
+11: but whose SQLite representation is a `TEXT` column containing serialized JSON.
+12: 
+13: ```text
+14: Model annotation
+15:   -> get_json_fields(model_class)
+16:   -> SQLite TEXT column
+17:   -> json.dumps(value, default=str) on write
+18:   -> json.loads(value) on read
+19:   -> Pydantic validation / model instance
+20: ```
+21: 
+22: Example:
+23: 
+24: ```python
+25: from pydantic import Field
+26: from n3tx_core.models.proto_model import ProtoModel
+27: 
+28: 
+29: class AgentConfig(ProtoModel):
+30:     __tablename__ = "agent_configs"
+31:     __storable__ = True
+32: 
+33:     tools: list[str] = Field(default=[])
+34:     constraints: dict = Field(default={})
+35:     metadata: dict = Field(default={})
+36: ```
+37: 
+38: SQLite stores these fields as text:
+39: 
+40: ```text
+41: tools        TEXT -> '["search", "scrape"]'
+42: constraints  TEXT -> '{"max_iterations": 30}'
+43: metadata     TEXT -> '{"provider": "ollama", "nested": {"ok": true}}'
+44: ```
+45: 
+46: The storage layer deserializes them before model construction, so application
+47: code sees normal Python values:
+48: 
+49: ```python
+50: config.tools == ["search", "scrape"]
+51: config.constraints == {"max_iterations": 30}
+52: ```
+53: 
+54: ## Supported Field Shapes
+55: 
+56: JSON field detection is implemented by
+57: `n3tx_core.utils.introspection.get_json_fields()`.
+58: 
+59: | Annotation | JSON TEXT field? | Notes |
+60: |---|---:|---|
+61: | `dict` | Yes | Stored with `json.dumps()` |
+62: | `Dict[str, Any]` | Yes | Any `dict` origin is included |
+63: | `Optional[dict]` | Yes | `typing.Optional` / `typing.Union` is unwrapped |
+64: | `list` | Yes | Stored with `json.dumps()` |
+65: | `List[str]`, `list[str]` | Yes | Primitive typed lists are JSON fields |
+66: | `List[int]`, `list[int]` | Yes | Primitive typed lists are JSON fields |
+67: | `list[T: ProtoModel]` | Yes | Ordered local id list, hydrated into child objects |
+68: | `list[Ref[T]]` | Yes | Pointer/ref list |
+69: | `ManyToMany[T]` | No | Legacy shared-link helper; prefer explicit link models |
+70: 
+71: Use the current, test-backed style for nullable JSON fields:
+72: 
+73: ```python
+74: from typing import Optional
+75: 
+76: config: Optional[dict] = Field(default=None)
+77: ```
+78: 
+79: Avoid assuming every newer union spelling is handled equally in all storage and
+80: migration paths unless there is a test for it.
+81: 
+82: ## JSON Field vs Relationship Field
+83: 
+84: The most important distinction is whether the nested data needs independent
+85: identity and lifecycle.
+86: 
+87: ```python
+88: # JSON field: embedded data, no identity
+89: tags: list[str] = Field(default=[])
+90: payload: dict = Field(default={})
+91: 
+92: # Local relationship field: child resources with identity, auth, hydration
+93: comments: list[Comment] = Field(default=[])
+94: ```
+95: 
+96: | Concern | Embedded JSON | `list[T]` local relationship |
+97: |---|---|---|
+98: | Storage | One SQLite `TEXT` column | JSON id list on the parent row |
+99: | API identity | No nested `$id` | Child resources keep flat class-name `$id` |
+100: | Access control | Whole field only | Per child resource possible |
+101: | Updates | Replace whole field | Replace ordered id list; child rows update independently |
+102: | Querying | No first-class nested query API | Query child model through its own collection route |
+103: | Schema | Pydantic property schema | Full model schema and `$defs` |
+104: | Good for | Config, metadata, payloads | Comments, likes, children, owned records |
+105: 
+106: Rule of thumb:
+107: 
+108: - Use JSON fields for simple embedded values that belong entirely to the parent.
+109: - Use models and relationships when the nested thing should be addressable,
+110:   authorized, queried, rendered, or updated independently.
+111: 
+112: ## Write Path
+113: 
+114: Implementation:
+115: 
+116: ```text
+117: packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py
+118: ```
+119: 
+120: Key function:
+121: 
+122: ```python
+123: def _coerce_value(v):
+124:     if isinstance(v, (dict, list)):
+125:         return json.dumps(v, default=str)
+126:     ...
+127: ```
+128: 
+129: `SQLiteStorage.create()` and `SQLiteStorage.update()` both pass values through
+130: `_coerce_value()` before binding them to SQLite parameters.
+
+### docs/JSON_FIELDS.md (377 total lines)
+131: 
+132: Important behavior:
+133: 
+134: - Python `dict` and `list` become JSON strings.
+135: - Nested dict/list structures are serialized recursively.
+136: - Non-JSON-native nested values are converted with `default=str`.
+137: - Other non-SQLite-native top-level values also fall back to `str()`.
+138: 
+139: Example:
+140: 
+141: ```python
+142: Job.create({
+143:     "name": "scan",
+144:     "payload": {
+145:         "source": "api",
+146:         "params": {"q": "renewable grants"},
+147:         "tags": ["energy", "funding"],
+148:     },
+149: })
+150: ```
+151: 
+152: ## Read Path
+153: 
+154: Implementation:
+155: 
+156: ```text
+157: packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py
+158: ```
+159: 
+160: Key function:
+161: 
+162: ```python
+163: def _deserialize_json_fields(model_class, record):
+164:     for field_name in get_json_fields(model_class):
+165:         val = record.get(field_name)
+166:         if isinstance(val, str):
+167:             try:
+168:                 record[field_name] = json.loads(val)
+169:             except (json.JSONDecodeError, TypeError):
+170:                 pass
+171: ```
+172: 
+173: This runs before model instantiation in the main read paths:
+174: 
+175: - `SQLiteStorage.get()`
+176: - `SQLiteStorage.list()`
+177: - relationship population paths inside `_populate_fields()`
+178: 
+179: If a stored value is not valid JSON, the helper leaves it unchanged. Pydantic may
+180: still reject the resulting value if the model field requires `dict` or `list`.
+181: 
+182: ## Migration Behavior
+183: 
+184: Implementation:
+185: 
+186: ```text
+187: packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py
+188: ```
+189: 
+190: During table creation:
+191: 
+192: - `dict` fields become `TEXT` columns.
+193: - `list` fields become `TEXT` columns.
+194: - `list[T: ProtoModel]` stores ordered local child ids in the parent row.
+195: - `ManyToMany[T]` is a legacy shared-link helper and is not stored as a parent
+196:   JSON list.
+197: 
+198: During auto-migration:
+199: 
+200: - new `dict` fields are added as `TEXT DEFAULT '{}'`.
+201: - new `list` fields are added as `TEXT DEFAULT '[]'`.
+202: 
+203: ## Common Usage Patterns
+204: 
+205: ### Agent configuration
+206: 
+207: ```python
+208: class AgentProfile(ProtoModel):
+209:     __tablename__ = "agent_profiles"
+210:     __storable__ = True
+211: 
+212:     tools: list[str] = Field(default=[])
+213:     constraints: dict = Field(default={})
+214: ```
+215: 
+216: Good for:
+217: 
+218: ```json
+219: {
+220:   "tools": ["grants", "web_tools"],
+221:   "constraints": {"max_iterations": 30}
+222: }
+223: ```
+224: 
+225: ### Flexible external API payload
+226: 
+227: ```python
+228: class ImportJob(ProtoModel):
+229:     __tablename__ = "import_jobs"
+230:     __storable__ = True
+231: 
+232:     source: str = ""
+233:     request_payload: dict = Field(default={})
+234:     response_summary: dict = Field(default={})
+235: ```
+236: 
+237: Good when the exact external payload shape is not central to N3TX's domain
+238: model.
+239: 
+240: ### Primitive arrays and metadata
+241: 
+242: ```python
+243: class Document(ProtoModel):
+244:     __tablename__ = "documents"
+245:     __storable__ = True
+246: 
+247:     title: str
+248:     tags: list[str] = Field(default=[])
+249:     metadata: dict = Field(default={})
+250: ```
+251: 
+252: Good for labels, provider metadata, lightweight flags, and other embedded data.
+253: 
+254: ## Tradeoffs and Gotchas
+255: 
+256: ### JSON fields are not independently addressable
+257: 
+258: Nested JSON values do not get routes, `$id`, lifecycle events, ownership, or
+259: per-item authorization.
+260: 
+
+### docs/JSON_FIELDS.md (377 total lines)
+261: If a nested value should be a resource, model it as a `ProtoModel`/`ActorModel`
+262: and reference it with `list[T]`, `Ref[T]`, or an explicit link model.
+263: 
+264: ### Updates replace the whole field
+265: 
+266: Partial updates do not deep-merge JSON fields.
+267: 
+268: ```python
+269: Job.update(1, {"payload": {"status": "done"}})
+270: ```
+271: 
+272: This replaces `payload`; it does not preserve other keys from the previous
+273: payload unless the caller includes them.
+274: 
+275: ### Generated HTTP PUT preserves omitted collections
+276: 
+277: The Python update API is patch-oriented, so omitting a JSON field leaves it
+278: unchanged:
+279: 
+280: ```python
+281: Job.update(1, {"title": "Renamed"})  # payload is not supplied or replaced
+282: ```
+283: 
+284: Generated HTTP `PUT` routes use the same patch contract. Downstream clients may
+285: send only changed fields:
+286: 
+287: ```json
+288: {
+289:   "title": "Renamed"
+290: }
+291: ```
+292: 
+293: An omitted JSON field remains unchanged. An explicit `[]` or `{}` means replace
+294: the complete stored field with an empty value. The same rule applies to
+295: JSON-backed `list[T]` local relationship IDs and `list[Ref[T]]` pointer arrays.
+296: 
+297: ### There is no first-class nested JSON query API
+298: 
+299: N3TX currently treats these as serialized text fields. The framework does not
+300: provide a public query builder for expressions like:
+301: 
+302: ```sql
+303: json_extract(payload, '$.status') = 'queued'
+304: ```
+305: 
+306: If an application needs first-class filtering, sorting, or indexing by nested
+307: properties, prefer explicit model fields or related models.
+308: 
+309: ### `default=str` is convenient but lossy
+310: 
+311: `json.dumps(..., default=str)` prevents many serialization crashes, but it can
+312: silently convert rich values into strings.
+313: 
+314: Examples:
+315: 
+316: | Python value | Stored JSON value |
+317: |---|---|
+318: | `datetime.datetime(...)` | string timestamp representation |
+319: | `AnyHttpUrl(...)` | URL string |
+320: | custom object | `str(object)` |
+321: 
+322: Use explicit field types when round-trip fidelity matters.
+323: 
+324: ### Invalid stored JSON is tolerated, not repaired
+325: 
+326: `_deserialize_json_fields()` leaves invalid JSON strings unchanged. This avoids
+327: masking or rewriting corrupted data, but Pydantic validation may fail later.
+328: 
+329: ### Mutable defaults rely on Pydantic behavior
+330: 
+331: Existing examples use `Field(default=[])` and `Field(default={})`. Pydantic v2
+332: handles model defaults safely for normal model construction, but new code may
+333: still prefer `default_factory=list` or `default_factory=dict` when that improves
+334: clarity.
+335: 
+336: ## Implementation Map for Agents
+337: 
+338: Start with these files when investigating or changing JSON-field behavior:
+339: 
+340: | File | Why it matters |
+341: |---|---|
+342: | `packages/n3tx-core/src/n3tx_core/utils/introspection.py` | `get_json_fields()` decides which fields are JSON TEXT |
+343: | `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` | `_coerce_value()` writes JSON; `_deserialize_json_fields()` reads JSON |
+344: | `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py` | Creates and migrates JSON fields as `TEXT` columns |
+345: | `packages/n3tx-core/docs/storage.md` | Package-level storage behavior reference |
+346: | `packages/n3tx-core/src/n3tx_core/tests/unit/test_json_fields.py` | Round-trip and migration coverage |
+347: | `packages/n3tx-core/src/n3tx_core/tests/unit/test_introspection.py` | Detection coverage for JSON vs relationship fields |
+348: 
+349: ## Change Checklist
+350: 
+351: When changing JSON-field behavior:
+352: 
+353: 1. Preserve the relationship boundary: `list[T]` stores ordered local ids,
+354:    `list[Ref[T]]` stores pointer refs, and `ManyToMany[T]` remains a legacy
+355:    shared-link helper.
+356: 2. Update both storage and migration behavior if detection rules change.
+357: 3. Add tests for detection, migration, create/get/list/update, and populate if
+358:    the change affects related records.
+359: 4. Verify local relationship hydration returns self-describing child objects for
+360:    `list[T]` fields.
+361: 5. Update this guide and `packages/n3tx-core/docs/storage.md` if the public
+362:    behavior changes.
+363: 
+364: Recommended verification:
+365: 
+366: ```bash
+367: cd /workspace && python3 scripts/test-backend.py --suite core -- -q
+368: ```
+369: 
+370: For a narrow check while developing:
+371: 
+372: ```bash
+373: cd /workspace && python3 -m pytest \
+374:   packages/n3tx-core/src/n3tx_core/tests/unit/test_json_fields.py \
+375:   packages/n3tx-core/src/n3tx_core/tests/unit/test_introspection.py \
+376:   -q
+377: ```

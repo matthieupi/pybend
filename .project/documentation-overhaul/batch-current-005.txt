@@ -1,0 +1,396 @@
+
+### CLAUDE.md (549 total lines)
+1: # N3TX Project Guide
+2: 
+3: ## Philosophy
+4: 
+5: N3TX absorbs the data plumbing — storage, fetching, state, serialization — so developers focus on what makes their app unique. Define a model, get an API, a schema, a working UI.
+6: 
+7: **The model is the app.** A Python model definition is the single source of truth for the entire stack — data structure, validation, API endpoints, JSON Schema, access control, UI rendering. The framework derives everything else; if the schema can carry it, the developer shouldn't repeat it.
+8: 
+9: **Zero to working, then customize.** Everything works with no configuration. Customization is additive — override one piece without rebuilding the rest, at any level from auto-generated UI down to raw messages. The framework should never force a developer to understand the whole stack just to change one thing.
+10: 
+11: **Primitives, not opinions.** The framework provides composable building blocks — base classes, schema extensions, rendering utilities — not a rigid component library. Developers extend and compose; the framework owns the data lifecycle, developers own presentation and interaction.
+12: 
+13: **Backend is authoritative.** The backend defines models, schemas, access rules, relationships, and UI hints. The frontend reads these at runtime and adapts — deploying a new model or changing a field propagates to the UI automatically. The frontend never duplicates what the backend already knows.
+14: 
+15: **Transparent, not magical.** Nothing is hidden behind opaque abstractions. Actor messaging, schema resolution, DynamicClass creation — all inspectable, all overridable. The value is in not making you do it by hand, not in hiding it. A developer should trace any behavior from HTML tag to network request in under a minute.
+16: 
+17: **Modular where it simplifies, coupled where it must.** Real boundaries get enforced — the `authorize` package has zero N3TX imports, StorableMixin is injected not inherited, the Actor system knows nothing about HTML. But don't split genuinely single concerns for modularity's sake. The test: does this boundary make code easier to read, test, or replace one side? If it just adds a hop, keep it together.
+18: 
+19: ---
+20: 
+21: ## MANDATORY: Documentation-First Context Loading
+22: 
+23: Before starting ANY implementation task, you MUST follow this order:
+24: 
+25: ### Step 1: Read the Documentation
+26: 
+27: Start with the **documentation files** to understand the system. These are the authoritative references:
+28: 
+29: **Cross-cutting docs** (`/workspace/docs/`):
+30: - `ARCHITECTURE.md` — System architecture, data flow, design patterns
+31: - `CORE.md` — Schema-driven development, model definitions, key patterns
+32: - `ACTORS.md` — Actor system, TX messaging, Matrix routing
+33: - `AGENTS.md` — LLM integration, tool discovery, AgentMixin/AgentActor
+34: - `MODELS.md` — Model layer, pipelines, StorableMixin, BaseUser
+35: 
+36: **Per-package docs** (deep technical reference):
+37: - `packages/n3tx-core/docs/` — app-bootstrap, authorization, schema-pipeline, storage
+38: - `packages/n3tx-actors/docs/` — actor-messaging, actor-model, interceptors, network-adapters
+39: - `packages/n3tx-agents/docs/` — mixin, agent-actor, tool-discovery
+40: - `packages/n3tx-ui/docs/` — components, formidable, styling, widgets
+41: 
+42: ### Step 2: Read Domain-Specific Context
+43: 
+44: - **Backend work** (Python, models, storage, API, auth): Read `BACKEND.md` in this directory
+45: - **Frontend work** (JS, Web Components, UI): Read `FRONTEND.md` in this directory
+46: - **Full-stack work** (changes spanning both): Read BOTH files
+47: 
+48: ### Step 3: Only Then Read Code
+49: 
+50: If the documentation does not fully answer your question, go to the source code. The docs should be sufficient for understanding architecture, patterns, and conventions. The code is for implementation details and edge cases.
+51: 
+52: This order is not optional. Do not begin writing code without first loading the relevant documentation and context files.
+53: 
+54: ---
+55: 
+56: ## Multi-Package Structure
+57: 
+58: N3TX is split into independently installable packages under `/workspace/packages/`:
+59: 
+60: ```
+61: packages/
+62: ├── n3tx-core/       # pip install n3tx-core   (models, storage, auth, API, JS runtime)
+63: ├── n3tx-actors/     # pip install n3tx-actors  (actor messaging, network adapters — backend only)
+64: ├── n3tx-ui/         # pip install n3tx-ui      (web components, widgets, themes — frontend only)
+65: ├── n3tx-agents/     # pip install n3tx-agents  (LLM reasoning, tool discovery)
+66: ├── n3tx-files/      # pip install n3tx-files   (optional file metadata + byte stores)
+67: └── n3tx/            # pip install n3tx         (meta-package — installs all packages)
+68: ```
+69: 
+70: **Dependency graph** (acyclic):
+71: ```
+72: n3tx-core              ← foundation, no N3TX deps
+73: n3tx-actors            ← depends on n3tx-core
+74: n3tx-ui                ← depends on n3tx-core
+75: n3tx-agents            ← depends on n3tx-core + n3tx-actors
+76: n3tx-files             ← depends on n3tx-core + n3tx-actors
+77: n3tx                   ← meta-package, depends on all installable packages
+78: ```
+79: 
+80: **Import style** (new — clean break from old `n3tx.core.*` paths):
+81: ```python
+82: # Core
+83: from n3tx_core.models.proto_model import ProtoModel
+84: from n3tx_core.models.base_user import BaseUser
+85: from n3tx_core.storage.sqlite_storage import SQLiteStorage
+86: from n3tx_core.authorize import ANYONE, OWNER, ROLE
+87: from n3tx_core.utils.decorators import expose_route
+88: from n3tx_core.app import create_app, N3TXApp
+89: 
+90: # Actors
+91: from n3tx_actors import Actor, TX, Matrix, matrix, ActorProxy
+92: from n3tx_actors.models.actor_model import ActorModel
+93: from n3tx_actors.api import NetworkAPI, NetworkWebSocket
+94: 
+95: # Agents
+96: from n3tx_agents import AgentMixin, AgentActor, AgentDeps
+97: from n3tx_agents.tools import discover_tools
+98: 
+99: # UI (Python side — just path helper)
+100: from n3tx_ui import get_static_dir
+101: ```
+102: 
+103: ---
+104: 
+105: ## Development Workflow
+106: 
+107: ### Before Making Changes
+108: 
+109: Before writing any code, review the area you are about to change. Understand the intent behind the existing implementation — why it was built this way, what patterns it follows, and how it fits into the larger system. Changes must be consistent with the architecture already in place. Do not work around the framework; work with it.
+110: 
+111: **Consistency is paramount.** N3TX's power comes from a small number of patterns applied uniformly across the entire stack. A single inconsistency — a hand-rolled route bypassing `register_routes()`, a frontend component fetching data outside the schema flow, a model that stores data differently from every other model — creates confusion, breaks assumptions, and compounds into real bugs over time. Every change should reinforce the existing architecture, not erode it. When in doubt, look at how the same thing is done elsewhere in the codebase and follow that pattern.
+112: 
+113: ### Bug Fixes
+114: 
+115: **Test-Driven Bug Fixing (TDD).** Every bug fix MUST follow the red-green-refactor cycle:
+116: 
+117: 1. **Red — Write a failing test first.** Before touching any production code, write a test that reproduces the reported bug. The test should fail for the same reason the bug manifests. This proves you understand the bug and gives you a clear signal when it's fixed. Place the test in the appropriate test directory (see [Tests](#tests) below).
+118: 
+119: 2. **Green — Fix the bug.** Make the minimal change needed to turn the failing test green. Do not refactor, do not clean up, do not fix adjacent issues — just make the test pass.
+120: 
+121: 3. **Refactor — Clean up if needed.** Once green, improve the fix if the code can be clearer or more consistent with surrounding patterns. The test ensures you don't regress.
+122: 
+123: If the bug cannot be reproduced with a test (e.g., environment-specific, timing-dependent), document why in a comment on the fix and describe the manual reproduction steps. But the default is always: **test first, fix second**.
+124: 
+125: Beyond standard analysis (reproduce, isolate, fix, verify), always ask **why** the bug exists. Most bugs are symptoms of deeper misalignment, not simple typos.
+126: 
+127: **Root cause categories:**
+128: 
+129: 1. **Misunderstood architecture.** The change works in isolation but conflicts with the system's actual patterns. Fix: understand the correct pattern, rewrite to be consistent. If the same area keeps producing bugs, improve its documentation.
+130: 
+
+### CLAUDE.md (549 total lines)
+131: 2. **Architecture gap.** The developer understood the system but found no clean way to achieve their goal, so they hacked around it. Fix: don't patch the hack — ask what the architecture should provide so this can be done cleanly, then make that deeper change.
+132: 
+133: 3. **Violated expectations.** The code "works" (no crash) but produces silently wrong behavior — invisible at origin, visible only downstream where it looks like something else.
+134: 
+135: **Response framework:** Identify root cause → decide if the fix is a code correction, documentation improvement, or architectural enhancement. Never silence symptoms. For recurring bugs in the same area, the fix must also address the documentation or API surface — not just patch the instance.
+136: 
+137: ## Architecture Overview
+138: 
+139: N3TX is a schema-driven framework where **model definitions are the single source of truth**. Models flow through: Model Definition → JSON Schema → API Routes → Frontend Rendering.
+140: 
+141: For full architecture details, read `/workspace/docs/ARCHITECTURE.md`.
+142: 
+143: ### Three Levels of Bootstrapping
+144: 
+145: ```python
+146: # Level 1 — One-liner via create_app():
+147: app = create_app(models=[Product, User], storage="sqlite:///app.db")
+148: 
+149: # Level 2 — Builder via N3TXApp:
+150: pb = N3TXApp(storage="sqlite:///app.db")
+151: pb.model(Product).model(User).join(Product, Comment)
+152: app = pb.build()
+153: 
+154: # Level 3 — Raw primitives (full manual control):
+155: register_model(Product, storage=storage_backend)
+156: register_routes(registered_models)
+157: ```
+158: 
+159: Level 3 with `routing='actor'` wires `NetworkAPI` adapter + `auth_interceptor` on `request` + routes via `create_api_routes()`. All three levels produce identical API endpoints and responses.
+160: 
+161: ### Backend (Python/FastAPI)
+162: 
+163: Models extend `ProtoModel` (or `ActorModel` for actor capabilities). `ProtoModel.schema()` orchestrates the schema pipeline, `model_response()` runs the dump pipeline. Models are registered via `register_model()` and routes auto-generated via `register_routes()`. See `BACKEND.md` for the full backend pipeline diagram and key files.
+164: 
+165: ### Frontend (Vanilla JS Web Components)
+166: 
+167: The frontend bootstraps by fetching schema from the backend. `N3TX.SCHEMA()` creates DynamicClasses via `prototype()`, which are then rendered by Web Components (`ntx-list`, `ntx-item`, `ntx-method`, `ntx-stream`) with forms generated by `Formidable`. See `FRONTEND.md` for the frontend architecture diagram and key files, and `packages/n3tx-ui/docs/styling.md` for the theme/token contract and frontend verification workflow.
+168: 
+169: ### Data Flow: Request Lifecycle
+170: 
+171: 1. Frontend `<ntx-list model="Product">` triggers schema fetch → `GET /Product`
+172: 2. Backend returns JSON Schema with `$schema`, `$id`, `properties`, `$defs`, `methods`
+173: 3. Frontend creates DynamicClass from schema, registers nested `$defs` models
+174: 4. DynamicClass triggers `READ` → `GET /products?limit=20&offset=0` (paginated)
+175: 5. Backend returns `{data: [...], meta: {total, limit, offset, has_more}}` with `$schema`/`$id` on each item
+176: 6. Frontend creates instances, renders via `ntx-item` components with "Load More" button if `has_more`
+177: 
+178: ## Schema-Driven Development
+179: 
+180: Write a Python model, get a working full-stack application. The model definition is the only thing a developer writes. Everything else — API, validation, storage, UI, permissions, navigation — is derived from the schema that model produces. Any project can be transformed into a full stack application by turning a few classes into models.
+181: 
+182: For full details, read `/workspace/docs/CORE.md`.
+183: 
+184: ### Canonical Model Example
+185: 
+186: ```python
+187: from n3tx_core.models.proto_model import ProtoModel
+188: from n3tx_core.models.ref import ListRef
+189: from n3tx_core.utils.decorators import expose_route
+190: from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+191: 
+192: class Product(ProtoModel):
+193:     __tablename__ = 'products'
+194:     __storable__ = True
+195:     __ui__ = {
+196:         'field_order': ['name', 'price', 'description', 'comments'],
+197:         'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments']},
+198:         'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
+199:     }
+200:     __access__ = {
+201:         'read': ANYONE, 'create': AUTHENTICATED,
+202:         'update': OWNER | ROLE('admin'), 'delete': ROLE('admin'),
+203:     }
+204: 
+205:     name: str = Field(min_length=1, max_length=200,
+206:                       json_schema_extra={'ui': {'placeholder': 'Product name...'}})
+207:     price: float = Field(gt=0,
+208:                          json_schema_extra={'ui': {'widget': 'currency'},
+209:                                             'access': {'view': 'anyone', 'edit': 'admin'}})
+210:     description: str = Field(default='',
+211:                              json_schema_extra={'ui': {'widget': 'textarea'}})
+212:     comments: ListRef[Comment] = Field(default=[])
+213: 
+214:     @expose_route('/comment', methods=['POST'])
+215:     def comment(self, comment: Comment) -> str: ...
+216: ```
+217: 
+218: ### What Gets Generated (zero code required)
+219: 
+220: | Concern | Generated from | Where it happens |
+221: |---------|---------------|-----------------|
+222: | CRUD API endpoints | `__tablename__`, model fields | `register_routes()` in `routes_fastapi.py` |
+223: | JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via `proto_schema` pipeline |
+224: | Enriched JSON responses | `model_response()`, dump pipeline stages | `proto_dump` pipeline (`base` → `relationships` → `schema_url` → `instance_url` → `populate` → extensions) |
+225: | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
+226: | JSON field storage | `dict`, `list`, `List[str]` etc. fields | `sqlite_storage.py` auto-serializes to/from JSON TEXT |
+227: | FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |
+228: | Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
+229: | Frontend entity classes | Schema properties, methods | `N3TX.SCHEMA()` → `prototype()` → DynamicClass |
+230: | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | `Formidable.getForm()` reads schema |
+231: | Field order + grouping | `ui.field_order`, `ui.groups` | `form.js` renders fieldsets |
+232: | Show/hide fields | `ui.display`, field-level `access` | `form.js` + `Permissions.js` |
+233: | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update; `form.js` hides in edit mode |
+234: | Edit/Delete button visibility | `access.update`/`access.delete` + OWNER check | `ntx-item.js` checks permissions |
+235: | Pagination (list endpoints) | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
+236: | Authenticated user injection | `user: User` param on `@expose_route` methods | `_resolve_user()` in `routes_fastapi.py` |
+237: | Method buttons | `schema.methods` | `<ntx-method>` reads method signatures |
+238: | Streaming SSE endpoints | `@expose_route(stream=True)` + async generator | `routes_fastapi.py` / `network_api.py` SSE handler |
+239: | Streaming UI component | `schema.methods[m].stream` flag | `<ntx-stream>` reads method schema, renders progressive output |
+240: | Stream event schemas | `@expose_route(events={...})` | `proto_model.py` serializes event ProtoModels into `methods[m].events` |
+241: | Stream event dispatch | `NTTStreamAgent` + UPPERCASE handlers | `NTTStreamAgent` (extends `NTTStream`) dispatches to `this.TEXT()` etc. |
+242: 
+243: ### Schema as Universal Contract
+244: 
+245: The JSON Schema returned by `GET /{ClassName}` is the **single contract between backend and frontend**. It carries the complete specification of how an entity behaves, renders, and is controlled — not just type descriptions. See `FRONTEND.md` for the full schema anatomy and consumption mapping.
+246: 
+247: ## Key Files by Package
+248: 
+249: ### n3tx-core — Framework Foundation
+250: | File | Purpose |
+251: |------|---------|
+252: | `packages/n3tx-core/src/n3tx_core/app.py` | `N3TXApp` builder + `create_app()` factory |
+253: | `packages/n3tx-core/src/n3tx_core/config.py` | HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS |
+254: | `packages/n3tx-core/src/n3tx_core/models/proto_model.py` | Base model, `schema()`, `model_response()`, `generate_join_model()`, `register_mixin()` |
+255: | `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` | Schema pipeline: 7 core stages + external extensions |
+256: | `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` | Dump pipeline for serialization |
+257: | `packages/n3tx-core/src/n3tx_core/models/base_user.py` | Abstract base user with login/register |
+258: | `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` | CRUD operations, pagination |
+259: | `packages/n3tx-core/src/n3tx_core/models/ref.py` | `ListRef[T]` type |
+260: | `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` | SQLite backend, FK hydration, JSON fields |
+
+### CLAUDE.md (549 total lines)
+261: | `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py` | Auto-migration + manual migrations |
+262: | `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py` | Level 1/2 route generation |
+263: | `packages/n3tx-core/src/n3tx_core/api/backend.py` | FastAPIBackend, static file serving |
+264: | `packages/n3tx-core/src/n3tx_core/authorize/` | Standalone ABAC auth (zero N3TX imports) |
+265: | `packages/n3tx-core/src/n3tx_core/utils/descriptors.py` | `fullmethod`/`fullproperty` descriptors |
+266: | `packages/n3tx-core/src/n3tx_core/utils/decorators.py` | `@expose_route`, `@schema_extension` |
+267: | `packages/n3tx-core/src/n3tx_core/utils/registrar.py` | `register_model()`, `registered_models` |
+268: | `packages/n3tx-core/src/n3tx_core/widgets/` | Widget base class + schema pipeline stage |
+269: 
+270: ### n3tx-actors — Actor Messaging (Backend Only)
+271: | File | Purpose |
+272: |------|---------|
+273: | `packages/n3tx-actors/src/n3tx_actors/actor.py` | Actor base class, `ActorMeta` metaclass |
+274: | `packages/n3tx-actors/src/n3tx_actors/matrix.py` | Root actor, message router, module-level `matrix` |
+275: | `packages/n3tx-actors/src/n3tx_actors/tx.py` | TX message envelope (dataclass) |
+276: | `packages/n3tx-actors/src/n3tx_actors/actor_proxy.py` | ActorProxy wrapper (actor interface without MI) |
+277: | `packages/n3tx-actors/src/n3tx_actors/models/actor_model.py` | `ActorModel(Actor, ProtoModel)` bridge |
+278: | `packages/n3tx-actors/src/n3tx_actors/api/network_adapter.py` | Base adapter: `request()`, `stream()`, correlation |
+279: | `packages/n3tx-actors/src/n3tx_actors/api/network_api.py` | HTTP REST bridge (Level 3 routing) |
+280: | `packages/n3tx-actors/src/n3tx_actors/api/network_ws.py` | WebSocket bridge |
+281: | `packages/n3tx-actors/src/n3tx_actors/api/network_mcp.py` | MCP JSON-RPC 2.0 bridge |
+282: | `packages/n3tx-actors/src/n3tx_actors/api/network_ap.py` | ActivityPub federation bridge |
+283: | `packages/n3tx-actors/src/n3tx_actors/api/auth_interceptor.py` | Tier 1 auth gate |
+284: 
+285: ### n3tx-agents — LLM Reasoning
+286: | File | Purpose |
+287: |------|---------|
+288: | `packages/n3tx-agents/src/n3tx_agents/mixin.py` | AgentMixin: `ctx()`, `tools()`, `agentic()`, `run()`, streaming variants |
+289: | `packages/n3tx-agents/src/n3tx_agents/actor.py` | AgentActor + stream event models (TextChunk, ToolCallEvent, etc.) |
+290: | `packages/n3tx-agents/src/n3tx_agents/deps.py` | AgentDeps dataclass for Pydantic AI |
+291: | `packages/n3tx-agents/src/n3tx_agents/tools.py` | Tool discovery + function generation |
+292: | `packages/n3tx-agents/src/n3tx_agents/schema_ext.py` | Schema pipeline extension for `__agent__` models |
+293: | `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js` | `NTTStreamAgent`: rich agent output (entries, markdown, tool cards) |
+294: | `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` | `<ntx-agent-live>` — real-time agent activity view (extends NTTStream) |
+295: | `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` | `<ntx-chat>` — agent chat panel (extends NTTStream) |
+296: 
+297: ### n3tx-ui — Visual Components (Frontend Only)
+298: | File | Purpose |
+299: |------|---------|
+300: | `packages/n3tx-ui/src/n3tx_ui/mixin.py` | `ViewableMixin` + `viewable` schema stage; registers via `register_mixin()` |
+301: | `packages/n3tx-ui/src/n3tx_ui/static/components/NTTElement.js` | Abstract single-entity base |
+302: | `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js` | Abstract collection base |
+303: | `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js` | Single entity renderer |
+304: | `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.js` | Collection grid |
+305: | `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-theme-button.js` | Manual theme-cycle control for shell slots |
+306: | `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js` | Streaming method output |
+307: | `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js` | Formidable: schema-driven forms |
+308: | `packages/n3tx-ui/src/n3tx_ui/static/theme-base.css` | Shared structural theme base |
+309: | `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` | Dark theme token entrypoint |
+310: | `packages/n3tx-ui/src/n3tx_ui/static/light-theme.css` | Light theme token entrypoint |
+311: | `packages/n3tx-ui/src/n3tx_ui/static/widgets/` | JS widget registry + built-in widgets |
+312: 
+313: ### Frontend JS Runtime (in n3tx-core — non-visual)
+314: | File | Purpose |
+315: |------|---------|
+316: | `packages/n3tx-core/src/n3tx_core/static/core/NTT.js` | Entity registry, DynamicClass creation |
+317: | `packages/n3tx-core/src/n3tx_core/static/core/Actor.js` | Base actor class (messaging) |
+318: | `packages/n3tx-core/src/n3tx_core/static/core/TX.js` | Message envelope |
+319: | `packages/n3tx-core/src/n3tx_core/static/core/Matrix.js` | Root actor + singleton |
+320: | `packages/n3tx-core/src/n3tx_core/static/core/Component.js` | Abstract HTMLElement + Actor bridge |
+321: | `packages/n3tx-core/src/n3tx_core/static/core/Router.js` | Client-side navigation |
+322: | `packages/n3tx-core/src/n3tx_core/static/utils/theme.js` | Persisted theme runtime + configured theme cycling |
+323: | `packages/n3tx-core/src/n3tx_core/static/core/transport/` | HTTP, Socket, NetworkAdapter |
+324: 
+325: ## Documentation Hierarchy
+326: 
+327: Documentation lives at three levels:
+328: 
+329: ```
+330: /workspace/docs/                           # Cross-cutting: architecture, getting started, API reference
+331: /workspace/packages/<pkg>/docs/            # Per-package: deep technical reference for that subsystem
+332: /workspace/CLAUDE.md + BACKEND.md + FRONTEND.md  # Agent context files (this file + supplements)
+333: ```
+334: 
+335: The `docs/` directory is for **human and agent consumption** — authoritative reference. The per-package `docs/` directories are for **deep dives** into specific subsystems. The CLAUDE/BACKEND/FRONTEND files are **agent-specific** context for LLM assistants working on the codebase.
+336: 
+337: `.project/` contains development artifacts written by and for agents — research, plans, vision docs, audit reports.
+338: 
+339: ## Example Applications
+340: 
+341: | Directory | Level | What it demonstrates |
+342: |-----------|-------|---------------------|
+343: | `examples/core/` | Level 1/2 | Direct routes, `create_app()`, ProtoModel |
+344: | `examples/actors/` | Level 3 | Actor routing, `routing='actor'`, ActorModel |
+345: | `examples/chat/` | Streaming | Streaming endpoints |
+346: | `examples/grants/` | Agents | `__agent__ = True`, agent CRUD, tool discovery |
+347: 
+348: ## Cross-Cutting Patterns
+349: 
+350: ### Custom Methods
+351: ```python
+352: @expose_route('/like', methods=['POST'], access=AUTHENTICATED)
+353: def like(self) -> str:
+354:     ...
+355: ```
+356: Appears in schema under `methods`, frontend renders via `<ntx-method>` (or `<ntx-stream>` for streaming methods). The `access=` parameter controls authorization. The `stream=True` parameter marks the method as streaming.
+357: 
+358: ### Streaming Methods
+359: Custom methods can stream progressive results via SSE or WebSocket:
+360: 
+361: ```python
+362: @expose_route('/generate', methods=['POST'], stream=True, access=AUTHENTICATED)
+363: async def generate(self):
+364:     for i in range(5):
+365:         await asyncio.sleep(0.1)
+366:         yield {'chunk': f'Part {i}'}
+367: ```
+368: 
+369: SSE wire format: `event: chunk|done|error`, `data: {json}`. Stream protocol uses `meta: {req, stream: true, seq: N}` for chunk correlation and `meta: {stream_end: true}` for termination.
+370: 
+371: #### Schema-Declared Stream Events
+372: 
+373: Streaming methods can declare their event vocabulary with `events=` on `@expose_route`. Event types are non-storable `ProtoModel` subclasses:
+374: 
+375: ```python
+376: class TextChunk(ProtoModel):
+377:     text: str = Field(default='')
+378: 
+379: @expose_route('/stream', methods=['POST'], stream=True,
+380:               events={'text': TextChunk, 'done': DoneChunk})
+381: async def stream_method(self, task: str):
+382:     yield {'name': 'text', 'data': {'text': 'hello'}}
+383: ```
+384: 
+385: Events appear in schema as `methods[m].events` with full JSON Schema per event type. See `docs/AGENTS.md` → Streaming for the complete pattern.
+386: 
+387: #### Frontend NTTStreamAgent
+388: 
+389: `NTTStreamAgent` (`n3tx-agents/static/components/ntx-stream-agent.js`) extends `NTTStream` with rich agent output rendering — typed entries (thinking, tool calls, text), markdown rendering, and tool result cards. Components that need agent-style streaming extend `NTTStreamAgent` and override UPPERCASE handlers:
+390: 

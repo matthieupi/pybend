@@ -1,0 +1,559 @@
+
+### .opencode/commands/handoff.md (212 total lines)
+1: ---
+2: description: Create a comprehensive, styled handoff document that preserves task context, conversation state, decisions, risks, and next steps for a fresh agent.
+3: agent: build
+4: ---
+5: 
+6: Write a comprehensive handoff document that lets a fresh agent continue this session with minimal rediscovery.
+7: 
+8: The handoff is not just a summary. It is an engineering continuation packet: preserve the user's goal, the conversational context that shaped decisions, current repo state, implementation progress, verification evidence, unresolved risks, and the exact recommended next moves.
+9: 
+10: Save the handoff document to /workspace/.project/handoffs/. Use an explicit, 
+11: timestamped filename such as `handoff-YYYYMMDD-HHMMSS.md`.
+12: 
+13: If command arguments were provided, treat them as the requested next-session focus and tailor the handoff toward that continuation path.
+14: 
+15: Next-session focus:
+16: 
+17: ```text
+18: $ARGUMENTS
+19: ```
+20: 
+21: ## Writing style
+22: 
+23: Match this project's build/plan artifact style:
+24: 
+25: - ✅ Lead with outcomes and current state.
+26: - 📍 Make scope, files, modules, routes, commands, and artifacts easy to scan.
+27: - 🧵 Preserve relevant conversational context, including user intent, preferences, corrections, and approvals.
+28: - 🗺️ Include ASCII diagrams when they clarify architecture, flow, ownership, sequencing, or handoff boundaries.
+29: - 📊 Use compact tables for changed files, decisions, risks, verification, and next steps when they reduce prose.
+30: - 💻 Include concise code snippets, command examples, route shapes, payload examples, or pseudo-diffs when they help the next agent act safely.
+31: - 🧪 Separate verified facts from assumptions and gaps.
+32: - ⚠️ Surface blockers, risks, compatibility issues, and places where the next agent must verify before editing.
+33: - ✨ End with concrete next steps in priority order.
+34: 
+35: Be precise and implementation-grade. Avoid vague statements like "fix remaining issues" unless you name the files, functions, tests, routes, or symptoms involved.
+36: 
+37: ## Required handoff structure
+38: 
+39: Use this structure unless the current session clearly calls for a better one:
+40: 
+41: ```md
+42: # Handoff — <Project / Task Name>
+43: 
+44: Generated: <YYYY-MM-DD HH:MM:SS local time>
+45: Session focus: <one sentence>
+46: 
+47: ## ✅ Executive Snapshot
+48: 
+49: <3-6 bullets that explain what the next agent most needs to know.>
+50: 
+51: ## 🎯 Current Goal and Next-Session Focus
+52: 
+53: - User goal: <what the user is ultimately trying to accomplish>
+54: - Latest request: <what triggered this handoff>
+55: - Recommended next focus: <what the next agent should do first>
+56: - Definition of done: <observable success criteria, if known>
+57: 
+58: ## 🧵 Conversation Context
+59: 
+60: Summarize the relevant conversation in chronological order. Preserve:
+61: 
+62: 1. What the user asked for.
+63: 2. Important clarifications, preferences, and style directives.
+64: 3. Proposed approaches and whether the user accepted, rejected, or modified them.
+65: 4. Any points where the assistant intentionally paused for review.
+66: 5. Any user-reported runtime behavior, errors, screenshots, logs, or manual validation.
+67: 
+68: Do not include irrelevant chat. Do include context that affects future implementation choices.
+69: 
+70: ## 📍 Repo / Workspace Context
+71: 
+72: | Concern | Value |
+73: | --- | --- |
+74: | Workspace | `/workspace` |
+75: | Primary app/package | `<path>` |
+76: | Relevant modules | `<paths>` |
+77: | Important docs/plans | `<paths or URLs>` |
+78: | Test commands | `<commands>` |
+79: 
+80: Include only context needed to continue. Reference canonical artifacts instead of copying them wholesale.
+81: 
+82: ## 🗺️ Current Architecture / Flow
+83: 
+84: Use a diagram if a flow, subsystem, or ownership boundary matters. Example:
+85: 
+86: ```text
+87: browser
+88:   -> app route/component
+89:   -> N3TX schema/model/method
+90:   -> actor/service boundary
+91:   -> storage/compute/external system
+92:   -> UI feedback
+93: ```
+94: 
+95: Explain the diagram in 2-5 bullets after it.
+96: 
+97: ## ✅ Completed Work
+98: 
+99: Group completed work by coherent slice. Include files, routes, functions, tests, and decisions.
+100: 
+101: | Slice | Files / Areas | What changed | Status |
+102: | --- | --- | --- | --- |
+103: | <name> | `<path>` | <concrete change> | ✅ Done / 🟡 Partial |
+104: 
+105: If code changed, include representative snippets or pseudo-diffs only when they help continuation. Prefer links/paths over large duplicated diffs.
+106: 
+107: ## 🔎 Current State
+108: 
+109: Describe the repo and product state at handoff time:
+110: 
+111: - What is known to work.
+112: - What is known to fail.
+113: - What is unverified.
+114: - Any dirty working tree expectations, generated files, local runtime artifacts, or external state the next agent should not touch.
+115: 
+116: ## 🧩 Important Decisions and Rationale
+117: 
+118: | Decision | Rationale | Consequence / Follow-up |
+119: | --- | --- | --- |
+120: | <decision> | <why> | <impact> |
+121: 
+122: Capture decisions that prevent the next agent from re-litigating settled choices.
+123: 
+124: ## 🧪 Verification Evidence
+125: 
+126: List checks that were actually run. Do not claim verification that did not happen.
+127: 
+128: ```bash
+129: <exact command that was run>
+130: ```
+
+### .opencode/commands/handoff.md (212 total lines)
+131: 
+132: | Check | Result | Notes |
+133: | --- | --- | --- |
+134: | `<command/test>` | ✅ Passed / ❌ Failed / ⚠️ Blocked | <details> |
+135: 
+136: If a check failed or could not run, include the actionable reason and the next verification path.
+137: 
+138: ## ⚠️ Risks, Blockers, and Assumptions
+139: 
+140: | Type | Detail | Mitigation / Next action |
+141: | --- | --- | --- |
+142: | Risk | <risk> | <how to reduce it> |
+143: | Blocker | <blocker> | <who/what unblocks it> |
+144: | Assumption | <assumption> | <how to verify> |
+145: 
+146: ## ✨ Recommended Next Steps
+147: 
+148: Give a prioritized, executable list. Each step should name the likely files and verification.
+149: 
+150: 1. <First action>
+151:    - Files: `<path>`, `<path>`
+152:    - Verify: `<command>`
+153:    - Watch for: <risk>
+154: 2. <Second action>
+155: 
+156: ## 🧠 Suggested Skills / Context to Load
+157: 
+158: List skills or docs the next agent should load first, in order, and why.
+159: 
+160: 1. `<skill-or-doc>` — <reason>
+161: 2. `<skill-or-doc>` — <reason>
+162: 
+163: ## 📚 Artifact References
+164: 
+165: - `<path>` — <what it contains>
+166: - `<path>` — <why it matters>
+167: 
+168: Do not duplicate large PRDs, plans, ADRs, diffs, issues, or existing handoffs. Reference them by path or URL.
+169: 
+170: ## 🔐 Sensitive Content Handling
+171: 
+172: State whether sensitive material appeared in the session. Redact secrets as `[REDACTED]` and describe only their purpose.
+173: ```
+174: 
+175: ## Content requirements
+176: 
+177: The handoff document must include, when relevant:
+178: 
+179: - current goal and requested next-session focus
+180: - relevant conversation summary, including user preferences and approvals
+181: - current repo/workspace context, only as needed to continue safely
+182: - completed work and important decisions
+183: - remaining work and recommended next steps with file/test specificity
+184: - known risks, assumptions, blockers, or verification gaps
+185: - suggested skills the next agent should invoke
+186: - exact verification commands already run and their results
+187: - artifact references for related plans, PRDs, issues, diffs, screenshots, logs, or prior handoffs
+188: 
+189: ## Safety and redaction rules
+190: 
+191: - Do not duplicate content already captured in other artifacts such as PRDs, plans, ADRs, issues, commits, or diffs. Reference those artifacts by path or URL instead.
+192: - Redact sensitive information, including API keys, passwords, tokens, secrets, credentials, private keys, session cookies, and personally identifiable information.
+193: - If sensitive content is relevant, describe it generically as `[REDACTED]` and explain only the operational role, such as "service token" or "test user credential".
+194: - Do not write local-only runtime state as if it were source truth. Clearly distinguish repo files from generated artifacts, runtime output, containers, browser state, and user-local environment.
+195: - Do not fabricate test results, code behavior, or repo state. If unknown, say unknown and provide the verification step.
+196: 
+197: ## Quality checklist before saving
+198: 
+199: Before writing the final file, check that a fresh agent can answer:
+200: 
+201: - What is the user trying to accomplish?
+202: - What did this session already decide or change?
+203: - Which files/modules/routes/components are relevant?
+204: - What is the current known-good state?
+205: - What is broken, risky, blocked, or unverified?
+206: - What should the next agent do first, second, and third?
+207: - Which commands should the next agent run to verify progress?
+208: - Which skills/docs should the next agent load before editing?
+209: 
+210: After writing the file, report the absolute path to the handoff document and briefly summarize what it contains.
+211: 
+212: If you changed this command file or related opencode configuration, remind the user to restart opencode before relying on the updated command in a new session.
+
+### .opencode/commands/start-handoff.md (148 total lines)
+1: ---
+2: description: Load a recent handoff by ordinal, hydrate required context, inspect referenced docs/code, and prepare to continue from the prior session.
+3: agent: build
+4: argument-hint: "[-1 latest, -2 second latest, --list, or optional focus text]"
+5: ---
+6: 
+7: # Start From Handoff
+8: 
+9: Resume from a prior engineering handoff with minimal rediscovery. Select the
+10: requested handoff, read it fully, load the skills and context it names, inspect
+11: the referenced docs/code, and report readiness before making any changes.
+12: 
+13: **Arguments:** `$ARGUMENTS`
+14: 
+15: ## Selection behavior
+16: 
+17: Handoffs live under:
+18: 
+19: ```text
+20: /workspace/.project/handoffs/
+21: ```
+22: 
+23: Supported arguments:
+24: 
+25: ```text
+26: /start-handoff        # latest handoff, same as -1
+27: /start-handoff -1     # latest handoff
+28: /start-handoff -2     # second latest handoff
+29: /start-handoff -3     # third latest handoff
+30: /start-handoff --list # list handoffs newest-first and stop
+31: /start-handoff <text> # latest handoff, with <text> as continuation focus
+32: ```
+33: 
+34: Use this Python selector rather than shell truncation commands:
+35: 
+36: ```bash
+37: python - <<'PY'
+38: from pathlib import Path
+39: 
+40: handoffs = sorted(
+41:     Path('/workspace/.project/handoffs').glob('handoff-*.md'),
+42:     key=lambda p: (p.stat().st_mtime, p.name),
+43:     reverse=True,
+44: )
+45: 
+46: for i, path in enumerate(handoffs, start=1):
+47:     print(f'-{i} {path}')
+48: PY
+49: ```
+50: 
+51: Then choose the handoff as follows:
+52: 
+53: 1. If `$ARGUMENTS` is empty, select `-1`.
+54: 2. If `$ARGUMENTS` is `--list`, list handoffs newest-first and stop.
+55: 3. If `$ARGUMENTS` starts with `-N` where `N` is a positive integer, select
+56:    the Nth newest handoff.
+57: 4. If `$ARGUMENTS` contains other text after the ordinal, preserve that text as
+58:    the continuation focus.
+59: 5. If `$ARGUMENTS` is text without an ordinal, select `-1` and treat the text
+60:    as the continuation focus.
+61: 6. If the selected ordinal does not exist, report the available handoffs and
+62:    stop without guessing.
+63: 
+64: ## Required startup workflow
+65: 
+66: 1. **Find and select the handoff** using the selection behavior above.
+67: 2. **Read the selected handoff completely** into context.
+68: 3. **Load mandatory repo skills first**, in this order unless the handoff gives
+69:    a more specific superset:
+70:    - `n3tx-skill-routing`
+71:    - `n3tx-principles`
+72:    - `n3tx-build-app`
+73: 4. **Load every skill named by the handoff** under sections like:
+74:    - `Suggested Skills / Context to Load`
+75:    - `Recommended Next Steps`
+76:    - `Risks, Blockers, and Assumptions`
+77: 5. **Read canonical docs before code**, following `AGENTS.md`:
+78:    - `/workspace/lib/n3tx/docs/ARCHITECTURE.md`
+79:    - `/workspace/lib/n3tx/docs/CORE.md`
+80:    - `/workspace/lib/n3tx/docs/ACTORS.md`
+81:    - `/workspace/lib/n3tx/docs/AGENTS.md`
+82:    - `/workspace/lib/n3tx/docs/MODELS.md`
+83:    - `/workspace/lib/n3tx/docs/AUTHORIZATION.md`
+84:    - `/workspace/lib/n3tx/docs/API_REFERENCE.md`
+85:    - `/workspace/lib/n3tx/BACKEND.md` and/or `/workspace/lib/n3tx/FRONTEND.md`
+86:      when the handoff indicates backend/frontend scope.
+87: 6. **Read referenced artifacts** from the handoff, including plans, PRDs,
+88:    prior handoffs, issues, logs, or implementation notes when they are relevant
+89:    to the continuation focus.
+90: 7. **Inspect referenced code paths** and current neighboring code before
+91:    proposing implementation.
+92: 8. **Inspect current repo state** with non-destructive git commands:
+93:    - `git status --short`
+94:    - `git diff --stat`
+95:    - `git diff --name-status`
+96: 9. **Do not edit files automatically.** First report readiness and the proposed
+97:    next implementation direction. Wait for explicit confirmation unless the
+98:    user's command arguments clearly ask you to proceed with a specific change.
+99: 
+100: ## Readiness report
+101: 
+102: After loading context, respond with a concise continuation packet:
+103: 
+104: ```md
+105: ## ✅ Handoff Loaded
+106: 
+107: - Selected handoff: `<absolute path>`
+108: - Selection argument: `<$ARGUMENTS or default -1>`
+109: - Continuation focus: `<focus text or none>`
+110: 
+111: ## 📍 Context Loaded
+112: 
+113: | Type | Loaded |
+114: | --- | --- |
+115: | Skills | `<skills>` |
+116: | Docs | `<docs>` |
+117: | Artifacts | `<paths>` |
+118: | Code | `<paths>` |
+119: 
+120: ## 🔎 Current Repo State
+121: 
+122: - Git status summary: `<summary>`
+123: - Dirty files relevant to this continuation: `<files or none>`
+124: - Risks/blockers from handoff: `<summary>`
+125: 
+126: ## ✨ Recommended Next Move
+127: 
+128: 1. `<first concrete action>`
+129: 2. `<second concrete action>`
+130: 3. `<verification step>`
+
+### .opencode/commands/start-handoff.md (148 total lines)
+131: ```
+132: 
+133: Keep the report factual. Do not claim a doc, skill, artifact, file, or command
+134: was loaded or checked unless it actually was.
+135: 
+136: ## Safety rules
+137: 
+138: - Do not modify files during context hydration.
+139: - Do not commit, amend, push, delete, or reset anything.
+140: - Do not treat runtime output under `runs/` as source truth.
+141: - Redact secrets if handoff references sensitive content.
+142: - If the handoff conflicts with current repo state, say exactly what differs
+143:   and recommend the safest next verification step.
+144: - If no handoffs exist, report that clearly and suggest running `/handoff` at
+145:   the end of the current working session.
+146: 
+147: If this command file or related opencode configuration was just changed, remind
+148: the user to restart opencode before relying on `/start-handoff` in a new session.
+
+### .opencode/skills/README.md (57 total lines)
+1: # N3TX OpenCode Skills Catalog
+2: 
+3: This directory contains project-local OpenCode skills for N3TX development.
+4: Skills are agent-facing routing and execution aids; canonical framework
+5: contracts still live in `AGENTS.md`, `BACKEND.md`, `FRONTEND.md`, `/workspace/docs/`,
+6: and package docs.
+7: 
+8: ## Maintenance rules
+9: 
+10: - Each skill lives at `.opencode/skills/<name>/SKILL.md`.
+11: - Frontmatter `name:` must match the folder name.
+12: - Frontmatter `description:` should front-load concrete trigger keywords and say
+13:   when to use the skill.
+14: - Narrow/high-risk skills should use `Use ONLY when...` or equivalent negative
+15:   routing language.
+16: - Broad skills should orient and delegate instead of duplicating specialist
+17:   contracts.
+18: - Do not duplicate long route tables, test command lists, or package maps unless
+19:   the skill also includes a clear drift anchor to the canonical doc.
+20: 
+21: ## Shared sections to prefer
+22: 
+23: ```markdown
+24: ## Use first
+25: - `n3tx-principles` for architectural intent.
+26: - `n3tx-skill-routing` when task scope or skill choice is ambiguous.
+27: 
+28: ## Combine with
+29: - `n3tx-testing` for behavior-changing work.
+30: - Area-specific companion skills for cross-boundary work.
+31: 
+32: ## Do not use for
+33: - Adjacent task types that should route elsewhere.
+34: 
+35: ## Read first
+36: 1. `AGENTS.md` and relevant docs/package docs.
+37: 2. `BACKEND.md`, `FRONTEND.md`, or both by scope.
+38: 3. Source only when docs/skills are insufficient or contradicted.
+39: 
+40: ## Drift anchors
+41: - Canonical docs or files that own the contract summarized by this skill.
+42: ```
+43: 
+44: ## Drift checklist
+45: 
+46: Run `.opencode/scripts/lint-skills.mjs` after skill edits. Then restart
+47: OpenCode; running sessions keep the already-loaded skill catalog.
+48: 
+49: Manual checks:
+50: 
+51: - New package added? Update `n3tx-skill-routing`, `n3tx-framework-maintenance`,
+52:   and relevant workflow skills.
+53: - New route grammar or frontend route semantics? Update or anchor frontend,
+54:   UI-schema, and methods-route skills.
+55: - New verification command? Prefer linking to `AGENTS.md`, `BACKEND.md`, or
+56:   `FRONTEND.md` instead of duplicating it broadly.
+57: - New extension point? Update `n3tx-extension-patterns` and area-specific skills.
+
+### .opencode/skills/improve-n3tx-alignement/SKILL.md (231 total lines)
+1: ---
+2: name: improve-n3tx-alignement
+3: description: Improve codebase architecture by aligning it with N3TX patterns, primitives, architecture, intent, and philosophy. Use when the user wants N3TX-oriented architecture review, refactoring opportunities, framework-aligned simplification, or asks to improve N3TX alignment.
+4: ---
+5: 
+6: # Improve N3TX Alignement
+7: 
+8: Explore a codebase through the lens of N3TX architecture, surface places where the implementation fights or bypasses the framework, and propose refactors that make the system more aligned with N3TX patterns, primitives, intent, and philosophy.
+9: 
+10: This skill is inspired by `improve-codebase-architecture`, but the improvement target is more specific: **make the codebase feel like an idiomatic N3TX system rather than an application that merely happens to run on top of N3TX**.
+11: 
+12: The goal of N3TX is to provide patterns and primitives that **simplify systems and improve maintainability**. Treat N3TX alignment as a simplification exercise first: prefer removing duplicated concepts, bespoke glue, local mini-frameworks, and accidental complexity over adding new layers. In most good N3TX refactors, the net result should be **less code, fewer concepts, and clearer ownership**.
+13: 
+14: ## North Star
+15: 
+16: Prefer architecture that is:
+17: 
+18: - **N3TX-native**: behavior is expressed through N3TX primitives instead of parallel custom mechanisms.
+19: - **Declarative where possible**: intent is captured in stable definitions, metadata, schemas, routes, methods, resources, or framework-owned registration points.
+20: - **Composable**: application behavior emerges from small N3TX-aligned parts rather than bespoke one-off flows.
+21: - **Boundary-oriented**: modules expose intent and hide incidental mechanics.
+22: - **Convention-friendly**: new code follows the framework's established file shapes, lifecycle, naming, and extension points.
+23: - **Testable at the right boundary**: tests validate N3TX-visible behavior rather than internal glue.
+24: - **Removal-first**: remove more than you add whenever possible; use N3TX primitives to collapse bespoke code paths.
+25: - **Entropy-reducing**: refactors remove duplicate concepts, local mini-frameworks, and accidental divergence from N3TX's mental model.
+26: 
+27: ## Process
+28: 
+29: ### 1. Explore the codebase
+30: 
+31: Use the Agent tool with `subagent_type=explore` to navigate the codebase naturally. Do not follow rigid heuristics — explore organically and note where the system feels less N3TX-native than it could be.
+32: 
+33: Look for friction such as:
+34: 
+35: - Where does application code recreate behavior that N3TX already has a primitive for?
+36: - Where are routes, methods, resources, schemas, forms, metadata, permissions, discovery, lifecycle hooks, or UI integration handled by ad hoc glue?
+37: - Where does caller code need to know too much about framework internals or implementation details?
+38: - Where do modules expose mechanics instead of N3TX-level intent?
+39: - Where is configuration duplicated across Python, frontend assets, schemas, tests, or docs?
+40: - Where are naming, registration, discovery, or lifecycle patterns inconsistent with nearby N3TX modules?
+41: - Where do tests assert local implementation details instead of externally observable N3TX behavior?
+42: - Where would a new contributor familiar with N3TX expect a concept to live somewhere else?
+43: 
+44: The friction you encounter is the signal. Treat repeated confusion, code bouncing, local conventions, and duplicated framework concepts as architectural evidence.
+45: 
+46: ### 2. Identify N3TX alignment candidates
+47: 
+48: Present a numbered list of improvement candidates. This section must be **fairly detailed**; it should be useful enough for the user to compare candidate refactor directions without needing to inspect the code immediately.
+49: 
+50: For each candidate, include:
+51: 
+52: 1. **Candidate title**: A concise name for the alignment opportunity.
+53: 2. **Current shape**: The modules, files, concepts, and execution paths involved.
+54: 3. **Observed friction**: What felt hard to understand, test, extend, or reason about.
+55: 4. **N3TX misalignment**: Which N3TX pattern, primitive, architectural intent, or philosophy the current shape appears to fight, bypass, duplicate, or underuse.
+56: 5. **Motive for change**: Why this matters now — maintainability, extensibility, correctness, testability, user experience, contributor onboarding, or framework coherence.
+57: 6. **Improvement options**: Present 2-3 plausible directions, such as:
+58:    - adopt an existing N3TX primitive directly
+59:    - move behavior behind a N3TX-owned boundary
+60:    - consolidate duplicated definitions into a single source of truth
+61:    - replace imperative glue with declarative registration or metadata
+62:    - introduce a thin adapter around non-N3TX concerns
+63:    - deepen a module so callers speak in N3TX concepts
+64:    - delete a custom abstraction because a N3TX primitive already expresses the intent
+65: 7. **Recommended direction**: Choose the strongest option and explain why.
+66: 8. **Why this is a good N3TX approach**: Explain how the recommendation improves alignment with N3TX's architecture, primitives, and philosophy.
+67: 9. **Work overview**: Summarize the concrete work required to move in that direction:
+68:    - files or modules likely to change
+69:    - new or changed interfaces
+70:    - migration sequence
+71:    - tests to add, rewrite, or delete
+72:    - documentation or examples to update
+73:    - compatibility or rollout concerns
+74: 10. **Expected outcome**: What becomes simpler, more declarative, more composable, or more framework-native after the change.
+75: 11. **Risk / uncertainty**: Any unknowns that need confirmation before implementation.
+76: 
+77: When comparing options, strongly prefer the path that removes the most accidental complexity while preserving behavior. Adding a new abstraction is only a good N3TX alignment move when it lets the system delete more scattered logic, duplicated definitions, or caller knowledge elsewhere.
+78: 
+79: Use this compact format when helpful:
+80: 
+81: ```markdown
+82: ### Candidate N: <title>
+83: 
+84: **Current shape**
+85: - ...
+86: 
+87: **Observed friction**
+88: - ...
+89: 
+90: **N3TX misalignment**
+91: - ...
+92: 
+93: **Motive for change**
+94: - ...
+95: 
+96: **Improvement options**
+97: | Option | Shape | Pros | Trade-offs |
+98: |---|---|---|---|
+99: | A | ... | ... | ... |
+100: | B | ... | ... | ... |
+101: 
+102: **Recommended direction**
+103: - ...
+104: 
+105: **Why this is a good N3TX approach**
+106: - ...
+107: 
+108: **Work overview**
+109: 1. ...
+110: 2. ...
+111: 3. ...
+112: 
+113: **Expected outcome**
+114: - ...
+115: 
+116: **Risk / uncertainty**
+117: - ...
+118: ```
+119: 
+120: After presenting candidates, ask the user: **"Which N3TX alignment candidate would you like to explore?"**
+121: 
+122: Do not design the final interface or implementation plan yet. The candidate section should be detailed, but still directional.
+123: 
+124: ### 3. User picks a candidate
+125: 
+126: When the user selects a candidate, restate the selected problem in N3TX terms:
+127: 
+128: - Which N3TX concepts are involved?
+129: - What is currently misaligned?
+130: - What should become the framework-native source of truth?

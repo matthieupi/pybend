@@ -1,0 +1,525 @@
+
+### packages/n3tx-agents/docs/tool-discovery.md (173 total lines)
+1: # Tool Discovery
+2: 
+3: > Part of [n3tx-agents](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The pipeline from actor addresses to callable Pydantic AI tools:
+8: `discover_tools()` -> `ToolSpec` -> `create_tool_function()` -> `make_tool()`.
+9: Also covers the schema extension that provides the LLM-clean schema pipeline.
+10: 
+11: ## Architecture
+12: 
+13: ```
+14: actor addresses        e.g. ['grants', 'web_tools']
+15:     |
+16:     v
+17: discover_tools()       reads schema() from Matrix children
+18:     |
+19:     +-- _crud_tool_specs()     CRUD for storable models (list/get/create/update/delete)
+20:     +-- _method_tool_specs()   @expose_route methods (scrape, extract, ...)
+21:     |
+22:     v
+23: list[ToolSpec]         {actor_addr, method_name, tool_name, description, parameters}
+24:     |
+25:     v
+26: make_tool(spec)        per spec:
+27:     |
+28:     +-- create_tool_function(spec)   exec()-generated async fn with typed params
+29:     +-- pydantic_ai.Tool(fn, ...)    wraps in Pydantic AI Tool
+30:     |
+31:     v
+32: list[Tool]             registered on pydantic_ai.Agent
+33: ```
+34: 
+35: Tool calls at runtime route through `_route_tool_call()`:
+36: 
+37: ```
+38: LLM calls tool  ->  generated fn(ctx, params)  ->  _route_tool_call()
+39:     |
+40:     +-- creates TX(name=method, target=actor_addr, data=params)
+41:     +-- non-stream: Matrix.request(tx)  -- Future-based correlation
+42:     +-- stream=True: Matrix.stream(tx)  -- Queue-based correlation
+43:     +-- streamed routes are consumed server-side to completion
+44:     +-- returns one final JSON string to the LLM
+45:     +-- on error TX: raises ModelRetry (LLM retries)
+46: ```
+47: 
+48: ## Interface
+49: 
+50: ### `discover_tools(actor_addrs, root, caller_addr=None) -> list[ToolSpec]`
+51: 
+52: | Param | Type | Purpose |
+53: |-------|------|---------|
+54: | `actor_addrs` | list[str] | Actor addresses to discover tools from |
+55: | `root` | Matrix | Matrix root for child lookup |
+56: | `caller_addr` | str | Calling agent address (excluded to prevent self-loops) |
+57: 
+58: **Behavior**:
+59: - Looks up each address in `root._children`
+60: - Calls `cls.schema()` on found actors
+61: - Storable models get 5 CRUD ToolSpecs (list, get, create, update, delete)
+62: - All `@expose_route` methods get a ToolSpec each
+63: - Streaming `@expose_route(..., stream=True)` methods stay in the tool set and
+64:   are marked as streaming instead of being filtered out
+65: - AgentActor subclasses auto-exclude `run` and `stream_run` methods
+66: - Missing actors log a warning and are skipped
+67: 
+68: ### `ToolSpec` (dataclass)
+69: 
+70: ```python
+71: @dataclass
+72: class ToolSpec:
+73:     actor_addr: str     # Target actor (e.g. 'products')
+74:     method_name: str    # Action name (e.g. 'create', 'scrape')
+75:     tool_name: str      # LLM-facing name (e.g. 'products_create')
+76:     description: str    # Human-readable description
+77:     parameters: dict    # JSON Schema for input parameters
+78:     stream: bool = False
+79: ```
+80: 
+81: Tool names follow `{tablename}_{method}` convention.
+82: 
+83: ### `create_tool_function(spec) -> async function`
+84: 
+85: Generates an async function via `exec()` with properly typed parameters
+86: from the ToolSpec's JSON Schema. The function's signature is introspected
+87: by Pydantic AI for JSON Schema generation.
+88: 
+89: Type mapping: `string->str`, `integer->int`, `number->float`,
+90: `boolean->bool`, `array->list`, `object->dict`.
+91: 
+92: Required params have no default. Optional params default to `None`.
+93: The `ctx` parameter (RunContext[AgentDeps]) is always first.
+94: 
+95: ### `make_tool(spec) -> pydantic_ai.Tool`
+96: 
+97: Wraps `create_tool_function()` output in a `pydantic_ai.tools.Tool` with
+98: `takes_ctx=True`.
+99: 
+100: ### `_route_tool_call(ctx, target_addr, method_name, data, stream=False) -> str`
+101: 
+102: Internal. Creates a TX, sends via `Actor.root().request()` or
+103: `Actor.root().stream()`, and returns response data as JSON string. On error
+104: TX, raises `pydantic_ai.ModelRetry`.
+105: 
+106: For streaming tool methods, `_route_tool_call()` consumes the stream and
+107: collapses it into a single result for the LLM:
+108: 
+109: - prefer a yielded `{'name': 'done', 'data': ...}` payload
+110: - otherwise fall back to concatenated text chunks
+111: - otherwise return collected event payloads
+112: 
+113: ## Usage Patterns
+114: 
+115: ### Manual tool discovery (for inspection)
+116: 
+117: ```python
+118: from n3tx_agents.tools import discover_tools
+119: from n3tx_actors.actor import Actor
+120: 
+121: root = Actor.root()
+122: specs = discover_tools(['products', 'comments'], root)
+123: for spec in specs:
+124:     print(f"{spec.tool_name}: {spec.description}")
+125:     print(f"  params: {spec.parameters}")
+126: ```
+127: 
+128: ### Custom tool filtering
+129: 
+130: ```python
+
+### packages/n3tx-agents/docs/tool-discovery.md (173 total lines)
+131: specs = discover_tools(['products'], root)
+132: # Keep only read operations
+133: read_specs = [s for s in specs if s.method_name in ('list', 'get')]
+134: tools = [make_tool(s) for s in read_specs]
+135: ```
+136: 
+137: ## LLM Schema Pipeline
+138: 
+139: The `schema_ext` module registers two pipelines:
+140: 
+141: **Default pipeline** -- `agent` stage (after `methods`): Adds `agent`
+142: section to JSON Schema for `__agent__ = True` models. Contains `enabled`,
+143: `config` (safe keys only -- no LLM credentials), `methods` list, and
+144: `agentic_endpoint` (for AgentActor subclasses).
+145: 
+146: **LLM pipeline** -- `base` + `clean` stages: Produces a clean schema
+147: for LLM context consumption. Strips frontend-only keys (`ui`, `$id`,
+148: `$schema`, `additionalProperties`), removes `$defs`, filters hidden/
+149: protected properties, strips routing metadata from methods, removes
+150: `user` parameter from method signatures.
+151: 
+152: ```python
+153: from n3tx_core.models.proto_schema import run_pipeline
+154: cleaned = run_pipeline(Product, pipeline='llm')
+155: ```
+156: 
+157: ## Gotchas
+158: 
+159: - CRUD tool specs filter out `id`, protected, and hidden fields from
+160:   writable properties. The `id` field is only included in get/update/delete
+161:   where it is required.
+162: - Instance methods (scope == `'instancemethod'`) auto-prepend an `id`
+163:   parameter and add it to `required`. Class methods do not.
+164: - The `user` parameter is always stripped from method tool specs -- it is
+165:   injected server-side from JWT, never passed by the LLM.
+166: - Parameter names with hyphens are converted to underscores. Invalid
+167:   Python identifiers are skipped with a warning.
+168: - Generated functions use `exec()` with a controlled namespace containing
+169:   only `_route`, `_target`, `_method`, and `_required`. Input comes from
+170:   trusted model schemas, not user data.
+171: - Optional parameters set to `None` are stripped from the data dict before
+172:   routing, but required parameters with `None` value are preserved. This
+173:   prevents sending empty optional fields to CRUD operations.
+
+### packages/n3tx-core/README.md (212 total lines)
+1: # 🧱 n3tx-core — The Foundation That Does the Heavy Lifting
+2: 
+3: > Define a Python model, get a full-stack application. Storage, API, schema, auth, frontend rendering — all derived automatically. You write the model, we handle the plumbing.
+4: 
+5: ## 🌐 Overview
+6: 
+7: n3tx-core is the beating heart of the N3TX ecosystem. It gives you `ProtoModel` — the base class that turns your Python model definitions into database tables, CRUD endpoints, JSON Schema contracts, authorization rules, and frontend rendering instructions. All at once. No repetition.
+8: 
+9: Everything above it — actors, agents, UI components — depends on this package and extends its pipelines. If N3TX is the building, this is the foundation, the plumbing, and the electrical all in one.
+10: 
+11: ## 📦 Installation
+12: 
+13: ```bash
+14: # Standalone
+15: pip install n3tx-core
+16: 
+17: # Full ecosystem (includes actors, agents, UI)
+18: pip install n3tx
+19: 
+20: # Editable dev install
+21: pip install -e "packages/n3tx-core[dev]"
+22: ```
+23: 
+24: ## 🚀 Quick Start
+25: 
+26: Here's the fun part — you write a couple of classes and get a working API with auth, relationships, and custom endpoints:
+27: 
+28: ```python
+29: from n3tx_core import ProtoModel, expose_route, register_model, SQLiteStorage
+30: from n3tx_core.app import create_app
+31: from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+32: from pydantic import Field
+33: 
+34: class Comment(ProtoModel):
+35:     __tablename__ = 'comments'
+36:     __storable__ = True
+37:     text: str = Field(min_length=1)
+38: 
+39: class Product(ProtoModel):
+40:     __tablename__ = 'products'
+41:     __storable__ = True
+42:     __access__ = {'read': ANYONE, 'create': AUTHENTICATED, 'update': OWNER, 'delete': ROLE('admin')}
+43:     name: str = Field(min_length=1, max_length=200)
+44:     price: float = Field(gt=0)
+45:     comments: list[Comment] = Field(default=[])
+46: 
+47:     @expose_route('/like', methods=['POST'], access=AUTHENTICATED)
+48:     def like(self, user=None) -> str:
+49:         return f"Liked by user {user['user_id']}"
+50: 
+51: # One-liner: creates storage, registers models, generates routes, returns ASGI app
+52: app = create_app(
+53:     models=[Product, Comment],
+54:     storage="sqlite:///app.db",
+55: )
+56: ```
+57: 
+58: That's it. You've got a database, REST endpoints, access control, and a schema the frontend can consume. Go grab a coffee.
+59: 
+60: ## 🧠 Core Concepts
+61: 
+62: ### The Model is the App
+63: 
+64: A `ProtoModel` subclass with `__storable__ = True` gets: a database table, CRUD API endpoints, a JSON Schema, authorization, and frontend rendering. `__init_subclass__` injects `StorableMixin` into the class hierarchy automatically. You don't wire anything up — it just works.
+65: 
+66: ### Schema Pipeline
+67: 
+68: `ProtoModel.schema()` runs a composable pipeline of `dict -> dict` stages: `base -> strip_hidden -> methods -> defs -> access -> widget -> ui -> metadata`. Each stage enriches the JSON Schema. External packages insert stages via `@schema_extension(after='methods')` without modifying core. Want to add your own stage? Slot it in wherever you need it.
+69: 
+70: ### Dump Pipeline
+71: 
+72: `instance.model_response()` runs a parallel pipeline for serialization: `base -> relationships -> schema_url -> instance_url -> populate`. The `relationships` stage enriches hydrated `T` and `list[T]` children through their own dump pipelines; the URL stages inject `$schema` and `$id`. Extended via `@dump_extension`. Same composable pattern, different direction — schema describes the shape, dump fills it with data.
+73: 
+74: ### 🔐 Authorization (ABAC)
+75: 
+76: The `authorize` subpackage is standalone (zero N3TX imports). Rules compose algebraically — and honestly, this is one of the coolest parts: `OWNER | ROLE('admin')`, `AUTHENTICATED & Where(status='published')`. Rules produce SQL WHERE clauses for list-level pushdown. Declared on models via `__access__` dict, on methods via `@expose_route(access=...)`.
+77: 
+78: ### 🔗 References and Relationships
+79: 
+80: Your models don't exist in isolation — they talk to each other:
+81: 
+82: `Ref[T]` for pointer fields (stored as local ids or canonical distributed refs, serialized as resolvable refs). `list[T]` for owned local collections (stored as ordered local ids, hydrated as child objects). `Ref['self']` for self-referential nesting. For shared relationship data, prefer explicit link models; `ManyToMany[T]` is a legacy helper for existing shared-link cases.
+83: 
+84: ## 📋 API Reference
+85: 
+86: Here's everything n3tx-core exports — your toolkit for building schema-driven apps:
+87: 
+88: | Export | Type | Purpose |
+89: |--------|------|---------|
+90: | `ProtoModel` | class | Base model — schema generation, serialization, FK rewriting, StorableMixin injection |
+91: | `StorableMixin` | class | CRUD operations: `create`, `get`, `list`, `update`, `delete`, `save` |
+92: | `ViewableMixin` | class | UI resource mixin with `name`, `desc`, `src`, `href` |
+93: | `BaseUser` | class | Abstract user model with login, register, password hashing |
+94: | `Ref` | type alias | `Ref[T]` — single FK reference; `Ref['self']` for self-ref |
+95: | `AbstractStorage` | ABC | Storage interface: `create_table`, `create`, `get`, `list`, `update`, `delete` |
+96: | `JSONStorage` | class | JSON file storage backend |
+97: | `SQLiteStorage` | class | SQLite storage with connection pooling, WAL mode, JSON field handling, FK hydration |
+98: | `FastAPIBackend` | class | FastAPI app builder with JWT middleware, CORS, SSR, static file mounting |
+99: | `expose_route` | decorator | Mark a method as an API endpoint with route, methods, access, stream |
+100: | `register_model` | function | Register a model with storage, create table, run migrations |
+101: | `registered_models` | dict | Global registry: `{tablename: model_class}` |
+102: 
+103: ### `ProtoModel`
+104: 
+105: The class you'll subclass for everything. Schema generation, serialization, the whole deal:
+106: 
+107: ```python
+108: class ProtoModel(PydanticBaseModel):
+109:     id: int = Field(default=0)
+110:     image: str = Field(default='')
+111: 
+112:     def model_response(self, **kwargs) -> dict: ...   # Enriched dict via dump pipeline
+113:     @classmethod
+114:     def schema(cls) -> dict: ...                       # Full JSON Schema via schema pipeline
+115:     @classmethod
+116:     def invalidate_schema_cache(cls): ...              # Clear cached schema (tests)
+117:     @classmethod
+118:     def referenced_json_schema(cls) -> dict: ...       # Schema for $defs inclusion
+119:     @staticmethod
+120:     def blueprint() -> dict: ...                       # All registered model schemas
+121: ```
+122: 
+123: ### `StorableMixin` (injected when `__storable__ = True`)
+124: 
+125: You never import this directly — it gets injected into your model's class hierarchy when you set `__storable__ = True`. But here's what you get:
+126: 
+127: ```python
+128: class StorableMixin:
+129:     @classmethod
+130:     def create(cls, data) -> Any: ...
+
+### packages/n3tx-core/README.md (212 total lines)
+131:     @classmethod
+132:     def get(cls, id: int, as_dict=False, populate=None) -> Any: ...
+133:     @classmethod
+134:     def list(cls, sql_filter=None, limit=None, offset=None, populate=None, ids=None): ...
+135:     @classmethod
+136:     def update(cls, id: int, data) -> Any: ...
+137:     @classmethod
+138:     def delete(cls, id: int): ...
+139:     def save(self): ...
+140:     @classmethod
+141:     def set_storage(cls, storage): ...
+142: ```
+143: 
+144: `Model.update(id, data)` and generated direct and actor HTTP `PUT` routes share
+145: one patch-oriented contract. Omitted fields remain unchanged; the merged entity
+146: is validated through the original model before supplied fields are stored. See
+147: [storage update boundaries](docs/storage.md#update-boundary-contract).
+148: 
+149: ### `BaseUser`
+150: 
+151: Need users? Subclass this and you're off to the races:
+152: 
+153: ```python
+154: class BaseUser(ProtoModel):
+155:     # Fields: name, email, role, password_hash
+156:     # Endpoints: POST /login, POST /register
+157:     # Set __tablename__ and __abstract__ = False in subclass
+158: ```
+159: 
+160: ## 📐 Patterns and Conventions
+161: 
+162: A few things worth knowing before you dive deeper:
+163: 
+164: 1. **Always set `__tablename__`** on storable models. It determines the API path (`/{tablename}`) and DB table name. Omitting it causes schema `$id` to fall back to the lowercase class name.
+165: 
+166: 2. **`model_dump()` for storage, `model_response()` for API.** `model_dump()` produces a plain dict. `model_response()` adds `$schema` and `$id` metadata via the dump pipeline. Never use `model_response()` data for storage writes.
+167: 
+168: 3. **Register every storable model.** `list[T]` collections store child ids, so both parent and child models need storage-backed registration.
+169: 
+170: ```python
+171: register_model(Product, storage=db)
+172: register_model(Comment, storage=db)
+173: ```
+174: 
+175: 4. **Storable models require a storage backend.** Calling `register_model(M)` on a `__storable__ = True` model without passing `storage=` raises `ValueError`. Non-storable models can be registered without storage.
+176: 
+177: 5. **The authorize package has zero N3TX imports.** Do not add N3TX-specific logic to `authorize/`. The boundary is enforced by design. The route layer bridges auth to models via `_resolve_user()`.
+178: 
+179: ## 🏗️ Package Ecosystem
+180: 
+181: Here's how everything fits together — n3tx-core is the foundation everything else builds on:
+182: 
+183: ```
+184: n3tx (meta-package)
+185:   |
+186:   +-- n3tx-core  <-- THIS PACKAGE (foundation)
+187:   |     Models, storage, auth, API routes, schema pipeline, JS runtime
+188:   |
+189:   +-- n3tx-actors  (depends on n3tx-core)
+190:   |     Actor system, Matrix, TX messaging, NetworkAdapter
+191:   |
+192:   +-- n3tx-agents  (depends on n3tx-core, n3tx-actors)
+193:   |     AgentMixin, AgentActor, tool discovery, LLM integration
+194:   |
+195:   +-- n3tx-ui  (depends on n3tx-core)
+196:         Frontend components, extended UI widgets
+197: ```
+198: 
+199: ## 📖 Deep Dives
+200: 
+201: Want to go deeper? Each of these docs covers a specific subsystem in detail:
+202: 
+203: | Topic | File | When to read |
+204: |-------|------|--------------|
+205: | Schema Pipeline | [docs/schema-pipeline.md](docs/schema-pipeline.md) | Extending schema generation, adding pipeline stages |
+206: | Storage Layer | [docs/storage.md](docs/storage.md) | Custom storage backends, SQLite internals, JSON fields, FK hydration |
+207: | Authorization | [docs/authorization.md](docs/authorization.md) | Access rules, ABAC patterns, custom resolvers, SQL pushdown |
+208: | App Bootstrap | [docs/app-bootstrap.md](docs/app-bootstrap.md) | create_app, N3TXApp builder, routing modes, SSR, config |
+209: 
+210: ---
+211: 
+212: Now go build something cool. The model is the app — you bring the idea, n3tx-core handles the rest. 🛠️
+
+### packages/n3tx-core/docs/app-bootstrap.md (278 total lines)
+1: # App Bootstrap
+2: 
+3: > Part of [n3tx-core](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: Application initialization: `create_app()` one-liner, `N3TXApp` builder, routing modes, SSR configuration, static file mounting, and the `config` module. Does not cover Level 3 actor routing (see n3tx-actors docs).
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: create_app() / N3TXApp.build()
+13:   |
+14:   1. Configure auth (jwt_secret, expiry)
+15:   2. Prepare model registrations (pure -- no side effects)
+16:   3. Generate field-declared relationship helper models (for ManyToMany only)
+17:   4. Apply registrations (storage, tables, migrations, global registry)
+18:   5. Provision app assistant (optional, if app_agent=...)
+19:   6. Create FastAPIBackend (JWT middleware, CORS, SSR)
+20:   7. Register routes (direct or actor)
+21:      - actor mode re-syncs Matrix children to the finalized registered model classes
+22:      - view-capability hooks may add /{ClassName}/@... HTML routes
+23:   8. Mount discovery endpoints (/_meta, /.well-known/agent.json)
+24:   9. Mount static files (framework + app)
+25:   |
+26:   v
+27: FastAPI app (ASGI)
+28: ```
+29: 
+30: ## Interface
+31: 
+32: ### create_app() -- Level 1
+33: 
+34: ```python
+35: from n3tx_core.app import create_app
+36: 
+37: app = create_app(
+38:     models=[Product, User, Comment],
+39:     storage="sqlite:///app.db",      # URI string or AbstractStorage instance
+40:     routing='direct',                 # 'direct' (Level 1/2) or 'actor' (Level 3)
+41:     ws=False,                         # WebSocket bridge (requires routing='actor')
+42:     static_dir='./static',           # App-specific static files
+43:     jwt_secret='production-secret',
+44:     jwt_expiry_hours=24,
+45:     cors_origins=['https://myapp.com'],
+46:     debug=False,
+47:     ssr=None,                         # None | True | False | 'off'|'schema'|'bundle'|'full'
+48:     app_agent=None,                  # Optional framework-provisioned Assistant config
+49:     name='MyApp',
+50:     version='1.0.0',
+51:     description='A product catalog',
+52: )
+53: ```
+54: 
+55: ### N3TXApp -- Level 2
+56: 
+57: ```python
+58: from n3tx_core.app import N3TXApp
+59: 
+60: builder = N3TXApp(
+61:     storage="sqlite:///app.db",
+62:     routing='direct',
+63:     debug=True,
+64:     app_agent=None,
+65: )
+66: builder.model(Product)
+67: builder.model(User)
+68: builder.static('./static')
+69: app = builder.build(name='MyApp')
+70: ```
+71: 
+72: All builder methods return `self` for chaining:
+73: 
+74: ```python
+75: app = (N3TXApp(storage="sqlite:///app.db")
+76:     .model(Product)
+77:     .model(User)
+78:     .static('./static')
+79:     .build())
+80: ```
+81: 
+82: Register every storable model explicitly. Owned local collections are declared
+83: on the model itself as `list[T]` fields; there is no builder-level relationship
+84: registration step:
+85: 
+86: ```python
+87: class Product(ProtoModel):
+88:     __tablename__ = 'products'
+89:     __storable__ = True
+90:     comments: list[Comment] = Field(default=[])
+91: 
+92: app = create_app(models=[Product, Comment, User], storage="sqlite:///app.db")
+93: ```
+94: 
+95: ### Level 3 -- Raw Primitives
+96: 
+97: ```python
+98: from n3tx_core import register_model, SQLiteStorage
+99: from n3tx_core.api.routes_fastapi import register_routes, router
+100: from n3tx_core.api.backend import FastAPIBackend
+101: 
+102: storage = SQLiteStorage('app.db')
+103: register_model(Product, storage=storage)
+104: register_model(Comment, storage=storage)
+105: 
+106: backend = FastAPIBackend(name='MyApp', version='1.0.0', description='', port=5000)
+107: backend.register_routes(registered_models)
+108: app = backend.get_app()
+109: ```
+110: 
+111: ### Config Module
+112: 
+113: ```python
+114: from n3tx_core import config
+115: 
+116: # Defaults (overridable via N3TX_* env vars)
+117: config.BACKEND        # "fastapi"
+118: config.HOST           # "0.0.0.0"
+119: config.PORT           # 5000
+120: config.API_URL        # "http://localhost:5000"
+121: config.SQLITE_DB_FILE # "n3tx.db"
+122: config.JWT_SECRET     # dev default (override in production)
+123: config.DEBUG          # False
+124: config.SSR            # "off"
+125: 
+126: # Programmatic override
+127: config.configure(host="127.0.0.1", port=8080, debug=True)
+128: ```
+129: 
+130: | Env Var | Config Key | Default |

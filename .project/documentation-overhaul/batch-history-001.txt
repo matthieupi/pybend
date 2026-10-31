@@ -1,0 +1,306 @@
+
+### .project/.profiling/profiling_history.jsonl (4 total lines)
+1: {"label": "baseline", "timestamp": "2026-02-25 12:51:18", "tiers": ["empty", "small", "medium", "large", "full"], "summary": {"grand_total_ms": 2421.61, "grand_ops": 162, "grand_errors": 0, "tiers": {"empty": {"ops": 14, "total_ms": 83.17, "avg_ms": 5.94, "db_records": 0, "errors": 0}, "small": {"ops": 37, "total_ms": 436.83, "avg_ms": 11.81, "db_records": 36, "errors": 0}, "medium": {"ops": 37, "total_ms": 520.01, "avg_ms": 14.05, "db_records": 197, "errors": 0}, "large": {"ops": 37, "total_ms": 569.37, "avg_ms": 15.39, "db_records": 433, "errors": 0}, "full": {"ops": 37, "total_ms": 812.23, "avg_ms": 21.95, "db_records": 2042, "errors": 0}}}, "results": [{"name": "schema_Product_cold", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 29.96, "error": false}, {"name": "schema_Product_warm", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 7.21, "error": false}, {"name": "schema_Product_warm2", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 6.8, "error": false}, {"name": "schema_User_cold", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 8.28, "error": false}, {"name": "schema_User_warm", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 4.97, "error": false}, {"name": "schema_User_warm2", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 3.76, "error": false}, {"name": "list_products_d0_limit_10", "tier": "empty", "method": "GET", "url": "/products?limit=10&depth=0", "status": 200,
+2: {"label": "batch-fk-hydration", "timestamp": "2026-02-25 13:03:42", "tiers": ["empty", "small", "medium", "large", "full"], "summary": {"grand_total_ms": 2342.93, "grand_ops": 162, "grand_errors": 0, "tiers": {"empty": {"ops": 14, "total_ms": 85.48, "avg_ms": 6.11, "db_records": 0, "errors": 0}, "small": {"ops": 37, "total_ms": 471.36, "avg_ms": 12.74, "db_records": 36, "errors": 0}, "medium": {"ops": 37, "total_ms": 517.8, "avg_ms": 13.99, "db_records": 197, "errors": 0}, "large": {"ops": 37, "total_ms": 549.54, "avg_ms": 14.85, "db_records": 433, "errors": 0}, "full": {"ops": 37, "total_ms": 718.75, "avg_ms": 19.43, "db_records": 2042, "errors": 0}}}, "results": [{"name": "schema_Product_cold", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 27.64, "error": false}, {"name": "schema_Product_warm", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 6.75, "error": false}, {"name": "schema_Product_warm2", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 7.17, "error": false}, {"name": "schema_User_cold", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 9.27, "error": false}, {"name": "schema_User_warm", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 6.69, "error": false}, {"name": "schema_User_warm2", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 4.45, "error": false}, {"name": "list_products_d0_limit_10", "tier": "empty", "method": "GET", "url": "/products?limit=10&depth=0", "sta
+3: {"label": "full-optimization", "timestamp": "2026-02-25 14:01:43", "tiers": ["empty", "small", "medium", "large", "full"], "summary": {"grand_total_ms": 2074.64, "grand_ops": 162, "grand_errors": 0, "tiers": {"empty": {"ops": 14, "total_ms": 87.4, "avg_ms": 6.24, "db_records": 0, "errors": 0}, "small": {"ops": 37, "total_ms": 424.01, "avg_ms": 11.46, "db_records": 36, "errors": 0}, "medium": {"ops": 37, "total_ms": 453.24, "avg_ms": 12.25, "db_records": 197, "errors": 0}, "large": {"ops": 37, "total_ms": 499.96, "avg_ms": 13.51, "db_records": 433, "errors": 0}, "full": {"ops": 37, "total_ms": 610.03, "avg_ms": 16.49, "db_records": 2042, "errors": 0}}}, "results": [{"name": "schema_Product_cold", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 33.45, "error": false}, {"name": "schema_Product_warm", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 6.19, "error": false}, {"name": "schema_Product_warm2", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 6.49, "error": false}, {"name": "schema_User_cold", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 8.16, "error": false}, {"name": "schema_User_warm", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 9.17, "error": false}, {"name": "schema_User_warm2", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 3.96, "error": false}, {"name": "list_products_d0_limit_10", "tier": "empty", "method": "GET", "url": "/products?limit=10&depth=0", "stat
+4: {"label": "baseline", "timestamp": "2026-02-28 15:16:13", "tiers": ["empty", "small", "medium", "large", "full"], "summary": {"grand_total_ms": 2127.02, "grand_ops": 162, "grand_errors": 0, "tiers": {"empty": {"ops": 14, "total_ms": 78.26, "avg_ms": 5.59, "db_records": 0, "errors": 0}, "small": {"ops": 37, "total_ms": 397.89, "avg_ms": 10.75, "db_records": 36, "errors": 0}, "medium": {"ops": 37, "total_ms": 469.76, "avg_ms": 12.7, "db_records": 197, "errors": 0}, "large": {"ops": 37, "total_ms": 514.6, "avg_ms": 13.91, "db_records": 433, "errors": 0}, "full": {"ops": 37, "total_ms": 666.51, "avg_ms": 18.01, "db_records": 2042, "errors": 0}}}, "results": [{"name": "schema_Product_cold", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 27.85, "error": false}, {"name": "schema_Product_warm", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 6.66, "error": false}, {"name": "schema_Product_warm2", "tier": "empty", "method": "GET", "url": "/Product", "status": 200, "duration_ms": 6.49, "error": false}, {"name": "schema_User_cold", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 7.84, "error": false}, {"name": "schema_User_warm", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 5.78, "error": false}, {"name": "schema_User_warm2", "tier": "empty", "method": "GET", "url": "/User", "status": 200, "duration_ms": 3.58, "error": false}, {"name": "list_products_d0_limit_10", "tier": "empty", "method": "GET", "url": "/products?limit=10&depth=0", "status": 200, 
+
+### .project/archive/audits/opencode-skills/01-architecture-api.md (391 total lines)
+1: # Quick Deep Audit: OpenCode N3TX Skills
+2: 
+3: ## Executive Summary
+4: 
+5: The `.opencode/skills/` subsystem is structurally valid and covers the major N3TX concern areas, but it currently behaves more like a set of compact reference cards than a routed agent operating system. Every inspected project skill uses the expected `SKILL.md` shape with `name`, `description`, and `argument-hint` frontmatter, for example `n3tx-principles` lines 1-5 and `n3tx-app-bootstrap` lines 1-5. The bodies consistently encode N3TX's core invariants: model-as-contract, backend authority, actor/network boundaries, schema-driven UI, docs/source policy, and verification; those invariants are visible in `n3tx-principles` lines 13-23, boundary bullets at lines 43-51, and verification bullets at lines 87-96.
+6: 
+7: The main architecture/API issue is routing ambiguity. Broad skills such as `n3tx-backend`, `n3tx-build-app`, `n3tx-models`, `n3tx-app-bootstrap`, and `n3tx-storage-relationships` all trigger on overlapping concepts: models, storage, relationships, `ManyToMany`, files, auth, routes, app bootstrap, and verification; the overlap is visible in their descriptions at `n3tx-backend` lines 1-5, `n3tx-build-app` lines 1-5, `n3tx-models` lines 1-5, `n3tx-app-bootstrap` lines 1-5, and `n3tx-storage-relationships` lines 1-5.
+8: 
+9: The second issue is inconsistent discoverability for narrow skills. The workspace contains an `n3tx-files` project skill with a focused description and file-specific contracts at lines 1-5 and 72-95, but it was omitted from the supplied core-read list even though other skills repeatedly mention `n3tx-files` and file workflows, including `n3tx-backend` lines 79-100, `n3tx-build-app` lines 83-84 and 100-103, `n3tx-models` lines 102-123, and `n3tx-testing` lines 58-68.
+10: 
+389: ```
+390: 
+391: This target keeps the current strengths: concise bodies, strong guardrails, valid frontmatter, and good N3TX invariants. It fixes the current weaknesses: broad over-trigger, missing handoffs, stale command risk, route grammar duplication, and insufficient discoverability for `n3tx-files`, theme/styling, and concrete trigger nouns.
+
+### .project/archive/audits/opencode-skills/02-quality-extensibility.md (652 total lines)
+1: # OpenCode Skills Audit: Quality, Extensibility, Resilience
+2: 
+3: Audit target: `/workspace/.opencode/skills/`.
+4: 
+5: Audit mode: quick deep audit, read-only except this report.
+6: 
+7: ## Executive Findings
+8: 
+9: | Rank | Finding | Evidence | Risk | Proposal |
+10: |---|---|---|---|---|
+650: 6. Add a shared boundary-violation recovery block so agents stop and re-align instead of patching around N3TX when encountering direct SQL, custom routes, raw fetches, or duplicated contracts.
+651: 7. Use `default_factory` in skill examples to avoid propagating Python mutable-default anti-patterns.
+652: 8. Add a secret-handling section to external integration guidance so agents do not persist provider credentials in schema-visible fields.
+
+### .project/archive/audits/opencode-skills/03-reorganization.md (446 total lines)
+1: # OpenCode Skills Audit: Reorganization Proposal
+2: 
+3: Audit target: `/workspace/.opencode/skills/`.
+4: 
+5: Output file: `/workspace/.project/audits/opencode-skills/03-reorganization.md`.
+6: 
+7: Scope: reorganization proposal only. No skill files were modified.
+8: 
+9: ## Executive Recommendation
+10: 
+444: 4. Add `n3tx-change-app` for established-codebase modifications so agents stop using fresh-app workflow for small edits.
+445: 
+446: 5. Add either `n3tx-routing-views` and `n3tx-theme-shell`, or explicitly enrich existing frontend/method/UI skills with those trigger terms and canonical doc anchors.
+
+### .project/archive/audits/opencode-skills/04-selection-ergonomics.md (294 total lines)
+1: # OpenCode N3TX Skills Audit: Selection Ergonomics
+2: 
+3: Audit target: `/workspace/.opencode/skills/`.
+4: 
+5: Audit mode: focused read-only audit of skill selection behavior. Source files were not modified.
+6: 
+7: ## Executive Summary
+8: 
+9: The current N3TX skill catalog has strong technical content, but its selection API is under-designed. OpenCode primarily chooses skills from the frontmatter `description`; the current descriptions often state broad domains instead of routing precedence. This creates avoidable failures when a user gives an ambiguous task such as "add uploads", "make this model agentic", "fix a route", "build dashboard UI", or "call this API from an agent".
+10: 
+292: ## Final Recommendation
+293: 
+294: Treat `.opencode/skills/` as an agent-facing router, not only as documentation. Preserve the current concise skill bodies, but move selection intelligence into descriptions, a compact routing index, and validation fixtures. This will make agents more reliable on both fresh N3TX apps and established codebases without requiring them to load every skill or inspect framework source prematurely.
+
+### .project/archive/audits/opencode-skills/05-opencode-skills-audit.md (730 total lines)
+1: # OpenCode N3TX Skills — Quick Audit Report
+2: 
+3: ## Executive Summary
+4: 
+5: The `.opencode/skills/` subsystem is an agent-facing operating layer for N3TX work. Its job is to help OpenCode select the right architectural context before implementation: principles, workflow, backend contracts, UI schema, actors, agents, networking, storage, files, testing, and framework maintenance. The current catalog succeeds at encoding the most important N3TX invariants: model definitions are the source of truth, the backend is authoritative, frontend behavior adapts from runtime schema, reusable compute belongs behind actors or model methods, and framework work must preserve package boundaries. These invariants are explicit in `n3tx-principles` (`.opencode/skills/n3tx-principles/SKILL.md:13`, `.opencode/skills/n3tx-principles/SKILL.md:15`, `.opencode/skills/n3tx-principles/SKILL.md:17`, `.opencode/skills/n3tx-principles/SKILL.md:21`) and match the repository guide (`AGENTS.md:58`, `AGENTS.md:60`, `AGENTS.md:66`, `AGENTS.md:70`).
+6: 
+7: The subsystem’s main weakness is not technical correctness inside the individual skills. It is selection ergonomics. The reports converge on the same finding: broad skills over-trigger, narrow skills are not always gated, and cross-skill handoffs are implicit instead of operational. `n3tx-backend` currently claims models, storage, auth, routes, actors, agents, ManyToMany, files, bootstrap, integrations, and verification in one description (`.opencode/skills/n3tx-backend/SKILL.md:3`), while `n3tx-build-app` claims a similarly wide end-to-end surface (`.opencode/skills/n3tx-build-app/SKILL.md:3`) and `n3tx-frontend` spans schema UI, components, routes, forms, widgets, transport, streaming, and verification (`.opencode/skills/n3tx-frontend/SKILL.md:3`). The selection audit names this as the strongest collision pattern (`.project/audits/opencode-skills/04-selection-ergonomics.md:13`) and the architecture/API audit reaches the same conclusion (`.project/audits/opencode-skills/01-architecture-api.md:67`, `.project/audits/opencode-skills/01-architecture-api.md:69`).
+8: 
+9: The highest-leverage strategic change is to treat skills as a routed catalog, not a flat folder of reference cards. Add a dedicated `n3tx-skill-routing` skill or move an explicit routing matrix into `n3tx-principles`. Then convert `n3tx-backend`, `n3tx-frontend`, and `n3tx-build-app` into explicit index/workflow skills that delegate to narrow mechanism skills. This aligns with the reorganization report’s recommended layered catalog (`.project/audits/opencode-skills/03-reorganization.md:11`, `.project/audits/opencode-skills/03-reorganization.md:15`) and the selection report’s recommendation to classify skills as principles, workflow, broad index, or narrow mechanism (`.project/audits/opencode-skills/04-selection-ergonomics.md:11`).
+10: 
+728: | P6 | Add linting and drift detection. | Recommended P1 | scripts/fixtures/checklists |
+729: 
+730: Final position: the catalog is fundamentally sound, but it should become a routed, validated skill system. The fastest reliability win is frontmatter and router work, not rewriting all technical content. The biggest correctness win is standardizing level selection and boundary triggers. The biggest maintainability win is linting plus drift anchors.
+
+### .project/archive/features/agentic-app-strategy/01-agent-observability.md (883 total lines)
+1: # Agent Observability for Grant Watcher
+2: 
+3: **Research Date:** 2026-03-04
+4: **Scope:** Persistent run tracking, tool call tracing, cost accounting, live progress, and external observability integration for the N3TX agent system.
+5: **Audience:** Technical CEO + Engineering Leadership
+6: 
+7: ---
+8: 
+9: ## 1. Executive Summary
+10: 
+881: ---
+882: 
+883: *Report generated for the Grant Watcher observability evaluation. All code sketches reference the N3TX codebase at `/workspace/src/n3tx/` and the Grant Watcher app at `/workspace/example_grants/`.*
+
+### .project/archive/features/agentic-app-strategy/02-agent-capabilities.md (789 total lines)
+1: # Enhanced Agent Capabilities for Grant Watcher
+2: 
+3: ## Option 2: From Single Scanner to Multi-Agent Intelligence
+4: 
+5: ---
+6: 
+7: ## 1. Executive Summary
+8: 
+9: The Grant Watcher application currently has **one agent type** -- the Grant Scanner -- backed by a single `AgentActor` instance with three tool addresses (`grants`, `sources`, `web_tools`). It works: it can scrape web pages, extract content, and create grant records. But it is a blunt instrument. It scrapes HTML indiscriminately, cannot evaluate grant relevance, has no memory of previous scans, and cannot notify users when something interesting appears. The agent is a web scraper that happens to use an LLM, not an intelligent grant discovery system.
+10: 
+787: - [LLMs for PDF Structured Data Extraction](https://unstract.com/blog/comparing-approaches-for-using-llms-for-structured-data-extraction-from-pdfs/) -- PDF parsing approaches comparison
+788: - [Semantic Deduplication Patterns](https://futuresearch.ai/semantic-deduplication/) -- Fuzzy matching and semantic similarity techniques
+789: - [Pydantic AI Handoffs Issue #1978](https://github.com/pydantic/pydantic-ai/issues/1978) -- Upcoming handoff/sub-agent delegation feature
+
+### .project/archive/features/agentic-app-strategy/03-frontend-polish.md (962 total lines)
+1: # Frontend Polish: Custom Views, Status Workflows & Dashboards
+2: 
+3: **Grant Watcher Application -- N3TX v0.10**
+4: **Research Date: 2026-03-04**
+5: 
+6: ---
+7: 
+8: ## 1. Executive Summary
+9: 
+10: The Grant Watcher frontend currently renders **everything through generic schema-driven components** -- `<ntx-table>`, `<ntx-list>`, and `<ntx-item>`. This is exactly how N3TX is designed to work: define a model, get a working UI. But "working" and "useful for daily grant tracking" are different things. A user scanning 200 grants needs a **deadline countdown**, not a date string. They need a **status pipeline**, not a plain text field that says "discovered". They need a **dashboard** that answers "what needs attention today?", not a flat table.
+960: - [jKanban: Vanilla JavaScript Kanban Plugin](https://github.com/riktar/jkanban) -- Reference implementation for kanban boards
+961: - [Glass UI: CSS Glassmorphism Generator](https://ui.glass/generator) -- Glassmorphism design tokens reference
+962: - [Medium: Building a Modern Kanban Board with Vanilla JavaScript](https://medium.com/@francesco-saviano/building-a-modern-kanban-board-with-vanilla-javascript-a-complete-guide-to-drag-and-drop-task-4f1d1b27387f) -- Complete vanilla JS kanban guide
+
+### .project/archive/features/agentic-app-strategy/04-production-hardening.md (1041 total lines)
+1: # Production Hardening: Error Handling, Rate Limiting, Retry Logic & Operational Resilience
+2: 
+3: ## Option 4 -- Grant Watcher Application
+4: 
+5: ---
+6: 
+7: ## 1. Executive Summary
+8: 
+9: The Grant Watcher is an agentic application where LLM agents scrape government websites, call external APIs, and create database records autonomously. Today, **every one of those external interactions is a single point of failure with no safety net**. A timeout from grants.gov, a rate limit from Anthropic's API, or a transient SQLite lock can silently kill an agent run -- and nobody finds out until a user notices missing grants.
+10: 
+1039: 23. [Python Retry Policies with Tenacity: Jitter, Backoff, and Idempotency -- Medium, Dec 2025](https://medium.com/@hadiyolworld007/python-retry-policies-with-tenacity-jitter-backoff-and-idempotency-that-survives-chaos-12bba4fc8d32)
+1040: 24. [Handling Tool Errors and Agent Recovery -- APXML](https://apxml.com/courses/langchain-production-llm/chapter-2-sophisticated-agents-tools/agent-error-handling)
+1041: 25. [ReliabilityBench: Evaluating LLM Agent Reliability -- arXiv 2601.06112](https://arxiv.org/pdf/2601.06112)
+
+### .project/archive/features/agentic-app-strategy/05-new-features.md (1217 total lines)
+1: # New Features: Grant Matching, Notifications, Saved Searches & Reporting
+2: 
+3: **Research Date:** 2026-03-04
+4: **Scope:** Feature roadmap for evolving Grant Watcher from a grant database into a grant intelligence platform
+5: **Audience:** Technical CEO + Engineering Leadership
+6: 
+7: ---
+8: 
+9: ## 1. Executive Summary
+10: 
+1215: - [Instrumentl Software Reviews - 2026](https://www.softwareadvice.com/nonprofit/instrumentl-profile/) -- Feature comparison and pricing
+1216: - [How to Implement Saved Searches and Email Alerts](https://www.quora.com/How-do-I-implement-saved-searches-and-email-alerts-similar-to-eBay-or-LinkedIn) -- Architecture patterns
+1217: - [Grant Prospecting Software Innovations for 2026](https://sparkthefiregrantwriting.com/blog/grant-prospecting-software-innovations) -- AI and database trends
+
+### .project/archive/features/agentic-app-strategy/forks/fork-a-demo-investor.md (1349 total lines)
+1: # Fork A: Demo/Investor Path -- Kanban Board + Dashboard
+2: 
+3: **Scope:** 7 working days
+4: **Prerequisites:** Sprints 1--3 complete (StatusWidget, Grant Detail, GrantsGovAPI, UserProfile, GrantMatch, MatcherTools)
+5: **Goal:** Visual wow factor for demos and investor presentations
+6: **Philosophy:** Application-level components in `example_grants/static/`. Zero backend changes. Zero framework modifications. Uses existing primitives (NTTElement, ListElement, DynamicClass, TX) without modifying them.
+7: 
+8: ---
+9: 
+10: ## Table of Contents
+1347: Status values used by kanban columns: `discovered`, `reviewed`, `applied`, `awarded`, `expired`.
+1348: 
+1349: Note: The model description says "discovered | reviewed | applied | expired" (4 values) but the StatusWidget research document includes `awarded` (5 values). The kanban should support all 5, with `awarded` between `applied` and `expired` in the pipeline. If `awarded` is not present in the status field's validation, it should be added to the model description as a pre-task or at the start of this fork.
+
+### .project/archive/features/agentic-app-strategy/forks/fork-b-product-retention.md (1675 total lines)
+1: # Fork B: Product/Retention Path -- Notifications + Saved Searches
+2: 
+3: **Branch:** `v0.9` (continues from Sprints 1-3 completion)
+4: **Duration:** ~3 weeks (15 working days)
+5: **Prerequisites:** Safety, Observability, StatusWidget, Grant Detail, GrantsGovAPI, UserProfile, GrantMatch, MatcherTools with lifecycle subscriber wiring -- all complete.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+1673: - `decorators.py` -- `@expose_route` unchanged
+1674: - `app.py` -- `create_app` and `N3TXApp.build()` unchanged
+1675: - `widget.py` -- TextareaField, DateTimeField, UrlField unchanged
+
+### .project/archive/features/agentic-app-strategy/forks/fork-c-reliability.md (1373 total lines)
+1: # Fork C: Reliability Path -- Full Resilience Stack
+2: 
+3: **Scope:** Everything from doc 04 (production hardening) beyond the Sprint 1 critical safety items.
+4: **Assumption:** Sprint 1 is complete: SSRF prevention (`security.py`), SQLite pragmas, error classification (`errors.py`), AgentRun model, trace interceptor.
+5: **Duration:** ~2 weeks (10 working days)
+6: **Branch:** `v0.10-reliability` (from `v0.9`)
+7: 
+8: ---
+9: 
+10: ## Table of Contents
+1371: feat(core): Add graceful shutdown with active agent run draining [0.10]
+1372: feat(core): Add /health and /ready operational endpoints [0.10]
+1373: ```
+
+### .project/archive/features/agentic-app-strategy/forks/fork-d-scale-multiagent.md (2105 total lines)
+1: # Fork D: Multi-Agent Coordination + Agent Specialization
+2: 
+3: **Prereqs:** Sprints 1-3 complete (observability, safety, StatusWidget, GrantsGovAPI, UserProfile, GrantMatch, MatcherTools)
+4: **Duration:** ~4-6 weeks (3 phases)
+5: **Branch:** `v0.10-fork-d-multiagent`
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+2103: **When to use which:**
+2104: - **Event-driven** for post-creation analysis (the default). Every new grant gets analyzed regardless of how it was created.
+2105: - **Delegation** for pre-creation validation (optional). The Scanner can check before creating, avoiding unnecessary records. Both can be active simultaneously.
+
+### .project/archive/features/agentic-app-strategy/plans/P0-P1-security-and-tests.md (193 total lines)
+1: # P0+P1: Security Fixes + Exhaustive Test Coverage
+2: 
+3: ## P0: Security Fixes (6 items)
+4: 
+5: ### Fix 1: Debug Default OFF
+6: **Files**: `example_grants/config.py`, `src/n3tx/core/config.py`
+7: - `DEBUG = os.getenv("N3TX_DEBUG", "false").lower() in ("true", "1")`
+8: - Both config files default to `False`
+9: - Still all the current example apps should have DEBUG = True
+10: 
+191: - `src/n3tx/core/config.py`
+192: - `src/n3tx/core/api/backend.py`
+193: - `src/n3tx/core/authorize/auth.py`
+
+### .project/archive/features/agentic-app-strategy/plans/P2-widget-upgrades.md (159 total lines)
+1: # P2: Widget Upgrades — StatusWidget, DeadlineWidget, CompactCurrency
+2: 
+3: ## Summary
+4: 
+5: Three widget upgrades for the Grant Watcher app, all operating within the existing widget pipeline:
+6: 
+7: 1. **StatusField/StatusWidget** — Colored badge display + dropdown edit
+8: 2. **DeadlineField/DeadlineWidget** — Countdown display with urgency colors
+9: 3. **CurrencyWidget compact mode** — Abbreviates large values in list view ($50K, $1.2M)
+10: 
+157: - `src/n3tx/static/components/ntx-row.js`
+158: - `src/n3tx/static/components/ntx-table.js`
+159: - `example_grants/static/index.html`
+
+### .project/archive/features/agentic-app-strategy/plans/P4-search-and-filter.md (265 total lines)
+1: # P4: Search & Filter — Generic N3TX Core Feature
+2: 
+3: ## Summary
+4: 
+5: Full-stack generic search, filter, and sort capability built directly into N3TX core. Any N3TX app gets search/filter for free — no app-specific code needed.
+6: 
+7: ## Architecture & Data Flow
+8: 
+9: **Current list flow:**
+10: ```
+263: - `src/n3tx/static/components/ntx-table.js`
+264: - `src/n3tx/static/components/ntx-list.js`
+265: - `src/n3tx/static/components/ListElement.js`
+
+### .project/archive/features/agentic-app-strategy/plans/P5-grant-lifecycle.md (241 total lines)
+1: # P5: Grant Lifecycle Workflow
+2: 
+3: ## Summary
+4: 
+5: State machine for grants with 8 states, transition history via join model, workflow metadata in schema for frontend-driven conditional button visibility, and auto-expiration.
+6: 
+7: ## State Machine
+8: 
+9: ```
+10: discovered -> reviewed -> shortlisted -> applied -> awarded
+239: - `src/n3tx/core/utils/decorators.py`
+240: - `src/n3tx/core/models/proto_model.py`
+241: - `src/n3tx/static/components/ntx-item.js`
+
+### .project/archive/features/agentic-app-strategy/plans/P6-scanner-reviewer-pipeline.md (225 total lines)
+1: # P6: Scanner + Reviewer Agent Pipeline
+2: 
+3: ## Summary
+4: 
+5: Expand the agent system with 3 new tool actors, execution history tracking, a Reviewer agent, and a sequential pipeline endpoint.
+6: 
+7: ## New Models
+8: 
+9: ### `example_grants/models/grants_gov_tools.py` (New)
+10: Non-storable ActorModel wrapping the Grants.gov REST API.
+223: 2. **Dedup scaling**: Listing all grants for comparison works now; at 1000+, add SQL-based title search.
+224: 3. **Tool count**: Scanner at ~17 tools approaches the 15-20 confusion threshold. Monitor accuracy.
+225: 4. **Pipeline timeout**: Per-tool-call timeout via `asyncio.wait_for` (30s), total iterations capped by `UsageLimits.request_limit`.
+
+### .project/archive/features/agentic-app-strategy/research/01-run-and-verify.md (938 total lines)
+1: # Run the App & Verify: End-to-End Smoke Testing & Operational Readiness
+2: 
+3: **Grant Watcher on N3TX v0.10 -- Research Analysis**
+4: **Date:** 2026-03-04
+5: **Audience:** Technical CEO + Engineering Leadership
+6: **Status:** Research Complete
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+936: - [MarkTechPost -- Bulletproof Agentic Workflows with PydanticAI](https://www.marktechpost.com/2026/02/19/a-coding-implementation-to-build-bulletproof-agentic-workflows-with-pydanticai-using-strict-schemas-tool-injection-and-model-agnostic-execution/) -- strict schemas and tool injection
+937: - [Scenario -- Test Pydantic AI Agents](https://langwatch.ai/scenario/agent-integration/pydantic-ai/) -- VCR-style agent testing
+938: - [UK Government Technology Blog -- Validating a Distributed Architecture with JSON Schema](https://technology.blog.gov.uk/2015/01/07/validating-a-distributed-architecture-with-json-schema/) -- schema validation at scale

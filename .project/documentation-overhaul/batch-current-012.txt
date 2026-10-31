@@ -1,0 +1,718 @@
+
+### apps/veille/docs/Plan stratégique FFT 2025-2030_ (002).txt (876 total lines)
+781: Pérenniser nos secteurs d’action avec des
+782: financements stables et une vision
+783: cohésive.
+784: 
+785: 2)
+786: 
+787: Les employée.s et les administrateurs
+788: bénéficient d’un processus d’accueil
+789: amélioré qui les rend confiant.es dans
+790: leurs responsabilités
+791: 
+792: Stabiliser le poste de justice en le rendant
+793: à temps plein.
+794: 
+795: •
+796: 
+797: Assurer un conseil d’administration
+798: (CA) complet, engagé et inclusif
+799: 
+800: Actions stratégiques
+801: 
+802: 
+803: •
+804: 
+805: •
+806: 
+807: Maintenir des pratiques et des
+808: systèmes organisationnels efficaces et
+809: qui facilitent la création de la mémoire
+810: organisationnelle.
+811: Pérenniser le financement et
+812: augmenter nos revenus autonomes
+813: 
+814: 3)
+815: 
+816: L’équipe bénéficie de formations
+817: répondant à ses besoins
+818: 
+819: Moderniser les politiques et lignes de
+820: conduites.
+821: 
+822: 4)
+823: 
+824: La FFT dispose de politiques, de
+825: pratiques et d’outils qui la rendent
+826: accueillante et inclusive pour tous et
+827: toutes.
+828: 
+829: Réviser les termes de références du
+830: Réseau TNO Santé.
+831: 
+832: 5)
+833: 
+834: Le CA est complet, il représente une
+835: diversité de groupes, et ses membres
+836: sont engagés dans la réalisation de sa
+837: mission
+838: 
+839: 6)
+840: 
+841: Le financement de la FFT participe à la
+842: réalisation de son mandat et est plus
+843: stable
+844: 
+845: Terminer et maintenir un système de
+846: classement des dossiers efficaces.
+847: Mener un diagnostic en ÉDIA+.
+848: Développer et mettre en œuvre un plan
+849: d’action en EDIA+.
+850: Améliorer le processus d’accueil,
+851: d’intégration et d’évaluation du personnel.
+852: Créer un plan d’action pour la formation
+853: continue de l’équipe et du conseil
+854: d’administration.
+855: Identifier des actions pour faciliter la
+856: collaboration entre les membres de
+857: l’équipe et éviter les silos.
+858: Mener des activités de renforcement
+859: d’équipe.
+860: 
+861: 
+862: Mener des actions de recrutement
+863: d’administrateurs.trices.
+864: Offrir de la formation au CA pour faciliter
+865: leur engagement et leurs actions de
+866: représentation.
+867: Mettre en place un logiciel de gestion des
+868: relations communautaire (CRM) pour
+869: faciliter l’adhésion et la communication
+870: avec les membres.
+871: Faire une activité de planification annuelle
+872: pour assurer la cohésion des actions.
+873: Explorer des avenues d’autofinancement
+874: et la relance de la fondation.
+875: 
+876: 
+
+### apps/veille/docs/market-overview-grant-platforms.md (72 total lines)
+1: # Grant Discovery & Monitoring — Market Overview
+2: 
+3: ## What GrantWatch(er) Does
+4: 
+5: **GrantWatch.com** (the likely reference — "grantswatcher" doesn't resolve) is a subscription-based grant search engine with **11,400+ active listings** updated daily. Core value: search/filter grants by category, state, eligibility, and get real-time alerts when new opportunities match your criteria.
+6: 
+7: **Pricing**: $22/week, $49/month, $100/quarter, or $249/year. All tiers include AI grant finder, 334K verified funders, 641K recipient profiles, 3.6M IRS 990 reports, and deadline calendar.
+8: 
+9: The model is straightforward: **curated database + search + alerts + AI matching**.
+10: 
+11: ## Market Size
+12: 
+13: The grant management software market is estimated at **~$3B in 2025**, growing to **~$5B by 2030** (CAGR ~11.5%). This includes both discovery platforms and full lifecycle management tools.
+14: 
+15: ## Competitive Landscape
+16: 
+17: | Platform | Focus | Pricing | Key Differentiator |
+18: |----------|-------|---------|-------------------|
+19: | **Instrumentl** | Full lifecycle | ~$179/mo | AI matching across 400K funders, $55M raised from Summit Partners, 4,500+ customers, >100% YoY growth |
+20: | **Candid / FDO** | Funder research | ~$219/mo | Industry standard, 312K+ grantmakers, deep giving history |
+21: | **GrantWatch** | Discovery | $249/yr | High volume, budget-friendly, daily updates |
+22: | **Grants.gov** | Federal grants | Free | Official US federal portal, 26 agencies |
+23: | **OpenGrants** | AI + marketplace | Low monthly | Connects users with grant writing consultants |
+24: | **GrantStation** | Discovery + education | <$100/yr | Strategy guides, international coverage |
+25: | **GrantForward** | Academic/research | Institutional | Researcher profiles, tailored alerts |
+26: | **Fundsprout** | End-to-end | Freemium | 275K opportunities, RFP analyzer, DraftAI |
+27: | **Atom Grants** | Research institutions | TBD | AI abstract analysis, requirement extraction |
+28: | **Grant Frog** | Grant writers | TBD | AI writing assistant, consultant workflow |
+29: 
+30: ## Market Segments
+31: 
+32: 1. **Discovery-only** (GrantWatch, PND, Submittable Discover) — curated databases with search/alerts
+33: 2. **Discovery + management** (Instrumentl, Fundsprout, Fluxx) — find + track + report
+34: 3. **Full lifecycle + AI** (Instrumentl, OpenGrants, Atom) — matching, writing assistance, compliance
+35: 4. **Vertical** (GrantForward for academia, Grants.gov for federal) — domain-specific
+36: 
+37: ## Key 2026 Trends
+38: 
+39: - **AI is table stakes**: matching, proposal writing assistance, requirement extraction now expected
+40: - **Hybrid discovery+management**: pure databases losing ground to platforms with workflow tools
+41: - **Consolidation**: Pocketed acquired by Deloitte Canada (2025); Instrumentl raising growth capital
+42: - **Freemium entry**: free tiers or low-cost entry becoming standard to drive adoption
+43: 
+44: ## Opportunity Analysis (for a N3TX-powered app)
+45: 
+46: **What's weak in the market:**
+47: - Most platforms are **US-centric** — European/Canadian/international markets underserved
+48: - UX is generally poor (Grants.gov notoriously frustrating)
+49: - Discovery and management are still often **separate tools**
+50: - AI features are bolt-ons, not deeply integrated into the workflow
+51: - Small orgs priced out of the best platforms ($179-219/mo)
+52: 
+53: **Where N3TX could differentiate:**
+54: - **Schema-driven architecture** — model a Grant, get CRUD + search + alerts + UI for free
+55: - **Actor system** — real-time monitoring agents that watch data sources and push notifications
+56: - **Agent integration** — LLM-powered matching ("describe your org, get matched grants"), proposal drafting, eligibility screening
+57: - **Low price point** — lean infrastructure, target the $50-100/yr segment that GrantWatch serves
+58: - **Multi-market** — bilingual FR/EN, European funding sources (not just US federal)
+59: - **Streaming** — live agent activity showing grant analysis in real-time (like the existing `ntx-stream` component)
+60: 
+61: **Build vs. aggregate**: The hard part isn't the software — it's the **data pipeline** (scraping/ingesting grants from hundreds of sources and keeping them current). The platform winners all invest heavily in data freshness. An MVP could start with public APIs (Grants.gov, EU portals) and expand.
+62: 
+63: ## Sources
+64: 
+65: - [GrantWatch Pricing](https://www.grantwatch.com/plans.php)
+66: - [Fundsprout — 12 Grant Discovery Platforms](https://www.fundsprout.ai/resources/grant-discovery-platforms)
+67: - [Atom Grants — Best Grant Databases 2026](https://atomgrants.com/blog/best-grant-databases-2026)
+68: - [Instrumentl $55M Raise](https://www.businesswire.com/news/home/20250423312598/en/Instrumentl-Raises-$55M-from-Summit-Partners-to-Accelerate-Their-AI-Grant-Fundraising-Platform)
+69: - [Grant Management Software Market — $4.98B by 2030](https://natlawreview.com/press-releases/grant-management-software-market-projected-grow-usd-498-billion-2030-115)
+70: - [Polaris Market Research — Market Forecast 2034](https://www.polarismarketresearch.com/industry-analysis/grant-management-software-market)
+71: - [Learn Grant Writing — Top 12 Databases](https://www.learngrantwriting.org/blog/best-grant-databases/)
+72: - [Instrumentl on Y Combinator](https://www.ycombinator.com/companies/instrumentl)
+
+### apps/veille/docs/sources_examples.txt (16 total lines)
+1: https://www.friendlyfuture.com/en/foundation/apply-for-funding
+2: https://ccndr.ca/
+3: https://nrc.canada.ca/en/support-technology-innovation/outreach-initiative-grants-contributions-program
+4: https://www.francophonie.org/appels-projets-candidatures-initiatives-1111
+5: 
+6: # Canada
+7: 
+8: ## Salariales
+9: https://apic.fjcf.ca/
+10: 
+11: ## Projects
+12: 
+13: 
+14: ## Techno
+15: 
+16: 
+
+### docs/ACTORS.md (812 total lines)
+1: # N3TX Actor System
+2: 
+3: A message-passing actor framework built on Pydantic, designed for
+4: transparent class/instance dispatch. Define a class, get an actor.
+5: Define an instance, get the same actor. One API, no dual paths.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+11: 1. [Core Idea](#core-idea)
+12: 2. [Quick Start](#quick-start)
+13: 3. [Architecture](#architecture)
+14: 4. [TX — Message Envelope](#tx--message-envelope)
+15: 5. [Actor — Unified Dispatch](#actor--unified-dispatch)
+16: 6. [Matrix — Root Router](#matrix--root-router)
+17: 7. [ActorProxy — Wrapper for Anything](#actorproxy--wrapper-for-anything)
+18: 8. [Descriptors](#descriptors)
+19: 9. [Message Flow](#message-flow)
+20: 10. [ActorModel — Models That Are Actors](#actormodel--models-that-are-actors)
+21: 11. [NetworkAdapter — Protocol Bridge](#networkadapter--protocol-bridge)
+22: 12. [File Layout](#file-layout)
+23: 13. [Testing](#testing)
+24: 
+25: ---
+26: 
+27: ## Core Idea
+28: 
+29: Most actor systems force you to choose: work with classes or work
+30: with instances. N3TX's actor system doesn't. Every operation —
+31: `inbox`, `handler`, `send`, `register`, `addr`, `children` — works
+32: identically on both:
+33: 
+34: ```python
+35: Product.addr             # 'products'
+36: product.addr             # 'products/1'
+37: 
+38: Product.children         # class-level children dict
+39: product.children         # instance-level children dict
+40: 
+41: Product.register(child)  # into class children
+42: product.register(child)  # into instance children
+43: 
+44: await Product.inbox(tx)  # dispatches via class
+45: await product.inbox(tx)  # dispatches via instance
+46: ```
+47: 
+48: Instance addresses are derived automatically when possible:
+49: 
+50: - explicit `addr=` wins
+51: - persisted instances with a truthy `id` use `"{__addr__}/{id}"`
+52: - unsaved instances fall back to the class namespace such as `products`
+53: 
+54: For storable `ActorModel` instances, storage update also supports the actor
+55: instance shape:
+56: 
+57: ```python
+58: Product.update(1, {'status': 'done'})   # class-level storage API
+59: product.update({'status': 'done'})      # instance-level actor API
+60: ```
+61: 
+62: Both paths publish the same `after_update` lifecycle event for `ActorModel`
+63: subclasses. This keeps internal actor methods and external TX-routed CRUD on the
+64: same mutation boundary.
+65: 
+66: Two descriptors (`actormethod` and `actorproperty`) make this
+67: possible. The method implementation is written once. The descriptor
+68: resolves whether `target` is the class or the instance. No
+69: `if/else`, no `_cls` suffix, no wrapper layer.
+70: 
+71: ---
+72: 
+73: ## Quick Start
+74: 
+75: ```python
+76: from n3tx.core.actors import Actor, Matrix, TX
+77: 
+78: # 1. Create the root router
+79: m = Matrix()
+80: 
+81: # 2. Define an actor class (auto-registers with Matrix)
+82: class Product(Actor):
+83:     __tablename__ = 'products'
+84: 
+85:     @classmethod
+86:     def SCHEMA(cls, data, tx):
+87:         return {'name': cls.addr, 'fields': ['name', 'price']}
+88: 
+89: # 3. Send a message
+90: tx = TX(name='SCHEMA', source='client', target='products')
+91: await m.inbox(tx)
+92: # -> Product.SCHEMA is called, reply routes back through Matrix
+93: ```
+94: 
+95: Instance actors work the same way:
+96: 
+97: ```python
+98: class Worker(Actor, auto_register=False):
+99:     name: str = Field(default='')
+100: 
+101:     def PROCESS(self, data, tx):
+102:         return {'processed_by': self.name, 'item': data.get('item')}
+103: 
+104: w = Worker(name='Alpha', addr='worker-1')
+105: m.register(w)
+106: 
+107: tx = TX(name='PROCESS', source='client', target='worker-1', data={'item': 42})
+108: await m.inbox(tx)
+109: # -> w.PROCESS is called, reply routes back through Matrix
+110: ```
+111: 
+112: ---
+113: 
+114: ## Architecture
+115: 
+116: ```
+117: TX              Immutable message envelope (name, source, target, data, meta)
+118:   |
+119: Actor           Base class — unified dispatch via actormethod/actorproperty
+120:   |             Extends PydanticBaseModel. Works as both class and instance.
+121:   |
+122: Matrix          Root actor — message router, adapter registry
+123:   |             Routes by first segment of target address.
+124:   |             Provides internal request() and stream() correlation helpers.
+125:   |
+126: ActorProxy      Lightweight wrapper — gives any object the actor interface
+127:                 Slots-based, no Pydantic overhead. Isomorphic external API.
+128: ```
+129: 
+130: The system is deliberately minimal. Four files, no threads, no
+
+### docs/ACTORS.md (812 total lines)
+131: queues, no event loop management. Messages route through parent
+132: chains synchronously (async/await, not background tasks). The
+133: framework owns the plumbing; you own the handlers.
+134: 
+135: ---
+136: 
+137: ## TX -- Message Envelope
+138: 
+139: A dataclass with six fields:
+140: 
+141: | Field | Type | Purpose |
+142: |-------|------|---------|
+143: | `name` | `str` | Message type (`SCHEMA`, `CREATE`, `PING`, ...) |
+144: | `source` | `str` | Sender address |
+145: | `target` | `str` | Recipient address (slash-delimited path) |
+146: | `data` | `dict` | Payload |
+147: | `meta` | `dict` | Metadata (timestamps, correlation IDs, error flags) |
+148: | `uuid` | `str` | Auto-generated unique ID |
+149: 
+150: ### Reply and Error
+151: 
+152: ```python
+153: # Reply swaps source/target, generates new uuid, stores original in meta['req']
+154: reply = tx.reply(data={'count': 42})
+155: reply.name     # 'SCHEMA_RESPONSE'
+156: reply.source   # original target
+157: reply.target   # original source
+158: reply.meta['req']  # original tx.uuid
+159: 
+160: # Error creates an ERROR message
+161: err = tx.error("Not found", code=404)
+162: err.name       # 'ERROR'
+163: err.is_error   # True
+164: err.data       # {'message': 'Not found', 'code': 404}
+165: ```
+166: 
+167: ### Stream Replies
+168: 
+169: TX supports multi-reply streaming for long-running operations. Stream
+170: chunks are correlated to the original request via `meta['req']`:
+171: 
+172: ```python
+173: # Stream chunk — correlated reply with sequence number
+174: chunk = tx.stream_chunk({'text': 'Hello'}, seq=0)
+175: chunk.meta['req']         # original tx.uuid
+176: chunk.meta['stream']      # True
+177: chunk.meta['seq']         # 0
+178: 
+179: # Stream end — signals completion
+180: end = tx.stream_end(data={'summary': 'Done'}, seq=5)
+181: end.meta['stream_end']    # True
+182: 
+183: # Error terminates the stream
+184: err = tx.error("Timeout", code=504)
+185: err.is_error              # True — consumer stops iterating
+186: ```
+187: 
+188: Stream protocol meta fields:
+189: 
+190: | Field | Chunk | End | Error |
+191: |-------|-------|-----|-------|
+192: | `req` | original uuid | original uuid | original uuid |
+193: | `stream` | `True` | `True` | - |
+194: | `seq` | sequence number | final seq | - |
+195: | `stream_end` | - | `True` | - |
+196: | `error` | - | - | `True` |
+197: 
+198: TX is intentionally a plain dataclass — no Pydantic, no validation
+199: overhead. It's a wire format, not a domain object.
+200: 
+201: ---
+202: 
+203: ## Actor -- Unified Dispatch
+204: 
+205: ### State
+206: 
+207: Actors carry state at two levels:
+208: 
+209: | Level | Address | Children | Parent |
+210: |-------|---------|----------|--------|
+211: | Class | `__addr__` (ClassVar) | `__children__` (ClassVar) | `__matrix__` (ClassVar) |
+212: | Instance | `_addr` (PrivateAttr) | `_children` (PrivateAttr) | `_parent` (PrivateAttr) |
+213: 
+214: The descriptors (`actorproperty`) resolve which level to read:
+215: 
+216: ```python
+217: Product.addr      # reads __addr__       -> 'products'
+218: product.addr      # reads _addr          -> 'products/1'
+219: 
+220: Product.parent    # reads __matrix__     -> Matrix instance
+221: product.parent    # reads _parent        -> parent actor/class
+222: ```
+223: 
+224: ### Handler Dispatch
+225: 
+226: When a message arrives at `handler()`, it dispatches to a method
+227: matching `tx.name`:
+228: 
+229: ```python
+230: class Product(Actor):
+231:     __tablename__ = 'products'
+232: 
+233:     @classmethod
+234:     def SCHEMA(cls, data, tx):     # Class-level: Matrix routes here
+235:         return cls.schema()
+236: 
+237:     def DUMP(self, data, tx):      # Instance-level: parent routes here
+238:         return self.model_dump()
+239: ```
+240: 
+241: The handler automatically wraps return values:
+242: - `dict` -> `tx.reply(data=result)`
+243: - `TX` -> passed through as-is
+244: - `None` -> `tx.reply()` (empty response)
+245: - Other -> `tx.reply(data={'result': value})`
+246: - Exception -> `tx.error(str(e))`
+247: 
+248: ### Send Routing
+249: 
+250: `send()` adapts to context:
+251: 
+252: **Class-level** (three-case routing):
+253: 1. Direct child match — first segment of target matches a child
+254: 2. Prefixed target — target starts with class addr, strip and route
+255: 3. Bubble to root — prefix source with class addr, send to Matrix
+256: 
+257: **Instance-level** (parent chain):
+258: 1. If parent is a class -> `parent.send(tx)` (enters class routing)
+259: 2. If parent is an instance -> `parent.inbox(tx)`
+260: 3. No parent, no root -> `RuntimeError`
+
+### docs/ACTORS.md (812 total lines)
+261: 
+262: ### Child Management
+263: 
+264: ```python
+265: # Register — works on classes and instances
+266: Product.register(child)      # adds to Product.__children__
+267: product.register(child)      # adds to product._children, sets child._parent
+268: 
+269: # Spawn — create + register in one call
+270: worker = product.spawn('w1', Worker, name='Alpha')
+271: 
+272: # Check existence
+273: product.has('w1')            # True
+274: product.has('w1/subtask')    # True (checks first segment)
+275: ```
+276: 
+277: ### Auto-Registration
+278: 
+279: When a class is defined with `auto_register=True` (the default),
+280: it auto-registers with the current root Matrix:
+281: 
+282: ```python
+283: m = Matrix()                 # becomes root
+284: 
+285: class Product(Actor):        # auto-registers as m._children['Product']
+286:     __tablename__ = 'products'  # addr = 'products'
+287: ```
+288: 
+289: Skip registration with `auto_register=False`:
+290: 
+291: ```python
+292: class Worker(Actor, auto_register=False):
+293:     pass
+294: ```
+295: 
+296: ### Pydantic Compatibility
+297: 
+298: Actor extends `PydanticBaseModel`. Instance state uses `PrivateAttr`
+299: to stay out of `model_dump()`:
+300: 
+301: ```python
+302: class Item(Actor, auto_register=False):
+303:     name: str = Field(default='')
+304:     price: float = Field(default=0.0)
+305: 
+306: item = Item(name='Widget', price=9.99, addr='item/1')
+307: item.model_dump()   # {'name': 'Widget', 'price': 9.99}
+308:                     # No addr, _children, _parent leaked
+309: ```
+310: 
+311: ---
+312: 
+313: ## Matrix -- Root Router
+314: 
+315: Matrix is the top-level actor. It receives all messages that bubble
+316: up from children and routes them back down (or out to adapters).
+317: 
+318: ### Routing Logic
+319: 
+320: ```python
+321: await m.inbox(tx)
+322: ```
+323: 
+324: 1. **Self-send guard** — if `tx.target == m.addr`, log error and return
+325: 2. **Local child** — if first segment of target matches a child, route there
+326: 3. **Adapter** — iterate registered adapters; first `can_handle()` gets it
+327: 4. **No route** — log warning
+328: 
+329: ### Adapters
+330: 
+331: Adapters extend routing beyond the local actor tree:
+332: 
+333: ```python
+334: class WebSocketAdapter:
+335:     def can_handle(self, tx):
+336:         return tx.target.startswith('ws/')
+337: 
+338:     async def send(self, tx):
+339:         await self.ws.send_json(tx.data)
+340: 
+341: m.register_adapter(WebSocketAdapter())
+342: ```
+343: 
+344: ### Module-Level Instance
+345: 
+346: A default Matrix is created at import time:
+347: 
+348: ```python
+349: from n3tx.core.actors.matrix import matrix
+350: 
+351: # `matrix` is a ready-to-use Matrix instance
+352: matrix.register(my_actor)
+353: ```
+354: 
+355: ---
+356: 
+357: ## ActorProxy -- Wrapper for Anything
+358: 
+359: ActorProxy gives any Python object the actor interface without
+360: requiring inheritance:
+361: 
+362: ```python
+363: from n3tx.core.actors.actor_proxy import ActorProxy
+364: 
+365: class Calculator:
+366:     def ADD(self, data, tx):
+367:         return {'sum': data['a'] + data['b']}
+368: 
+369: proxy = ActorProxy(Calculator(), addr='calc')
+370: m.register(proxy)
+371: 
+372: await m.inbox(TX(name='ADD', source='client', target='calc',
+373:                   data={'a': 3, 'b': 4}))
+374: # -> Calculator.ADD called, reply sent back
+375: ```
+376: 
+377: ### When to Use
+378: 
+379: - Wrapping third-party classes that can't extend Actor
+380: - Wrapping plain objects that don't need Pydantic
+381: - Building trees from heterogeneous components
+382: 
+383: ### Address Resolution
+384: 
+385: ActorProxy resolves `addr` from multiple sources (in priority order):
+386: 1. Explicit `addr=` kwarg
+387: 2. Target's `__addr__` attribute
+388: 3. Target's `__tablename__` attribute
+389: 4. Target's `.addr` property (for instances)
+390: 5. Target's class name
+
+### docs/ACTORS.md (812 total lines)
+391: 
+392: ### ActorLike Protocol
+393: 
+394: Both `Actor` and `ActorProxy` satisfy the `ActorLike` runtime
+395: protocol:
+396: 
+397: ```python
+398: from n3tx.core.actors.actor_proxy import ActorLike
+399: 
+400: isinstance(Actor(addr='a'), ActorLike)       # True
+401: isinstance(ActorProxy("x", addr='p'), ActorLike)  # True
+402: ```
+403: 
+404: ---
+405: 
+406: ## Descriptors
+407: 
+408: The two descriptors that make unified dispatch work:
+409: 
+410: ### actormethod
+411: 
+412: A non-data descriptor that binds `target = cls or self`:
+413: 
+414: ```python
+415: @actormethod
+416: async def inbox(target, tx):
+417:     await target.handler(tx)
+418: ```
+419: 
+420: - `Product.inbox` -> `MethodType(fn, Product)` -> `target = Product`
+421: - `product.inbox` -> `MethodType(fn, product)` -> `target = product`
+422: 
+423: One function, one implementation. No class/instance split.
+424: 
+425: ### actorproperty
+426: 
+427: Same idea but returns a value directly (not a callable):
+428: 
+429: ```python
+430: @actorproperty
+431: def children(target):
+432:     if isinstance(target, type):
+433:         return target.__children__
+434:     return target._children
+435: ```
+436: 
+437: - `Product.children` -> `fn(Product)` -> `Product.__children__`
+438: - `product.children` -> `fn(product)` -> `product._children`
+439: 
+440: ### IDE Support
+441: 
+442: Under `TYPE_CHECKING`, both descriptors are transparent identity
+443: functions. IDEs see the original function signatures — proper
+444: autocomplete, type hints, go-to-definition all work.
+445: 
+446: ---
+447: 
+448: ## Message Flow
+449: 
+450: ### Class Actor (Matrix -> Class)
+451: 
+452: ```
+453: Client sends TX(name='SCHEMA', target='products')
+454:     |
+455:     v
+456: Matrix.inbox(tx)
+457:     |  target_root = 'products'
+458:     |  found in _children -> Product (class)
+459:     v
+460: Product.inbox(tx)           # actormethod: target = Product
+461:     |
+462:     v
+463: Product.handler(tx)         # actormethod: target = Product
+464:     |  getattr(Product, 'SCHEMA') -> bound classmethod
+465:     |  result = Product.SCHEMA(data, tx)
+466:     v
+467: Product.send(reply_tx)      # actormethod: target = Product
+468:     |  class routing: no child match -> bubble to Matrix
+469:     v
+470: Matrix.inbox(reply_tx)      # reply arrives at root for delivery
+471: ```
+472: 
+473: ### Instance Actor (Matrix -> Parent -> Instance)
+474: 
+475: ```
+476: Client sends TX(name='DUMP', target='products/1')
+477:     |
+478:     v
+479: Matrix.inbox(tx)
+480:     |  target_root = 'products'
+481:     |  found in _children -> Product (class)
+482:     v
+483: Product.inbox(tx)           # strips 'products/' prefix
+484:     |  remaining target = '1'
+485:     |  found in __children__ -> product instance
+486:     v
+487: product.inbox(tx)           # actormethod: target = product
+488:     |
+489:     v
+490: product.handler(tx)         # dispatches to product.DUMP(data, tx)
+491:     |
+492:     v
+493: product.send(reply_tx)      # instance routing: parent = Product (class)
+494:     v
+495: Product.send(reply_tx)      # class routing: bubble to Matrix
+496:     v
+497: Matrix.inbox(reply_tx)
+498: ```
+499: 
+500: ---
+501: 
+502: ## ActorModel -- Models That Are Actors
+503: 
+504: `ActorModel` bridges Actor (messaging) and ProtoModel (data/schema/storage)
+505: into a single class. It lives in `models/actor_model.py`, not in the
+506: actors package, because it depends on both sides.
+507: 
+508: ```python
+509: from n3tx.core.models.actor_model import ActorModel
+510: 
+511: class Product(ActorModel):
+512:     __tablename__ = 'products'
+513:     __storable__ = True
+514:     name: str = Field(min_length=1, max_length=200)
+515: 
+516: # Product is now an actor:
+517: await Product.inbox(TX(name='create', source='api', target='products', data={...}))
+518: ```
+519: 
+520: ### MRO

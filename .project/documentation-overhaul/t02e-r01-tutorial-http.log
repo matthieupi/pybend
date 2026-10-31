@@ -1,0 +1,103 @@
+/workspace/.venv-agents/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+INFO:     httpx: HTTP Request: GET http://testserver/Issue "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/openapi.json "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: POST http://testserver/users/register "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: POST http://testserver/users/register "HTTP/1.1 409 Conflict"
+INFO:     httpx: HTTP Request: POST http://testserver/users/login "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: POST http://testserver/users/login "HTTP/1.1 401 Unauthorized"
+INFO:     httpx: HTTP Request: GET http://testserver/Issue "HTTP/1.1 401 Unauthorized"
+INFO:     httpx: HTTP Request: POST http://testserver/issues "HTTP/1.1 403 Forbidden"
+INFO:     httpx: HTTP Request: POST http://testserver/labels "HTTP/1.1 201 Created"
+INFO:     httpx: HTTP Request: POST http://testserver/issues "HTTP/1.1 201 Created"
+INFO:     httpx: HTTP Request: GET http://testserver/Issue/1 "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/issues "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/Issue/1 "HTTP/1.1 403 Forbidden"
+INFO:     httpx: HTTP Request: GET http://testserver/issues?limit=20&offset=0 "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: PUT http://testserver/issues/1 "HTTP/1.1 200 OK"
+WARNING:  n3tx.models: Rejected Issue update ID=1 fields=['name']: [{'loc': ('name',), 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]
+INFO:     httpx: HTTP Request: PUT http://testserver/issues/1 "HTTP/1.1 422 Unprocessable Entity"
+INFO:     httpx: HTTP Request: POST http://testserver/issues "HTTP/1.1 422 Unprocessable Entity"
+WARNING:  n3tx.models: Rejected Issue update ID=1 fields=['status']: [{'loc': (), 'type': 'resolution_required', 'msg': 'Closed issues require a resolution'}]
+INFO:     httpx: HTTP Request: PUT http://testserver/issues/1 "HTTP/1.1 422 Unprocessable Entity"
+WARNING:  n3tx.models: Rejected Issue update ID=1 fields=['related']: [{'loc': ('related', 0), 'type': 'string_type', 'msg': 'Input should be a valid string'}]
+INFO:     httpx: HTTP Request: PUT http://testserver/issues/1 "HTTP/1.1 422 Unprocessable Entity"
+INFO:     httpx: HTTP Request: POST http://testserver/users/register "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/issues "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/Issue/1 "HTTP/1.1 403 Forbidden"
+INFO:     httpx: HTTP Request: PUT http://testserver/Issue/1 "HTTP/1.1 403 Forbidden"
+INFO:     httpx: HTTP Request: POST http://testserver/Issue/1/resolve "HTTP/1.1 403 Forbidden"
+INFO:     httpx: HTTP Request: DELETE http://testserver/Issue/1 "HTTP/1.1 403 Forbidden"
+INFO:     httpx: HTTP Request: POST http://testserver/issues/1/resolve "HTTP/1.1 400 Bad Request"
+INFO:     httpx: HTTP Request: POST http://testserver/issues/1/resolve "HTTP/1.1 400 Bad Request"
+INFO:     httpx: HTTP Request: POST http://testserver/issues/1/resolve "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: POST http://testserver/issues/1/resolve "HTTP/1.1 409 Conflict"
+INFO:     httpx: HTTP Request: GET http://testserver/Issue/@ "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/Issue/1/@ "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/login.html "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/core/NTT.js "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/components/ntx-list.js "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/components/ntx-item.js "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: PUT http://testserver/issues/1 "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: DELETE http://testserver/issues/1 "HTTP/1.1 200 OK"
+INFO:     httpx: HTTP Request: GET http://testserver/Issue/1 "HTTP/1.1 404 Not Found"
+INFO:     httpx: HTTP Request: GET http://testserver/Label/1 "HTTP/1.1 200 OK"
+{
+  "result": "PASS",
+  "http_checks": 39,
+  "checks": [
+    "GET /Issue: 200",
+    "GET /openapi.json: 200",
+    "POST /users/register: 200",
+    "POST /users/register: 409",
+    "POST /users/login: 200",
+    "POST /users/login: 401",
+    "GET /Issue: 401",
+    "POST /issues: 403",
+    "POST /labels: 201",
+    "POST /issues: 201",
+    "GET /Issue/1: 200",
+    "GET /issues: 200",
+    "GET /Issue/1: 403",
+    "GET /issues?limit=20&offset=0: 200",
+    "PUT /issues/1: 200",
+    "PUT /issues/1: 422",
+    "POST /issues: 422",
+    "PUT /issues/1: 422",
+    "PUT /issues/1: 422",
+    "POST /users/register: 200",
+    "GET /issues: 200",
+    "GET /Issue/1: 403",
+    "PUT /Issue/1: 403",
+    "POST /Issue/1/resolve: 403",
+    "DELETE /Issue/1: 403",
+    "POST /issues/1/resolve: 400",
+    "POST /issues/1/resolve: 400",
+    "POST /issues/1/resolve: 200",
+    "POST /issues/1/resolve: 409",
+    "GET /Issue/@: 200",
+    "GET /Issue/1/@: 200",
+    "GET /login.html: 200",
+    "GET /core/NTT.js: 200",
+    "GET /components/ntx-list.js: 200",
+    "GET /components/ntx-item.js: 200",
+    "PUT /issues/1: 200",
+    "DELETE /issues/1: 200",
+    "GET /Issue/1: 404",
+    "GET /Label/1: 200"
+  ],
+  "additional": [
+    "schema contract",
+    "caller forgery ignored",
+    "SQLite persisted values",
+    "relationship replacement leaves child",
+    "HTML shell and asset delivery"
+  ],
+  "not_checked": [
+    "browser rendering",
+    "process restart",
+    "concurrent writes",
+    "actor transport"
+  ]
+}

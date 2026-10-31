@@ -1,0 +1,323 @@
+
+### tests/frontend/README.md (967 total lines)
+651: |-----------|----------|-------------|
+652: | `model` | Yes | Backend model name (PascalCase, e.g. `Product`, `User`) |
+653: 
+654: **Lifecycle:**
+655: 1. Sends ATTACH to N3TX with model name
+656: 2. N3TX bootstraps schema, creates DynClass
+657: 3. DynClass.call('READ') fetches records
+658: 4. List receives UPDATE with array of N3TX addresses
+659: 5. Renders `<ntx-item ref="addr">` for each
+660: 
+661: **Message handlers:**
+662: 
+663: | Handler | Data | Behavior |
+664: |---------|------|----------|
+665: | `UPDATE(data)` | `["Product/1", "Product/2", ...]` | Stores addresses, re-renders |
+666: 
+667: ### `<ntx-item>`
+668: 
+669: Renders a single entity as an editable card with form fields.
+670: 
+671: ```html
+672: <!-- Created automatically by ntx-list, or standalone: -->
+673: <ntx-item ref="Product/4"></ntx-item>
+674: ```
+675: 
+676: | Attribute | Required | Description |
+677: |-----------|----------|-------------|
+678: | `ref` | Yes | N3TX address (`ModelName/id`) |
+679: | `mode` | No | `"display"` (default) or `"edit"` |
+680: 
+681: **Lifecycle:**
+682: 1. Setting `ref` sends ATTACH to N3TX (routed to DynClass then to instance)
+683: 2. N3TX instance responds with DESCRIBE (schema + data)
+684: 3. Item renders using `Formidable.getForm()`
+685: 4. Click pencil -> edit mode (inputs). Click save -> sends UPDATE to N3TX.
+686: 
+687: **Message handlers:**
+688: 
+689: | Handler | Data | Behavior |
+690: |---------|------|----------|
+691: | `DESCRIBE(data)` | `{proto: schema, data: entity}` | Sets schema + value, renders |
+692: | `UPDATE(data)` | Entity data with `$schema` | Updates value, re-renders |
+693: 
+694: **Modes:**
+695: 
+696: | Mode | Display | Button |
+697: |------|---------|--------|
+698: | `display` | Read-only text | Pencil icon (edit) |
+699: | `edit` | Input fields | Floppy icon (save) |
+700: 
+701: ### `<ntx-element>` (base class)
+702: 
+703: Not used directly — extended by List and Item. Provides:
+704: 
+705: | Property | Description |
+706: |----------|-------------|
+707: | `model` | Model name string |
+708: | `ref` | N3TX address (setting sends ATTACH) |
+709: | `proto` | DynClass reference (set via `define()`) |
+710: | `schema` | JSON schema from proto |
+711: | `value` | Current entity data |
+712: | `addr` | Unique actor address |
+713: 
+714: | Method | Description |
+715: |--------|-------------|
+716: | `define(dynClass)` | Links to a DynClass, calls `definedCallback()` |
+717: | `send(tx)` | Sends a TX message through the actor system |
+718: | `definedCallback()` | Override — called when schema is ready |
+719: 
+720: ---
+721: 
+722: ## 10. Custom Methods
+723: 
+724: If your backend model defines custom methods (e.g., `comment` on Product),
+725: they appear in the JSON schema under `methods` and are auto-generated as
+726: methods on the DynClass prototype:
+727: 
+728: ```
+729: Backend schema:
+730: {
+731:   "methods": {
+732:     "comment": {
+733:       "parameters": {
+734:         "name":        { "type": "string" },
+735:         "description": { "type": "string" }
+736:       }
+737:     }
+738:   }
+739: }
+740: ```
+741: 
+742: ```js
+743: // Call from code:
+744: const product = N3TX.get('Product/1');
+745: product.comment({ name: "Great!", description: "Love this product" });
+746: 
+747: // Under the hood:
+748: // TX { name: 'comment', target: http://.../products/1 }
+749: // -> NetworkAdapter maps unknown name -> POST /products/1/comment
+750: ```
+751: 
+752: ---
+753: 
+754: ## 11. Building a Complete App
+755: 
+756: ### Multi-Model Dashboard
+757: 
+758: ```html
+759: <!DOCTYPE html>
+760: <html lang="en">
+761: <head>
+762:     <meta charset="UTF-8">
+763:     <title>Admin Dashboard</title>
+764:     <link rel="stylesheet" href="./dark-theme.css">
+765:     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+766:     <style>
+767:         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; padding: 2rem; }
+768:         h1 { text-align: center; color: #eee; }
+769:     </style>
+770: </head>
+771: <body>
+772: 
+773:     <h1>Admin Dashboard</h1>
+774: 
+775:     <div class="dashboard">
+776:         <section>
+777:             <h2>Products</h2>
+778:             <ntx-list model="Product"></ntx-list>
+779:         </section>
+780:         <section>
+
+### tests/frontend/README.md (967 total lines)
+781:             <h2>Users</h2>
+782:             <ntx-list model="User"></ntx-list>
+783:         </section>
+784:     </div>
+785: 
+786:     <script type="module">
+787:         import { Matrix, matrix } from './core/Matrix.js';
+788:         import { N3TX }            from './core/N3TX.js';
+789:         import { config }         from './config.js';
+790:         import './components/ntx-item.js';
+791:         import './components/ntx-list.js';
+792:     </script>
+793: 
+794: </body>
+795: </html>
+796: ```
+797: 
+798: ### Single Entity View
+799: 
+800: ```html
+801: <!-- Show just one product by ID -->
+802: <ntx-item ref="Product/4"></ntx-item>
+803: 
+804: <script type="module">
+805:     import { Matrix, matrix } from './core/Matrix.js';
+806:     import { N3TX }            from './core/N3TX.js';
+807:     import { config }         from './config.js';
+808:     import './components/ntx-item.js';
+809:     import './components/ntx-list.js';
+810: </script>
+811: ```
+812: 
+813: ### Programmatic Access
+814: 
+815: ```js
+816: // Wait for a DynClass to be ready, then work with entities
+817: N3TX.attach('Product', (dynClass) => {
+818:     console.log('Schema:', dynClass.schema);
+819:     console.log('CRUD endpoint:', dynClass.href);
+820: 
+821:     // Access all loaded instances
+822:     for (const [id, ntt] of dynClass.children) {
+823:         console.log(`${ntt.addr}: ${ntt.value.name} -- $${ntt.value.price}`);
+824:     }
+825: });
+826: ```
+827: 
+828: ---
+829: 
+830: ## 12. Message Protocol Cheat Sheet
+831: 
+832: ### TX Message Format
+833: 
+834: ```js
+835: {
+836:   name:   "EVENT_NAME",       // Handler method to invoke (UPPERCASE)
+837:   source: "sender-address",   // Who sent this
+838:   target: "receiver-address", // Who should receive this (addr or URL)
+839:   data:   { ... },            // Payload
+840:   meta:   { ... },            // Metadata: { remote, inbox, ... }
+841:   tst:    1702000000000,      // Timestamp
+842:   hash:   "abc123"            // Content hash
+843: }
+844: ```
+845: 
+846: ### Key `meta` Fields
+847: 
+848: | Field | Type | Effect |
+849: |-------|------|--------|
+850: | `remote` | `bool` | Marks message for/from network transport |
+851: | `inbox` | `string` | Overrides the response event name (e.g., response arrives as UPDATE instead of READ) |
+852: 
+853: ### Complete Message Reference
+854: 
+855: | Name | Direction | Purpose |
+856: |------|-----------|---------|
+857: | `ATTACH` | Component -> N3TX -> DynClass/instance | "I want to connect to this model/entity" |
+858: | `SCHEMA` | N3TX <-> Backend | Fetch/receive JSON schema |
+859: | `READ` | DynClass -> Backend | Fetch all records |
+860: | `DESCRIBE` | N3TX instance -> Component | "Here's my schema and current data" |
+861: | `UPDATE` | Any <-> Any | Update entity data (local or remote) |
+862: | `CREATE` | DynClass -> Backend | Create a new record |
+863: | `DELETE` | N3TX instance -> Backend | Delete a record |
+864: | `CONNECT` | Component -> Matrix | Connect to a type (theme/role routing) |
+865: | `ERROR` | NetworkAdapter -> Source | Network error response |
+866: 
+867: ### Response Flow (meta.inbox)
+868: 
+869: The `meta.inbox` pattern lets you control what event name the response arrives as:
+870: 
+871: ```
+872: Request:  { name: READ, meta: { inbox: 'UPDATE' } }
+873:                                           |
+874: Response: { name: UPDATE }  <-------------+
+875:                   (not READ)
+876: ```
+877: 
+878: This is how DynClass gets list data back as an UPDATE event to trigger re-rendering.
+879: 
+880: ---
+881: 
+882: ## 13. Configuration Reference
+883: 
+884: All settings in `config.js`:
+885: 
+886: | Key | Default | Description |
+887: |-----|---------|-------------|
+888: | `API_URL` | `http://localhost:5000` | Backend base URL. All schema and CRUD calls use this. |
+889: | `WS_URL` | `ws://localhost:8765` | WebSocket URL (when using WS transport mode) |
+890: | `LOGGING` | `3` | Log verbosity: 0=off, 1=errors, 2=warnings, 3=verbose |
+891: | `LOGEVENTS` | `true` | Log all TX messages to console |
+892: | `LOGSPAWN` | `true` | Log actor creation |
+893: | `DEBUG` | `true` | Enable debug output throughout |
+894: | `DEFAULT_HEADERS` | `{Content-Type, Accept: json}` | Default headers for HTTP requests |
+895: | `TIMEOUT` | `5000` | Request timeout in ms |
+896: | `RETRY_LIMIT` | `3` | Max retries for failed requests |
+897: | `E` | `{...}` | Event name constants (CONNECT, UPDATE, READ, etc.) |
+898: 
+899: ---
+900: 
+901: ## 14. Troubleshooting
+902: 
+903: | Symptom | Likely Cause | Fix |
+904: |---------|-------------|-----|
+905: | List is empty / no cards | Backend not running or wrong `API_URL` | Check `config.js` API_URL matches backend port |
+906: | "CORS error" in console | Backend doesn't allow frontend origin | Add CORS middleware to FastAPI backend |
+907: | Cards render but show "Placeholder" | Schema loaded but READ failed | Check backend `/tablename` endpoint returns an array |
+908: | Edit + Save does nothing | N3TX update flow not connected | Check browser console for TX routing errors |
+909: | `$schema` assertion error on save | Response bypassing N3TX, going directly to Item | Hard-refresh browser (Ctrl+Shift+R) to clear cached JS |
+910: 
+
+### tests/frontend/README.md (967 total lines)
+911: ### Debugging Tips
+912: 
+913: 1. **Enable verbose logging** — set `LOGGING: 3` and `LOGEVENTS: true` in config.js
+914: 2. **Watch TX flow** — every message logs to console with source -> target
+915: 3. **Inspect actor tree** — `matrix.children` in console shows all registered classes
+916: 4. **Check N3TX state** — `N3TX.get('Product')` returns the DynClass, `.schema` for schema, `.children` for instances
+917: 
+918: ---
+919: 
+920: ## Module Map
+921: 
+922: ```
+923: static/
+924:   config.js                     <- Configuration (API_URL, events, flags)
+925:   dark-theme.css                <- Default dark theme
+926:   favicon.svg                   <- App icon
+927:   core/
+928:     Actor.js                    <- Base actor + subclass() metaclass
+929:     Matrix.js                   <- Root actor singleton, message router
+930:     TX.js                       <- Message envelope (name, src, target, data, meta)
+931:     Observable.js               <- Mixin: signal/observe/notify reactivity
+932:     N3TX.js                      <- TT, N3TX + prototype() DynClass factory
+933:     Component.js                <- HTMLElement + Actor base for web components
+934:     Utils.js                    <- generateId, simpleHash, deepEqual, isUrl
+935:     transport/
+936:       NetworkAdapter.js         <- Matrix <-> Backend bridge (HTTP/WS)
+937:       HTTP.js                   <- fetch() wrapper with JWT auth
+938:       Socket.js                 <- WebSocket client (heartbeat, reconnect)
+939:   components/
+940:     ntx-element.js              <- NTTElement: base with model/schema/value
+941:     ntx-list.js                 <- <ntx-list>: renders entity grid
+942:     ntx-item.js                 <- <ntx-item>: renders entity card + form
+943:     ntx-method.js               <- <ntx-method>: custom method invocation (fieldset/inline/button)
+944:     ntx-favorites.js            <- <ntx-favorites>: favorites page (wraps ProductLike list)
+945:     ntx-topbar.js               <- <ntx-topbar>: navigation bar with auth + favorites link
+946:     ntx-user.js                 <- <ntx-user>: circular avatar rendering (xs/sm)
+947:     *.css                       <- Component styles (shadow DOM)
+948:   generators/
+949:     form.js                     <- Formidable: schema -> HTML form generator
+950:   utils/
+951:     Assert.js                   <- assert/caution/inform helpers
+952:     Logging.js                  <- Styled console logging with caller detection
+953:     Snippets.js                 <- General utilities
+954:   docs/                         <- Full documentation
+955: ```
+956: 
+957: ---
+958: 
+959: ## Further Reading
+960: 
+961: | Document | What You'll Learn |
+962: |----------|------------------|
+963: | `docs/ARCHITECTURE.md` | System layers, class hierarchy, initialization sequence |
+964: | `docs/ACTORS.md` | Deep dive into Actor, Matrix, TT, N3TX, DynClass |
+965: | `docs/COMPONENTS.md` | Web component API, Formidable form generator |
+966: | `docs/MESSAGE_PROTOCOL.md` | Every TX message type with routing examples |
+967: | `docs/TRANSPORT.md` | NetworkAdapter, HTTP, WebSocket internals |

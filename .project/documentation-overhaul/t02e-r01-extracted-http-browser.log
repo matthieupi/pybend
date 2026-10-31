@@ -1,0 +1,37 @@
+HTTP checks passed: 21 (not browser coverage)
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+browserType.launch: Target page, context or browser has been closed
+Browser logs:
+
+<launching> /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/tmp/playwright_chromiumdev_profile-nYRhHX --remote-debugging-pipe --no-startup-window
+<launched> pid=242683
+[pid=242683][err] /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell: error while loading shared libraries: libglib-2.0.so.0: cannot open shared object file: No such file or directory
+Call log:
+  - <launching> /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/tmp/playwright_chromiumdev_profile-nYRhHX --remote-debugging-pipe --no-startup-window
+  - <launched> pid=242683
+  - [pid=242683][err] /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell: error while loading shared libraries: libglib-2.0.so.0: cannot open shared object file: No such file or directory
+  - [pid=242683] <gracefully close start>
+  - [pid=242683] <kill>
+  - [pid=242683] <will force kill>
+  - [pid=242683] exception while trying to kill process: Error: kill ESRCH
+  - [pid=242683] <process did exit: exitCode=127, signal=null>
+  - [pid=242683] starting temporary directories cleanup
+  - [pid=242683] finished temporary directories cleanup
+  - [pid=242683] <gracefully close end>
+
+    at /workspace/neuralys/collagen/lib/n3tx/.project/documentation-overhaul/t02e_browser.mjs:7:32
+    at async node:internal/modules/esm/loader:647:26
+
+Node.js v24.20.0
+
+Traceback (most recent call last):
+  File "/workspace/neuralys/collagen/lib/n3tx/.project/documentation-overhaul/t02e_browser.py", line 95, in <module>
+    main()
+  File "/workspace/neuralys/collagen/lib/n3tx/.project/documentation-overhaul/t02e_browser.py", line 50, in main
+    result.check_returncode()
+  File "/usr/lib/python3.11/subprocess.py", line 502, in check_returncode
+    raise CalledProcessError(self.returncode, self.args, self.stdout,
+subprocess.CalledProcessError: Command '['node', '/workspace/neuralys/collagen/lib/n3tx/.project/documentation-overhaul/t02e_browser.mjs', 'http://127.0.0.1:55865']' returned non-zero exit status 1.

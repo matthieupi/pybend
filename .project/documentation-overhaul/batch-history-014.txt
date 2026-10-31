@@ -1,0 +1,585 @@
+
+### .project/reports/vision/TX-sagas-whitepaper.md (459 total lines)
+1: # TX Composition Applied: A Technical Whitepaper
+2: 
+3: > *How saga patterns, causal tracing, and transaction composition can
+4: > reshape N3TX's actor architecture -- and where they should not.*
+5: > *Companion to the [propositions document](TX-sagas-propositions.md).*
+6: 
+7: ---
+8: 
+9: ## Abstract
+10: 
+457: - Akka Persistence -- Actor-native event sourcing with journal + snapshots
+458: - OpenTelemetry -- W3C TraceContext standard for distributed tracing
+459: - Chris Richardson, microservices.io -- Saga pattern, transactional outbox
+
+### .project/reports/vision/html-compiler-report.md (108 total lines)
+1: # HTML Compiler for N3TX: Executive Summary
+2: 
+3: **Date:** February 2026
+4: **Scope:** Strategic analysis of HTML compilation for a schema-driven web framework
+5: **Based on:** 4 research briefs covering industry landscape, technical deep-dive, decision framework, and N3TX-specific relevance
+6: 
+7: ---
+8: 
+9: ## The Opportunity
+10: 
+106: ---
+107: 
+108: *Synthesized from research briefs: [01-Industry Landscape](.traces/research/html-compiler/01-industry-landscape.md), [02-Technical Deep Dive](.traces/research/html-compiler/02-technical-deep-dive.md), [03-Decision Framework](.traces/research/html-compiler/03-decision-framework.md), [04-Stack Relevance](.traces/research/html-compiler/04-our-stack-relevance.md)*
+
+### .project/reports/vision/legacy/GraphQL-summary.md (143 total lines)
+1: # GraphQL for N3TX: Executive Summary
+2: 
+3: > *This is a standalone summary of the full strategic analysis report.*
+4: > *For the complete analysis with technical details, case studies, and*
+5: > *appendices, see [graphql-analysis.md](../research/graphql/graphql-analysis.md).*
+6: 
+7: ---
+8: 
+9: ## The Question
+10: 
+141: ---
+142: 
+143: *Summary compiled February 26, 2026. Based on 5 specialist research documents, N3TX v0.7.0 codebase analysis, and current industry data. For the complete analysis with detailed case studies, technical architecture assessment, code-level analysis, and full source references, see [graphql-analysis.md](../research/graphql/graphql-analysis.md).*
+
+### .project/veille-charcoal-theme-plan.md (931 total lines)
+1: # Veille Charcoal Theme Alignment Plan
+2: 
+3: ## Goal
+4: 
+5: Bring `apps/veille/static/index.html` much closer to `.project/design/charcoal-theme.html` while preserving the framework boundary:
+6: 
+7: - framework CSS owns **structure + shared semantic tokens + defaults**
+8: - `apps/veille/static/industrial-theme.css` owns the **actual charcoal/industrial values**
+9: - Veille app CSS owns **layout/composition**, but should consume tokens instead of hard-coded visual values
+10: 
+929: 2. the first screen matches the mockup’s hierarchy: hero -> metrics strip -> opportunities/chart + right feed
+930: 3. the framework remains generic and Veille-specific values live in `industrial-theme.css`
+931: 4. app/component CSS consumes shared tokens instead of repeating raw appearance literals
+
+### apps/veille/.planning/PROJECT.md (161 total lines)
+1: # Project: Veille
+2: 
+3: ## What This Is
+4: 
+5: An agentic grant monitoring application built on the N3TX framework. Veille automates the process of discovering, extracting, and evaluating government and private grants/programs for non-profit organizations. It scrapes known funding sources, detects new opportunities, extracts full grant details, and analyzes admissibility against a configurable organization profile.
+6: 
+7: The name comes from the French concept of "veille" (technological/financing watch) — systematic monitoring of an information landscape.
+8: 
+9: ## Why It Exists
+10: 
+159: 
+160: ---
+161: *Last updated: 2026-03-20 after initialization*
+
+### apps/veille/.planning/REQUIREMENTS.md (86 total lines)
+1: # Veille -- Requirements
+2: 
+3: ## v1 Requirements
+4: 
+5: ### Authentication & Users
+6: - [ ] **AUTH-01**: User can log in with email and password (JWT-based)
+7: - [ ] **AUTH-02**: User can register an account (development convenience)
+8: 
+9: ### Organization Profile
+10: - [ ] **ORG-01**: User can create and edit an organization profile with mission, legal status, and location
+84: 
+85: ---
+86: *Last updated: 2026-03-20 after Phase 3 completion (19 requirements marked Complete)*
+
+### apps/veille/.planning/ROADMAP.md (139 total lines)
+1: # Veille -- Roadmap
+2: 
+3: ## Overview
+4: 
+5: - Phases: 4
+6: - Requirements: 22 mapped
+7: - Coverage: 100%
+8: - Depth: Quick (compressed from 6 research phases into 4 delivery boundaries)
+9: 
+10: Veille delivers value in a tight sequence: stand up the data models and UI, wire the scraping agent to populate grants, add admissibility analysis to evaluate them, then polish with reports and scheduling. The core value (scraping + extraction + admissibility) lands across Phases 2 and 3. Phase 1 is pure N3TX scaffolding. Phase 4 is output and automation.
+137: 
+138: ---
+139: *Last updated: 2026-03-20 after Phase 4 planning*
+
+### apps/veille/.planning/STATE.md (98 total lines)
+1: # Veille -- Project State
+2: 
+3: ## Project Reference
+4: 
+5: **Core value:** Reliably discover new grants from configured sources, extract their details, and evaluate admissibility against the organization profile -- with justification.
+6: 
+7: **Current focus:** Phase 3 complete. Ready for Phase 4 (Reports and Run Management).
+8: 
+9: ## Current Phase
+10: 
+96: 
+97: ---
+98: *Last updated: 2026-03-20 after Phase 4 Plan 02 completion (frontend: ntx-run-report component, run history in ntx-run-panel, hash routing for #report/{id})*
+
+### apps/veille/.planning/phases/01-foundation-and-data-models/01-PLAN.md (547 total lines)
+1: ---
+2: wave: 1
+3: depends_on: []
+4: files_modified:
+5:   - apps/veille/config.py
+6:   - apps/veille/main.py
+7:   - apps/veille/seed.py
+8:   - apps/veille/models/__init__.py
+9:   - apps/veille/models/user.py
+10:   - apps/veille/models/organization.py
+545: - Organization model has all profile fields: name, mission, activities, legal_status, province, charitable_status, employee_count, annual_budget, focus_areas, custom_criteria, documents
+546: - Source model has agent_discovered boolean flag and scraping_notes textarea
+547: - Grant model has admissibility fields: status, admissibility_score, admissibility_reasoning
+
+### apps/veille/.planning/phases/01-foundation-and-data-models/01-RESEARCH.md (853 total lines)
+1: # Phase 1: Foundation and Data Models - Research
+2: 
+3: **Researched:** 2026-03-20
+4: **Domain:** N3TX Level 3 app bootstrap, models, auth, file upload, schema-driven UI
+5: **Confidence:** HIGH
+6: 
+7: ## Summary
+8: 
+9: Phase 1 delivers a working N3TX Level 3 application with authentication, organization profile management, source CRUD, a stub Grant model, and document upload capability. The research covers the exact bootstrap pattern (main.py, config.py, models/, static/, seed.py), model definitions verified against working Level 3 examples, the singleton Organization pattern, file upload integration (not natively supported by N3TX -- requires custom FastAPI route), and frontend structure.
+10: 
+851: 
+852: **Research date:** 2026-03-20
+853: **Valid until:** 60 days (stable N3TX patterns, no fast-moving dependencies)
+
+### apps/veille/.planning/phases/01-foundation-and-data-models/01-SUMMARY.md (34 total lines)
+1: # Plan 01 Summary: App Skeleton + All Models
+2: 
+3: ## Status: COMPLETE
+4: 
+5: ## What was built
+6: 
+7: - `config.py` -- Local deployment config with host/port/JWT/Ollama/agent defaults
+8: - `models/__init__.py` -- Re-exports User, Organization, Source, Grant
+9: - `models/user.py` -- User(BaseUser, ActorModel) with image field, inherits auth from BaseUser
+10: - `models/organization.py` -- Organization profile with identity, legal, size, eligibility, and document fields; JSON fields (focus_areas, custom_criteria, documents) auto-serialized by SQLite storage
+32: 
+33: - Port 5000 was occupied by an existing N3TX server process (from examples/). Verification was run on port 5002 instead. The app itself is configured for port 5000 by default as specified in the plan.
+34: - Added `*.db` and `__pycache__/` to `.gitignore` to prevent accidental commits of generated files.
+
+### apps/veille/.planning/phases/01-foundation-and-data-models/01-VERIFICATION.md (165 total lines)
+1: ---
+2: phase: 01-foundation-and-data-models
+3: verified: 2026-03-20T16:54:30Z
+4: status: passed
+5: score: 13/13 must-haves verified
+6: re_verification: false
+7: ---
+8: 
+9: # Phase 1: Foundation and Data Models — Verification Report
+10: 
+163: 
+164: _Verified: 2026-03-20T16:54:30Z_
+165: _Verifier: Claude (gsd-verifier)_
+
+### apps/veille/.planning/phases/01-foundation-and-data-models/02-PLAN.md (982 total lines)
+1: ---
+2: wave: 2
+3: depends_on: ["01-01"]
+4: files_modified:
+5:   - apps/veille/static/index.html
+6:   - apps/veille/static/login.html
+7:   - apps/veille/static/register.html
+8:   - apps/veille/main.py
+9: autonomous: true
+10: 
+980: - Document download endpoint serves files from uploads/
+981: - Document delete endpoint removes file and updates Organization.documents
+982: - Disallowed file types are rejected with 400 error
+
+### apps/veille/.planning/phases/01-foundation-and-data-models/02-SUMMARY.md (52 total lines)
+1: # Phase 1 Plan 02: Frontend + Document Upload Summary
+2: 
+3: ## Status: COMPLETE
+4: 
+5: **One-liner:** Login/register/main HTML pages with auth gate, sidebar navigation, and JWT-authenticated document upload/download/delete API routes.
+6: 
+7: ## What was built
+8: 
+9: - `static/login.html` -- Auth form POSTing to /users/login; stores JWT in localStorage; probes /sources (CRUD, auth-required) for existing token validation
+10: - `static/register.html` -- Registration form POSTing to /users/register with name/email/password; same token storage and probe pattern
+50: Start: 2026-03-20T16:45:32Z
+51: End: 2026-03-20T16:57:00Z (approx)
+52: Duration: ~12 minutes
+
+### apps/veille/.planning/phases/02-scraping-and-grant-extraction/02-01-PLAN.md (866 total lines)
+1: ---
+2: phase: 02-scraping-and-grant-extraction
+3: plan: 01
+4: type: execute
+5: wave: 1
+6: depends_on: []
+7: files_modified:
+8:   - apps/veille/models/web_tools.py
+9:   - apps/veille/models/run.py
+10:   - apps/veille/models/grant.py
+864: <output>
+865: After completion, create `.planning/phases/02-scraping-and-grant-extraction/02-01-SUMMARY.md`
+866: </output>
+
+### apps/veille/.planning/phases/02-scraping-and-grant-extraction/02-01-SUMMARY.md (51 total lines)
+1: # Phase 2 Plan 01: Scraping Backend Models Summary
+2: 
+3: ## Status: COMPLETE
+4: 
+5: **One-liner:** WebTools non-storable scraping actor (httpx + Playwright + stdlib HTML parsing) and Run storable ActorModel with `__agent__=True` and streaming `execute()` method using AgentMixin's `agentic_stream()`.
+6: 
+7: ## What was built
+8: 
+9: - `models/web_tools.py` -- Non-storable ActorModel with three tools: `scrape()` (httpx, HTML-to-text via stdlib html.parser), `scrape_js()` (Playwright headless Chromium), `check_duplicate()` (URL/source_url/source_urls match check against existing grants). No bs4 dependency.
+10: - `models/grant.py` -- Added `source_urls: list` field for dedup tracking (hidden from UI via `display: False`; SQLite auto-serializes to JSON TEXT). Existing `source_url` field kept for backward compat.
+49: Start: 2026-03-20T17:28:31Z
+50: End: 2026-03-20T17:31:24Z
+51: Duration: ~3 minutes
+
+### apps/veille/.planning/phases/02-scraping-and-grant-extraction/02-02-PLAN.md (942 total lines)
+1: ---
+2: phase: 02-scraping-and-grant-extraction
+3: plan: 02
+4: type: execute
+5: wave: 2
+6: depends_on: ["02-01"]
+7: files_modified:
+8:   - apps/veille/static/components/ntx-run-panel.js
+9:   - apps/veille/static/index.html
+10: autonomous: false
+940: <output>
+941: After completion, create `.planning/phases/02-scraping-and-grant-extraction/02-02-SUMMARY.md`
+942: </output>
+
+### apps/veille/.planning/phases/02-scraping-and-grant-extraction/02-02-SUMMARY.md (54 total lines)
+1: # Phase 2 Plan 02: Run Panel Frontend Summary
+2: 
+3: ## Status: COMPLETE
+4: 
+5: **One-liner:** StreamActor-based `<ntx-run-panel>` web component with full/adhoc run execution, hash-routed Runs sidebar entry, and structured agent activity log (thinking, tool calls, text, done).
+6: 
+7: ## What was built
+8: 
+9: - `static/components/ntx-run-panel.js` -- Custom Web Component (563 lines) using `StreamActor(HTMLElement)` mixin. Implements Start Full Run and Scan URL flows: POST to `/runs` to create Run record, then opens SSE stream to `/runs/{id}/execute`. Seven UPPERCASE TX inbox handlers: THINKING (animated indicator + content), TOOL_CALL (friendly descriptions for scrape/check_duplicate/grants_create), TOOL_RESULT (call-id correlation, grant creation confirmation), TEXT (debounced markdown rendering), DONE (token usage footer), STREAM_END (status badge update), STREAM_ERROR (error entry). Status badge: idle/creating/running/done/error. Button disable state during runs.
+10: - `static/index.html` -- Updated with: (1) `<link rel="modulepreload" href="./components/ntx-run-panel.js">` preload hint, (2) `<a href="#runs" class="sidebar-nav-item">Runs</a>` sidebar nav entry, (3) `<ntx-run-panel id="run-panel" data-route="runs" style="display:none">` in router area, (4) `import './components/ntx-run-panel.js'` in module script, (5) hash-based routing function `handleRoute()` toggling run panel vs source list on `#runs` hash.
+52: Start: 2026-03-20T17:33:18Z
+53: End: 2026-03-20T18:05:00Z
+54: Duration: ~30 minutes (including checkpoint verification)
+
+### apps/veille/.planning/phases/02-scraping-and-grant-extraction/02-CONTEXT.md (91 total lines)
+1: # Phase 2: Scraping and Grant Extraction -- Context
+2: 
+3: ## Agent Scraping Strategy
+4: 
+5: ### Navigation Depth
+6: - **Adaptive exploration**: The LLM agent reads each source page and decides which links are worth following to find grant details
+7: - No fixed hop limit — the agent is prompted to be efficient and stop when it has thoroughly explored the source
+8: - Soft budget: agent is instructed to be efficient, no hard max-pages cap
+9: 
+10: ### Content Fetching
+89: 
+90: ---
+91: *Created: 2026-03-20 during Phase 2 discussion*
+
+### apps/veille/.planning/phases/02-scraping-and-grant-extraction/02-RESEARCH.md (527 total lines)
+1: # Phase 2: Scraping and Grant Extraction - Research
+2: 
+3: **Researched:** 2026-03-20
+4: **Domain:** N3TX AgentMixin, streaming routes, web scraping, Run model, grant deduplication
+5: **Confidence:** HIGH (all findings from actual source code)
+6: 
+7: ## Summary
+8: 
+9: Phase 2 adds a Run model with a streaming `execute` method that triggers an agentic scraping loop. The agent uses WebTools (an `ActorModel` with `@expose_route` scraping methods) as tools to fetch and parse grant pages. Scraped grants are deduped against existing records before being created. The user sees a live text log and grant cards streaming in real time.
+10: 
+525: 
+526: **Research date:** 2026-03-20
+527: **Valid until:** 2026-04-20 (N3TX 0.10 is stable; pydantic-ai API is the main risk area)
+
+### apps/veille/.planning/phases/02-scraping-and-grant-extraction/02-VERIFICATION.md (127 total lines)
+1: ---
+2: phase: 02-scraping-and-grant-extraction
+3: verified: 2026-03-20T17:43:15Z
+4: status: passed
+5: score: 14/14 must-haves verified
+6: re_verification: false
+7: ---
+8: 
+9: # Phase 2: Scraping and Grant Extraction — Verification Report
+10: 
+125: 
+126: _Verified: 2026-03-20T17:43:15Z_
+127: _Verifier: Claude (gsd-verifier)_
+
+### apps/veille/.planning/phases/03-admissibility-analysis/03-01-PLAN.md (376 total lines)
+1: ---
+2: phase: 03-admissibility-analysis
+3: plan: 01
+4: type: execute
+5: wave: 1
+6: depends_on: []
+7: files_modified:
+8:   - apps/veille/models/grant.py
+9:   - apps/veille/models/run.py
+10: autonomous: true
+374: <output>
+375: After completion, create `.planning/phases/03-admissibility-analysis/03-01-SUMMARY.md`
+376: </output>
+
+### apps/veille/.planning/phases/03-admissibility-analysis/03-01-SUMMARY.md (67 total lines)
+1: # Phase 3 Plan 01: Admissibility Analysis Backend Summary
+2: 
+3: ## Status: COMPLETE
+4: 
+5: **One-liner:** Grant model becomes agent-enabled with __agent__ config (self_tools=True, tools=['organizations']), streaming POST /grants/{id}/analyze endpoint, and prompt builders; Run.execute() gains non-streaming batch analysis loop that runs after scraping completes.
+6: 
+7: ## What was built
+8: 
+9: - `models/grant.py` -- Added `__agent__` class variable (`self_tools=True, neighbors=False, tools=['organizations']`), AgentMixin injected (agentic/agentic_stream available on instances). Added `analyze()` streaming instance method at `POST /grants/{id}/analyze` that pre-checks org profile, sets status='analyzing', streams agentic_stream(), resets status='new' on error. Added `_build_analysis_task()` with grant details + classification steps and `_build_analysis_prompt()` with strict classification/scoring rules.
+10: - `models/run.py` -- Added batch admissibility analysis loop inside `execute()` after scraping stream completes and before Run.update(status='complete'). Loop filters for grants with run_id matching current run and status='new', checks org profile exists, calls `grant_instance.agentic()` (non-streaming) for each grant with the Grant prompt builders. Errors on individual grants are logged and skipped; the batch continues.
+65: Start: 2026-03-20T18:03:02Z
+66: End: 2026-03-20T18:04:41Z
+67: Duration: ~2 minutes
+
+### apps/veille/.planning/phases/03-admissibility-analysis/03-02-PLAN.md (348 total lines)
+1: ---
+2: phase: 03-admissibility-analysis
+3: plan: 02
+4: type: execute
+5: wave: 2
+6: depends_on: ["03-01"]
+7: files_modified:
+8:   - apps/veille/static/components/ntx-grant-analyze.js
+9:   - apps/veille/static/index.html
+10: autonomous: true
+346: <output>
+347: After completion, create `.planning/phases/03-admissibility-analysis/03-02-SUMMARY.md`
+348: </output>
+
+### apps/veille/.planning/phases/03-admissibility-analysis/03-02-SUMMARY.md (50 total lines)
+1: # Phase 3 Plan 02: Admissibility Analysis Frontend Summary
+2: 
+3: ## Status: COMPLETE
+4: 
+5: **One-liner:** StreamActor-based ntx-grant-analyze component for per-grant admissibility re-analysis with real-time streaming progress, grant info card with score/status display, and hash routing (#analyze/{id}) wired into index.html.
+6: 
+7: ## What was built
+8: 
+9: - `apps/veille/static/components/ntx-grant-analyze.js` -- New web component `<ntx-grant-analyze>`. Extends `StreamActor(HTMLElement)`. Observed attribute `grant-id` triggers grant load via `GET /grants/{id}`. Renders a grant info card (title, funder, status pill, admissibility score with colour coding, URL, deadline, justification preview). "Re-run Analysis" button triggers `POST /grants/{id}/analyze` via `this.stream(url, {})`. "Back to Grants" sets `window.location.hash = ''`. All 7 UPPERCASE TX handlers implemented: THINKING (with animated placeholder), TOOL_CALL (with friendly descriptions for organizations_list, grants_update, scrape variants), TOOL_RESULT (spinner removal + score confirmation for grant updates), TEXT (debounced marked.js rendering), DONE (token usage footer), STREAM_END (reloads grant info to show updated score/status), STREAM_ERROR (error entry + re-enable button). ~430 lines.
+10: 
+48: Start: 2026-03-20T18:06:55Z
+49: End: 2026-03-20T18:09:00Z
+50: Duration: ~2 minutes
+
+### apps/veille/.planning/phases/03-admissibility-analysis/03-RESEARCH.md (676 total lines)
+1: # Phase 3: Admissibility Analysis - Research
+2: 
+3: **Researched:** 2026-03-20
+4: **Domain:** N3TX AgentMixin streaming, Grant model extension, custom @expose_route instance methods
+5: **Confidence:** HIGH (all findings from actual source code in the veille codebase and N3TX framework)
+6: 
+7: ## Summary
+8: 
+9: Phase 3 adds automatic admissibility analysis to every discovered grant. The agent reads the organization profile and each grant's eligibility criteria, then produces a score (0-1), a three-value classification (admissible / partially admissible / non-admissible), and a written justification (stored as Markdown).
+10: 
+674: 
+675: **Research date:** 2026-03-20
+676: **Valid until:** 2026-04-20 (N3TX 0.10 stable; no external library risk for this phase)
+
+### apps/veille/.planning/phases/03-admissibility-analysis/03-VERIFICATION.md (132 total lines)
+1: ---
+2: phase: 03-admissibility-analysis
+3: verified: 2026-03-20T18:12:12Z
+4: status: passed
+5: score: 12/12 must-haves verified
+6: ---
+7: 
+8: # Phase 3: Admissibility Analysis — Verification Report
+9: 
+10: **Phase Goal:** Every grant is automatically evaluated against the organization profile and classified with detailed justification.
+130: 
+131: _Verified: 2026-03-20T18:12:12Z_
+132: _Verifier: Claude (gsd-verifier)_
+
+### apps/veille/.planning/phases/04-reports-and-run-management/04-01-PLAN.md (296 total lines)
+1: ---
+2: phase: 04-reports-and-run-management
+3: plan: 01
+4: type: execute
+5: wave: 1
+6: depends_on: []
+7: files_modified:
+8:   - apps/veille/models/run.py
+9:   - apps/veille/models/organization.py
+10:   - apps/veille/main.py
+294: <output>
+295: After completion, create `.planning/phases/04-reports-and-run-management/04-01-SUMMARY.md`
+296: </output>
+
+### apps/veille/.planning/phases/04-reports-and-run-management/04-01-SUMMARY.md (112 total lines)
+1: ---
+2: phase: "04"
+3: plan: "01"
+4: name: "Report endpoint, schedule fields, and background scheduler"
+5: subsystem: backend
+6: tags: [report, scheduler, organization, run, asyncio, fastapi]
+7: 
+8: dependency-graph:
+9:   requires:
+10:     - "03-02: Grant.analyze() and admissibility pipeline"
+110: ## Next Phase Readiness
+111: 
+112: Phase 4 Plan 02 (frontend report panel) can proceed. The `GET /runs/report?run_id=N` endpoint provides the grouped grant data needed for the report view.
+
+### apps/veille/.planning/phases/04-reports-and-run-management/04-02-PLAN.md (462 total lines)
+1: ---
+2: phase: 04-reports-and-run-management
+3: plan: 02
+4: type: execute
+5: wave: 2
+6: depends_on: ["04-01"]
+7: files_modified:
+8:   - apps/veille/static/components/ntx-run-report.js
+9:   - apps/veille/static/components/ntx-run-panel.js
+10:   - apps/veille/static/index.html
+460: <output>
+461: After completion, create `.planning/phases/04-reports-and-run-management/04-02-SUMMARY.md`
+462: </output>
+
+### apps/veille/.planning/phases/04-reports-and-run-management/04-02-SUMMARY.md (112 total lines)
+1: ---
+2: phase: "04"
+3: plan: "02"
+4: name: "Frontend report view, run history, and hash routing"
+5: subsystem: frontend
+6: tags: [report, history, web-components, hash-routing, shadow-dom, ntx-run-report, ntx-run-panel]
+7: 
+8: dependency-graph:
+9:   requires:
+10:     - "04-01: Run.report() endpoint and Organization schedule fields"
+110: - Phase 4 Plan 02: Frontend report panel, run history, hash routing
+111: 
+112: The application now provides a full grant monitoring workflow: configure sources, run scraping, analyze grants for admissibility, view structured reports per run, and browse history.
+
+### apps/veille/.planning/phases/04-reports-and-run-management/04-RESEARCH.md (910 total lines)
+1: # Phase 4: Reports and Run Management - Research
+2: 
+3: **Researched:** 2026-03-20
+4: **Domain:** Run report generation, run history comparison, asyncio-based scheduling, N3TX class-level expose_route, html.parser aggregation
+5: **Confidence:** HIGH (all findings from source code in the veille codebase and N3TX framework)
+6: 
+7: ## Summary
+8: 
+9: Phase 4 has three distinct concerns that map to three success criteria:
+10: 
+908: 
+909: **Research date:** 2026-03-20
+910: **Valid until:** 2026-04-20 (stable N3TX 0.10; no external library risk)
+
+### apps/veille/.planning/research/ARCHITECTURE.md (1004 total lines)
+1: # Architecture Patterns: Veille
+2: 
+3: **Domain:** Agentic grant monitoring application
+4: **Framework:** N3TX Level 3 (ActorModel + actor routing + agents)
+5: **Researched:** 2026-03-20
+6: 
+7: ---
+8: 
+9: ## Recommended Architecture
+10: 
+1002: - Actors example (Level 3 pattern): `/workspace/examples/actors/main.py` (HIGH confidence)
+1003: - create_app source: `/workspace/packages/n3tx-core/src/n3tx_core/app.py` (HIGH confidence)
+1004: - Veille PROJECT.md: `/workspace/apps/veille/.planning/PROJECT.md` (HIGH confidence)
+
+### apps/veille/.planning/research/FEATURES.md (560 total lines)
+1: # Feature Landscape
+2: 
+3: **Domain:** Agentic grant monitoring application (Veille)
+4: **Framework:** N3TX (Level 3 + Agents)
+5: **Researched:** 2026-03-20
+6: 
+7: ## Feature-to-Framework Mapping
+8: 
+9: The central question: for each Veille feature, what does N3TX provide for free, what requires minimal wiring, and what demands custom implementation?
+10: 
+558: - `/workspace/packages/n3tx-ui/docs/viewable-mixin.md` -- UI hints, __ui__ config
+559: - `/workspace/examples/grants/` -- Reference implementation for grant-watching app
+560: - `/workspace/apps/veille/.planning/PROJECT.md` -- Veille project requirements
+
+### apps/veille/.planning/research/PITFALLS.md (640 total lines)
+1: # Domain Pitfalls
+2: 
+3: **Domain:** Agentic grant monitoring application (Veille) on N3TX framework
+4: **Researched:** 2026-03-20
+5: **Confidence:** HIGH (derived from framework documentation, test suites, and accumulated project memory)
+6: 
+7: ---
+8: 
+9: ## Critical Pitfalls
+10: 
+638: - `/workspace/packages/n3tx-actors/src/n3tx_actors/tests/conftest.py` -- Test fixtures (HIGH confidence)
+639: - `/workspace/packages/n3tx-agents/src/n3tx_agents/tests/test_run_stream_first_token.py` -- Streaming bug test (HIGH confidence)
+640: - `/workspace/examples/grants/main.py` -- Reference app patterns (HIGH confidence)
+
+### apps/veille/.planning/research/STACK.md (668 total lines)
+1: # Technology Stack: Veille Grant Monitoring App
+2: 
+3: **Project:** Veille
+4: **Researched:** 2026-03-20
+5: **Confidence:** HIGH (primary source: N3TX framework source code, docs, and working examples)
+6: 
+7: ---
+8: 
+9: ## Recommended Stack
+10: 
+666: | Chat example | `/workspace/examples/chat/` | AgentActor streaming pattern, conversation model |
+667: | Thread model | `packages/n3tx-agents/src/n3tx_agents/thread.py` | Conversation persistence pattern |
+668: | AgentTool model | `packages/n3tx-agents/src/n3tx_agents/tool_model.py` | Tool reference model |
+
+### apps/veille/.planning/research/SUMMARY.md (317 total lines)
+1: # Research Synthesis: Veille
+2: 
+3: **Project:** Agentic grant monitoring for non-profits
+4: **Framework:** N3TX Level 3 (ActorModel + agents)
+5: **Synthesized:** 2026-03-20
+6: **Overall Confidence:** HIGH
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+315: - Reference applications: `/workspace/examples/{grants,actors,chat}/`
+316: - Project definition: `/workspace/apps/veille/.planning/PROJECT.md`
+317: - Accumulated project memory: `/home/claude/.claude/projects/-workspace/memory/MEMORY.md`
+
+### docs/changelogs/backend/01_ForeignKey_Hydration.md (177 total lines)
+1: # FK Hydration — Implementation Report
+2: 
+3: ## What Changed
+4: 
+5: Collection fields (e.g., `Product.comments`) now return **arrays of hrefs**
+6: instead of embedded objects. Each href is a fully qualified URL that the
+7: frontend can resolve independently.
+8: 
+9: **Before:**
+10: ```json
+175: This would also allow adding a serialization hook that automatically converts
+176: model instances to hrefs. Migrate to Option B when the frontend needs the
+177: cleaner schema or when built-in serialization guarantees are needed.
+
+### docs/changelogs/backend/02_ListRef_Hydration_Fix.md (98 total lines)
+1: # ListRef Hydration Fix — Pydantic v2 Metadata Compatibility
+2: 
+3: > **Status:** Complete.
+4: > **Scope:** Fixed `get_list_fields()` failing to detect `ListRef[T]` fields due to Pydantic v2's metadata separation.
+5: 
+6: ---
+7: 
+8: ## What Broke
+9: 
+10: Collection fields (e.g., `Product.comments: ListRef[Comment]`) returned **empty arrays** in API responses despite the database containing data.
+96: | File | Change |
+97: |------|--------|
+98: | `utils/introspection.py` | `_unwrap_listref()` signature + dual metadata check, `get_list_fields()` passes `field_info.metadata` |

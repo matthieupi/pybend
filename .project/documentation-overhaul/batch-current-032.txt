@@ -1,0 +1,431 @@
+
+### docs/frontend/ACTORS.md (553 total lines)
+261: 
+262: | Method | Description |
+263: |--------|-------------|
+264: | `repr()` | Returns a plain object copy (for serialization / inbox dispatch). |
+265: | `str()` | Returns JSON string. |
+266: | `TX.fromString(str)` | Static factory from JSON string. |
+267: 
+268: ### Event Subclasses
+269: 
+270: Defined but mostly unused in current code:
+271: - `ConnectEvent(source, target)` - name: CONNECT
+272: - `ReadEvent(source, target)` - name: READ
+273: - Plus `EnableEvent`, `DisableEvent`, `UpdateEvent`, `GetEvent`, `DescribeEvent`
+274: 
+275: ### Event Names (config.E)
+276: 
+277: All event names are defined in `config.js` under `config.E`. Both lowercase and uppercase keys map to uppercase values:
+278: 
+279: ```
+280: CONNECT, ENABLE, DISABLE, UPDATE, GET, DESCRIBE, CONNECTED, SCHEMA,
+281: CREATE, READ, DELETE, EVOLVE, COMMIT, ROLLBACK, SUBSCRIBE, OBSERVE,
+282: LOAD, ERROR, PING, PONG, HEARTBEAT, LOGIN, LOGOUT, REGISTER, NOTIFY, ALERT,
+283: SELECT, NAVIGATE, BACK
+284: ```
+285: 
+286: ---
+287: 
+288: ## Observable
+289: 
+290: **File:** `core/Observable.js`
+291: 
+292: A mixin that adds pub/sub reactivity to any Actor subclass. Applied via:
+293: 
+294: ```javascript
+295: Actor.subclass(N3TX, Observable)  // N3TX instances get signal/observe/notify
+296: ```
+297: 
+298: ### Applied Methods (on prototype)
+299: 
+300: | Method | Signature | Description |
+301: |--------|-----------|-------------|
+302: | `signal(callback?, wait?)` | `callback: fn, wait: bool` | Without args: fires all registered callbacks with `this`. With callback: registers it. If `wait=false` (default), calls it immediately. Returns unsubscribe function. |
+303: | `observe(property, callback)` | `property: string, callback: fn` | Registers a callback for a named property. Returns unsubscribe function. |
+304: | `notify(property, newValue, oldValue)` | | Fires all callbacks registered via `observe()` for the given property. |
+305: 
+306: ### Internal Storage
+307: 
+308: Uses instance properties (not private fields, since it's a mixin):
+309: - `this.__signals` - `Set<Function>` for signal() callbacks
+310: - `this.__observers` - `Map<string, Set<Function>>` for observe() callbacks
+311: - `this._initObservable()` - lazy initializer, called by each method
+312: 
+313: ### Important: Instance vs. Static Observable
+314: 
+315: `Observable.apply(Base)` only adds methods to `Base.prototype` (instance-level). For DynClass, static-level Observable methods (`signal`, `observe`) are added **manually** inside `prototype()` because:
+316: - DynClass needs to be observable at the **class** level (components subscribe to the class itself)
+317: - `Observable.apply` doesn't handle static properties
+318: 
+319: ---
+320: 
+321: ## TT (Transfer Type)
+322: 
+323: **File:** `core/N3TX.js` (within the same module)
+324: 
+325: Base class for data actors. Extends Actor with an `href` (remote endpoint URL) and a watcher notification pattern.
+326: 
+327: ### Instance Properties
+328: 
+329: | Property | Type | Description |
+330: |----------|------|-------------|
+331: | `href` | `string` | Remote endpoint URL. Validated as URL on set. |
+332: | `#watchers` | `Set<string>` | Addresses of actors watching this TT for changes. |
+333: 
+334: ### Instance Methods
+335: 
+336: | Method | Signature | Description |
+337: |--------|-----------|-------------|
+338: | `watch(addr, immediate?)` | `addr: string, immediate: bool=true` | Adds `addr` to watchers. If `immediate` and `this.value` exists, sends UPDATE to the watcher immediately. |
+339: | `notify(value?)` | `value: any` | Sends UPDATE TX to all watchers. If value is provided, sends it directly. Otherwise maps `this.value` children to their addresses. |
+340: | `call(method, data?, meta?)` | | Sends a TX with `name=method`, `source=this.addr`, `target=this.href`, triggering a remote call via the network. |
+341: | `ATTACH(data, tx)` | | Default ATTACH handler: calls `this.watch(tx.source)`. |
+342: 
+343: ### Mixins Applied
+344: 
+345: ```javascript
+346: Actor.subclass(TT)  // No Observable - TT has its own notify
+347: ```
+348: 
+349: ---
+350: 
+351: ## N3TX (Named Transfer Type)
+352: 
+353: **File:** `core/N3TX.js`
+354: 
+355: N3TX serves a **dual role**: it is both the **type registry** (static level) and the **entity base class** (instance level). After the PTT merge, N3TX absorbed all of PTT's registry and routing responsibilities.
+356: 
+357: ### Static Level: Type Registry
+358: 
+359: The static side of N3TX manages DynClass registration, the null-pointer bootstrap, and the universal ATTACH router.
+360: 
+361: #### Static State
+362: 
+363: | Property | Type | Description |
+364: |----------|------|-------------|
+365: | `N3TX.#prototypes` | `Map<string, DynClass\|null>` | Registry of all DynClass types. Three states per key: `undefined` (never seen), `null` (schema in flight), `DynClass` (ready). |
+366: | `N3TX.#waiting` | `Map<string, Array>` | Queued TXs and attach callbacks for models whose schema is still in flight. |
+367: 
+368: #### Static Methods
+369: 
+370: | Method | Description |
+371: |--------|-------------|
+372: | `N3TX.has(addr)` | Checks if a DynClass is registered for the given model name. |
+373: | `N3TX.get(addr)` | **Dual lookup:** `N3TX.get("Product")` returns DynClass. `N3TX.get("Product/1")` returns N3TX instance. |
+374: | `N3TX.attach(addr, callback)` | Imperative attach with callback. If DynClass exists, fires immediately via `signal()`. If `null` (in flight), queues callback. If `undefined` (never seen), bootstraps schema fetch and queues. |
+375: | `N3TX.ATTACH(data, tx)` | **Universal ATTACH router.** Handles both type-level (`"Product"`) and instance-level (`"Product/1"`) ATTACHes. Routes to DynClass if ready, queues if in flight, bootstraps if never seen. |
+376: | `N3TX.SCHEMA(data, tx)` | **Bootstrap completion handler.** Receives schema from backend, creates DynClass via `prototype()`, stores in `#prototypes`, replays queued messages, triggers initial READ. Also registers `$defs` nested schemas as additional DynClasses. |
+377: | `N3TX.#replayWaiting(addr, DynClass)` | Internal: replays queued TXs and attach callbacks for a model once its DynClass is ready. |
+378: 
+379: #### Null Pointer Bootstrap
+380: 
+381: The three-state pattern in `#prototypes` prevents duplicate schema fetches:
+382: 
+383: ```
+384: N3TX.#prototypes.get("Product"):
+385:   undefined  → Never seen → Set null, fetch schema, queue TX
+386:   null       → Schema in flight → Queue TX (will replay when DynClass arrives)
+387:   DynClass   → Ready → Forward TX directly to DynClass
+388: ```
+389: 
+390: This replaces the old PTT lifecycle where a PTT instance existed in a half-initialized state before its schema arrived.
+
+### docs/frontend/ACTORS.md (553 total lines)
+391: 
+392: ### Instance Level: Entity Data
+393: 
+394: Each N3TX instance represents a single entity (e.g., Product #1).
+395: 
+396: #### Instance State
+397: 
+398: | Property | Type | Description |
+399: |----------|------|-------------|
+400: | `#proto` | `object` | Reference to the DynClass (set via `define()`). |
+401: | `#data` | `object` | The entity's current data. |
+402: | `#meta` | `object` | Metadata (placeholder for future state management). |
+403: 
+404: #### Instance Methods
+405: 
+406: | Method | Description |
+407: |--------|-------------|
+408: | `get value()` | Returns `#data`. |
+409: | `set value(val)` | Sets `#data`, calls `signal()`. |
+410: | `get proto()` | Returns `#proto`. |
+411: | `get schema()` | Returns `this.constructor._schema` (from the DynClass). |
+412: | `define(proto)` | Links this N3TX to a DynClass and sets href. |
+413: | `describe(proto, data)` | Calls `define()` + `update()`. |
+414: | `update(data)` | Merges data into value via spread. |
+415: | `pull()` | Sends READ call to backend for this specific entity. |
+416: | `ATTACH(data, event)` | Registers the sender as a watcher (non-immediate), then sends DESCRIBE back with schema + data. |
+417: | `UPDATE(data, event)` | Updates local data. If the event didn't come from backend (source doesn't start with `http`), forwards the update to the backend. This is the **optimistic update** flow. |
+418: | `toJSON()` | Serializes addr, href, data, meta. |
+419: 
+420: #### Static Instance Handlers
+421: 
+422: | Method | Description |
+423: |--------|-------------|
+424: | `N3TX.READ(data)` | Static handler: updates the N3TX instance with received data. |
+425: | `N3TX.UPDATE(data)` | Static handler: updates or creates instances from data entries. |
+426: 
+427: ### Mixins Applied
+428: 
+429: ```javascript
+430: Actor.subclass(N3TX, Observable)  // N3TX gets signal/observe/notify at instance level
+431: ```
+432: 
+433: ---
+434: 
+435: ## DynamicClass (DynClass)
+436: 
+437: **File:** `core/N3TX.js` (`prototype()` function)
+438: 
+439: When `N3TX.SCHEMA()` receives a model's schema from the backend, it calls `prototype(addr, schema, href)` to generate a runtime N3TX subclass. The DynClass **is** the type: it holds the schema, manages instances, handles CRUD, and provides Observable reactivity at the class level.
+440: 
+441: DynClasses are **born complete** — they never exist in a half-initialized state. The `prototype()` function returns a fully wired class with schema properties, methods, static CRUD handlers, and Actor/Observable integration.
+442: 
+443: ### `prototype(addr, schema, href)` — What It Does
+444: 
+445: ```javascript
+446: function prototype(addr, schema, href) {
+447:   // 1. Create DynClass extending N3TX
+448:   const DynamicClass = class extends N3TX { ... }
+449: 
+450:   // 2. Set class name to addr (e.g., "Product")
+451:   // 3. Store static _schema reference
+452:   // 4. Initialize static state (_watchers, _pendingAttaches, __signals, __observers)
+453: 
+454:   // 5. For each schema property, define getter/setter on prototype:
+455:   //    - getter: returns this.value[field]
+456:   //    - setter: validates type, validates readOnly, updates value, calls notify()
+457:   //    - Stores field labels for UI
+458: 
+459:   // 6. For each schema method, define prototype method:
+460:   //    - Validates required parameters
+461:   //    - Validates $ref parameter types
+462:   //    - Calls this.call(method, args) for remote invocation
+463: 
+464:   // 7. Add static type-level methods (call, signal, observe, ATTACH, READ, UPDATE)
+465:   // 8. Apply Actor.subclass(DynamicClass, Observable)
+466: 
+467:   return DynamicClass;
+468: }
+469: ```
+470: 
+471: ### Static Properties
+472: 
+473: | Property | Type | Description |
+474: |----------|------|-------------|
+475: | `DynClass.instances` | `Map<id, N3TX>` | All entity instances for this model. |
+476: | `DynClass._schema` | `object` | The JSON schema from the backend. |
+477: | `DynClass.schema` | `object` | Getter, returns `_schema`. |
+478: | `DynClass.href` | `string` | CRUD endpoint URL (e.g., `http://.../products`). |
+479: | `DynClass.labels` | `object` | Field name → display label mapping for UI. |
+480: | `DynClass._watchers` | `Set<string>` | Addresses of actors watching this type for instance changes. |
+481: | `DynClass._pendingAttaches` | `Array` | Queued instance-level ATTACHes waiting for READ to complete. |
+482: | `DynClass.__signals` | `Set<Function>` | Static Observable signal callbacks. |
+483: | `DynClass.__observers` | `Map<string, Set>` | Static Observable property observer callbacks. |
+484: 
+485: ### Static Methods
+486: 
+487: | Method | Description |
+488: |--------|-------------|
+489: | `DynClass.call(method, data?, meta?)` | Sends a TX from the DynClass (type-level). **Omits `source`** so that `Actor._send` assigns it to `className` during Case 3 bubble — this avoids double-prefixing like `"Product/Product"`. |
+490: | `DynClass.signal(callback?, wait?)` | Static Observable. Without args: fires all callbacks. With callback: registers it (fires immediately if `wait=false`). Returns unsubscribe function. |
+491: | `DynClass.observe(property, callback)` | Static Observable. Registers a property observer at the class level. |
+492: | `DynClass.ATTACH(data, tx)` | Handles type-level and instance-level ATTACHes forwarded from `N3TX.ATTACH`. For type-level: adds watcher, sends immediate UPDATE if instances loaded. For instance-level: forwards to instance, or queues in `_pendingAttaches` if instance doesn't exist yet. |
+493: | `DynClass.READ(data)` | Creates/updates N3TX instances from backend records. Replays `_pendingAttaches`, then notifies all watchers with instance addresses. |
+494: | `DynClass.UPDATE(data, tx)` | Delegates to `DynClass.READ()` — handles `meta.inbox='UPDATE'` responses. |
+495: 
+496: ### Two Queues
+497: 
+498: DynClass uses a second queue (`_pendingAttaches`) that is separate from `N3TX.#waiting`:
+499: 
+500: | Queue | Location | Purpose |
+501: |-------|----------|---------|
+502: | `N3TX.#waiting` | N3TX static | TXs waiting for DynClass to be **created** (schema not yet received) |
+503: | `DynClass._pendingAttaches` | DynClass static | Instance ATTACHes waiting for **READ to complete** (DynClass exists but instances not yet loaded) |
+504: 
+505: ### Instance (per entity)
+506: 
+507: ```javascript
+508: constructor(data) {
+509:   super(className, data.id);  // → N3TX constructor → TT → Actor
+510:   this.value = data;
+511:   this.href = `${href}/${this.id}`;
+512: }
+513: 
+514: get value() {
+515:   // Returns this._data with $id (instance URL) and $schema (schema URL) injected
+516: }
+517: 
+518: set value(val) {
+519:   this._data = val;
+520:   this.signal();  // Fires Observable callbacks
+
+### docs/frontend/ACTORS.md (553 total lines)
+521: }
+522: ```
+523: 
+524: ### Example
+525: 
+526: After `N3TX.SCHEMA()` processes a schema for "Product" with properties `{id, name, price, description, comments}` and method `{comment}`:
+527: 
+528: ```javascript
+529: // DynClass.name === "Product"
+530: // DynClass.href === "http://localhost:5000/products"
+531: // DynClass.schema === { properties: { ... }, methods: { ... } }
+532: 
+533: // After READ populates instances:
+534: const product = N3TX.get("Product/1");
+535: product.name              // -> this.value.name (typed getter)
+536: product.price = 29.99     // -> type-checked, calls notify() (Observable)
+537: product.comment({...})    // -> this.call('comment', {...}) -> remote POST
+538: 
+539: // Relationship hydration: collection fields contain child objects:
+540: product.comments
+541: // -> [{id: 1, $id: "/Comment/1", text: "..."}, ...]
+542: // Each child object is self-describing via $schema/$id.
+543: ```
+544: 
+545: ### Mixins Applied
+546: 
+547: ```javascript
+548: Actor.subclass(DynamicClass, Observable)  // Gets full actor wiring + signal/observe/notify
+549: ```
+550: 
+551: Note: Observable is applied at both levels:
+552: - **Instance level** (via `Actor.subclass`): `signal()`, `observe()`, `notify()` on prototype — used for per-entity reactivity
+553: - **Static level** (manually added in `prototype()`): `DynClass.signal()`, `DynClass.observe()` — used for type-level subscriptions (e.g., components subscribing to "when Product class is ready")
+
+### docs/frontend/ARCHITECTURE.md (380 total lines)
+1: # N3TX Architecture
+2: 
+3: ## Table of Contents
+4: 
+5: 1. [Overview](#overview)
+6: 2. [System Layers](#system-layers)
+7: 3. [Class Hierarchy](#class-hierarchy)
+8: 4. [Module Map](#module-map)
+9: 5. [Initialization Sequence](#initialization-sequence)
+10: 6. [Data Flow Summary](#data-flow-summary)
+11: 7. [Current Status](#current-status)
+12: 
+13: ---
+14: 
+15: ## Overview
+16: 
+17: N3TX is a browser-side runtime for building schema-driven UIs on top of the N3TX backend. It uses an **Actor model** for all inter-component communication: every entity in the system (data models, UI components, the network layer) is an Actor with an address, an inbox, and a send method. Messages flow through a central **Matrix** (root actor) that routes locally or forwards to the network.
+18: 
+19: The key design goals:
+20: - **Schema-driven**: The backend defines models (via Pydantic/OpenAPI). The frontend pulls those schemas at runtime and generates typed entity classes dynamically.
+21: - **Decoupled**: UI components never call HTTP directly. They send messages to data actors, which handle remote calls transparently.
+22: - **Hierarchical routing**: Actors form a tree. Messages route through the tree, bubbling to the Matrix when the target is not a local child.
+23: 
+24: ---
+25: 
+26: ## System Layers
+27: 
+28: ```
+29: +----------------------------------------------------------+
+30: |  UI Layer (Web Components)                               |
+31: |  Component > NTTElement / ListElement > NTTItem, NTTList  |
+32: +-----------------------------+----------------------------+
+33:                               |  TX messages (ATTACH, UPDATE,
+34:                               |  DESCRIBE, CONNECT, READ...)
+35: +-----------------------------v----------------------------+
+36: |  Actor / Matrix Layer                                    |
+37: |  Actor.subclass() wiring, Matrix routing, Observable     |
+38: +-----------------------------+----------------------------+
+39:                               |  TX messages
+40: +-----------------------------v----------------------------+
+41: |  Data Layer (Transfer Types)                             |
+42: |  TT > N3TX (registry + entity base) > DynClass (per type)|
+43: +-----------------------------+----------------------------+
+44:                               |  TX messages with meta.remote
+45: +-----------------------------v----------------------------+
+46: |  Transport Layer                                         |
+47: |  NetworkAdapter > HTTP / Socket                          |
+48: +-----------------------------+----------------------------+
+49:                               |  fetch() / WebSocket
+50: +-----------------------------v----------------------------+
+51: |  N3TX Backend (FastAPI)                                |
+52: |  /ModelName (schema), /tablename (CRUD)                  |
+53: |  /tablename/:id/field/:child_id (nested FK routes)       |
+54: +----------------------------------------------------------+
+55: ```
+56: 
+57: ---
+58: 
+59: ## Class Hierarchy
+60: 
+61: ```
+62: Actor                          # Base actor: addr, inbox, send, children, spawn
+63:   |
+64:   +-- Matrix                   # Singleton root actor, message router + network gateway
+65:   |
+66:   +-- Router                   # Navigation state actor (route, history stack, URL sync, Observable)
+67:   |
+68:   +-- TT (Transfer Type)       # Actor with href (remote endpoint) + watcher/notify pattern
+69:   |     |
+70:   |     +-- N3TX                # Type registry (static) + entity base class (instance)
+71:   |           |
+72:   |           +-- [DynClass]   # Runtime-generated subclass per model (e.g. "Product")
+73:   |                 |
+74:   |                 +-- instances  # Per-entity N3TX instances (Product/1, Product/2, ...)
+75:   |
+76:   +-- Component (HTMLElement)  # Unified web component base (Actor + Shadow DOM + schema + adaptive display)
+77:         |
+78:         +-- NTTElement         # Single entity lifecycle (UPDATE, DESCRIBE, READ, save)
+79:         |     |
+80:         |     +-- NTTItem      # Built-in default: Formidable auto-render + edit toggle
+81:         |
+82:         +-- ListElement        # Collection lifecycle (subscribe, UPDATE, SELECT, childTag/template resolution)
+83:         |     |
+84:         |     +-- NTTList      # Built-in default: grid of children (19 lines)
+85:         |
+86:         +-- NTTRouter          # Generic view container ("mini browser"), controlled via Router
+87: 
+88: Observable                     # Mixin: signal(), observe(), notify() - applied via Actor.subclass()
+89: ```
+90: 
+91: `Actor.subclass(Component)` is called once on Component. All subclasses (NTTElement, ListElement, NTTItem, NTTList, and developer custom components) inherit it. Do not call `Actor.subclass()` on any other component class.
+92: 
+93: ---
+94: 
+95: ## Module Map
+96: 
+97: ```
+98: static/
+99:   config.js                    # API_URL, WS_URL, event name constants (config.E), debug flags
+100:   core/
+101:     Actor.js                   # Actor base class + subclass() metaclass helper
+102:     Matrix.js                  # Root actor singleton, message router
+103:     Router.js                  # Navigation state actor (route stack, URL sync, Observable)
+104:     TX.js                      # Transaction envelope (name, source, target, data, meta, hash)
+105:     Observable.js              # Mixin: signal/observe/notify reactivity
+106:     N3TX.js                     # TT, N3TX classes + prototype() DynClass factory + SSR pre-loading
+107:     Component.js               # Unified base: HTMLElement + Actor + schema + adaptive display + stylesheet hook
+108:     Utils.js                   # generateId, simpleHash, isTypeCompatible, deepEqual, isUrl
+109:     transport/
+110:       NetworkAdapter.js        # Matrix's network bridge (HTTP/WS mode switching)
+111:       HTTP.js                  # Static fetch wrapper (get/post/put/remove)
+112:       Socket.js                # WebSocket client with heartbeat, reconnect, message queue
+113:   components/
+114:     NTTElement.js              # Single entity base (UPDATE, DESCRIBE, READ, save, auto-render)
+115:     ListElement.js             # Collection lifecycle base (subscribe, UPDATE, SELECT, childTag, createChild)
+116:     ntx-item.js                # NTTItem: built-in default entity (Formidable + edit toggle + SELECT click)
+117:     ntx-list.js                # NTTList: built-in default collection renderer (header, grid, create modal, packed layout)
+118:     ntx-router.js              # NTTRouter: generic view container ("mini browser")
+119:     ntx-router.css             # Router chrome styles (back button, title, content area)
+120:     ntx-method.js              # NTTMethod: renders method invocation form
+121:     ntx-element.css            # Base component styles (loading, error, empty states)
+122:     ntx-item.css               # Item card styles (glass, fields, list-field, nested, groups)
+123:     ntx-list.css               # List grid styles
+124:   generators/
+125:     form.js                    # Formidable: schema-driven HTML/form generator
+126:                                #   field ordering, groups, widgets, validation, relationship rendering
+127:   theme-base.css               # Shared structural theme selectors
+128:   dark-theme.css               # Dark token entrypoint
+129:   light-theme.css              # Light token entrypoint
+130:   utils/

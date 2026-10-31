@@ -1,0 +1,516 @@
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+1041: 
+1042: 3. **Collapse/expand**: Items beyond `VISIBLE_COUNT` (2) are wrapped in `.nested-collapsed` with a show-more button.
+1043: 
+1044: ```js
+1045: // Resolution: $defs[modelName].ui.renderer.item → 'ntx-item' fallback
+1046: let childTag = 'ntx-item';
+1047: if (modelName && defs[modelName]?.ui?.renderer?.item) {
+1048:     childTag = defs[modelName].ui.renderer.item;
+1049: }
+1050: ```
+1051: 
+1052: ### CSS Support
+1053: 
+1054: New CSS classes in `ntx-item.css`:
+1055: - `.list-field-header` — flex row with label + count
+1056: - `.list-field-label` — uppercase accent-colored model name
+1057: - `.list-field-count` — pill badge with item count
+1058: 
+1059: ---
+1060: 
+1061: ## 14. Synthesis: Three Enhancement Layers
+1062: 
+1063: All enhancements cluster into three distinct layers:
+1064: 
+1065: ### Layer 1: Schema Extensions (Backend)
+1066: 
+1067: §4 (UI hints), §6 (renderer hints), §9 (field exclusion), §11 (validation), §12 (permissions)
+1068: 
+1069: These all extend the schema output. They should ship as a single cohesive feature: the `__ui__` ClassVar + `json_schema_extra` convention + automatic conventions in `ProtoModel.schema()`.
+1070: 
+1071: **Single backend implementation point**: `ProtoModel.schema()` in `proto_model.py`.
+1072: 
+1073: ### Layer 2: Component Primitives (Frontend Framework)
+1074: 
+1075: §3 (P0 refactor), §5 (slot templates), §8 (adaptive display modes), §13 (relationship rendering)
+1076: 
+1077: These make the base classes more capable. They ship in the new `Component`, `NTTElement`, `ListElement` classes.
+1078: 
+1079: **Implementation points**: `core/Component.js`, `components/NTTElement.js`, `components/ListElement.js`, `generators/form.js`.
+1080: 
+1081: ### Layer 3: Developer Tools
+1082: 
+1083: §7 (pre-loading), §10 (scaffolding)
+1084: 
+1085: These are tooling that helps developers be productive. They're separate from the runtime framework.
+1086: 
+1087: **Implementation points**: `core/N3TX.js` (pre-load check), `core/utils/scaffold.py` (CLI + API endpoint).
+1088: 
+1089: ---
+1090: 
+1091: ## 15. Priority & Sequencing
+1092: 
+1093: | Priority | Enhancement | §  | Status | Depends on |
+1094: |---|---|---|---|---|
+1095: | ~~**P0**~~ | ~~Component layer refactor~~ | ~~§3~~ | **DONE** | ~~Nothing~~ |
+1096: | ~~**P1**~~ | ~~Field exclusion conventions~~ | ~~§9~~ | **DONE** | ~~`ProtoModel.schema()`~~ |
+1097: | ~~**P1**~~ | ~~Schema UI extensions (`__ui__`)~~ | ~~§4~~ | **DONE** | ~~`ProtoModel.schema()`~~ |
+1098: | ~~**P1**~~ | ~~Slot-based child templates~~ | ~~§5~~ | **DONE** (in P0) | ~~P0~~ |
+1099: | ~~**P2**~~ | ~~Schema renderer hints~~ | ~~§6~~ | **DONE** | ~~§4~~ (done) |
+1100: | ~~**P2**~~ | ~~Schema-driven validation~~ | ~~§11~~ | **DONE** | ~~§4, `form.js`~~ |
+1101: | ~~**P2**~~ | ~~SSR pre-loading~~ | ~~§7~~ | **DONE** | ~~`N3TX.js` change only~~ |
+1102: | ~~**P2**~~ | ~~Formidable UI hints (field_order, widget, groups)~~ | ~~§4~~ | **DONE** | ~~§4, `form.js`~~ |
+1103: | ~~**P2**~~ | ~~Adaptive display modes (Phase 2: infra)~~ | ~~§8~~ | **DONE** | ~~P0, §4~~ |
+1104: | ~~**P2.5**~~ | ~~Adaptive display (Phase 2.5: size methods, cascade, forced mode)~~ | ~~§8~~ | **DONE** | ~~P2~~ |
+1105: | ~~**P3**~~ | ~~Scaffolding / template generation~~ | ~~§10~~ | **DONE** | ~~P0, §4~~ (done) |
+1106: | ~~**P3**~~ | ~~Relationship-aware defaults~~ | ~~§13~~ | **DONE** | ~~P0~~ (done), `form.js` |
+1107: | ~~**P4**~~ | ~~Schema-driven permissions~~ | ~~§12~~ | **DONE** | ~~§4~~ (done), ~~auth system~~ (done) |
+1108: 
+1109: ### Recommended Implementation Order
+1110: 
+1111: 1. ~~**P0**: Component refactor~~ — **DONE**
+1112: 2. ~~**P1 batch**: Field exclusion + `__ui__` schema extensions + slot templates + validation~~ — **DONE**
+1113: 3. ~~**P2 batch**: Formidable UI hints + SSR pre-loading + adaptive display modes + renderer hints~~ — **DONE**
+1114: 4. ~~**P3 batch**: Scaffolding + relationship defaults~~ — **DONE**
+1115: 5. ~~**P4**: Permissions~~ — **DONE**
+1116: 
+1117: ### All enhancements complete.
+1118: 
+1119: ---
+1120: 
+1121: ## 16. Implementation Directives
+1122: 
+1123: ### General Rules
+1124: 
+1125: 1. **Schema is the source of truth.** Every enhancement should flow from or integrate with the schema. If it can be driven by the schema, it should be.
+1126: 
+1127: 2. **Hints, not mandates.** Every schema extension (`ui`, `renderer`, `display_modes`) is optional. The framework must work identically without them. Models without `__ui__` behave exactly as they do today.
+1128: 
+1129: 3. **Progressive override.** There's always a chain: schema default → framework convention → developer code. Each level can override the one above. Nothing is locked in.
+1130: 
+1131: 4. **Don't break existing.** `<ntx-list model="Product">` and `<ntx-item>` must continue to work throughout. The built-in defaults (NTTItem, NTTList) are thin shells over the new bases.
+1132: 
+1133: 5. **Minimize changes to the data layer.** `N3TX.js`, `Matrix.js`, `Actor.js`, `Observable.js`, `TX.js` should remain untouched unless absolutely necessary. The only exception so far is the SSR pre-loading check in §7 (two private static helpers + three guard clauses in `N3TX.attach()`, `N3TX.ATTACH()`, and `N3TX.SCHEMA()`).
+1134: 
+1135: ### Backend Directives
+1136: 
+1137: - All `ui` extensions go through `ProtoModel.schema()` in `proto_model.py`.
+1138: - Use Pydantic's existing `json_schema_extra` for per-field hints — do not invent a new mechanism.
+1139: - The `__ui__` ClassVar is a plain dict, not a Pydantic model. It's injected into the schema output as-is.
+1140: - Field exclusion conventions (§9) are applied in `ProtoModel.schema()` after Pydantic generates the base schema.
+1141: - Scaffolding (§10) reads the same `schema()` output — a single codegen utility, callable from CLI and API.
+1142: 
+1143: ### Frontend Directives
+1144: 
+1145: - The Component refactor (§3) is a prerequisite. Do not implement other enhancements on top of the current 4-class hierarchy.
+1146: - `Actor.subclass()` is called once on `Component`. NTTElement, ListElement, and all developer subclasses inherit it. Do not call `Actor.subclass()` on any other component class.
+1147: - `get styles()` returns a CSS URL. The base Component creates the `<link>` element and manages it. Subclasses only override the getter.
+1148: - `displayMode` (§8) lives in Component and is available to all subclasses. The ResizeObserver is created in `connectedCallback` and cleaned up in `disconnectedCallback`.
+1149: - Formidable remains a stateless utility (pure functions). It receives schema + value + mode and returns HTML strings. It does not hold state or manage lifecycle.
+1150: - Default components (`ntx-item.js`, `ntx-list.js`) are thin. They should be under ~50 lines each, delegating all logic to their base classes.
+1151: 
+1152: ### Testing
+1153: 
+1154: - Start server: `cd /workspace/src/n3tx/core && python3 main.py`
+1155: - Test API: `curl http://localhost:5000/Product` (schema), `curl http://localhost:5000/products` (data)
+1156: - Test frontend: `http://localhost:5000/`
+1157: - After schema extension changes, verify the JSON output: `curl http://localhost:5000/Product | python3 -m json.tool`
+1158: - After component refactor, verify that `<ntx-list model="Product">` still renders correctly in the browser.
+
+### docs/frontend/03_SYSTEM_IMPROVEMENTS_REFACTOR.md (639 total lines)
+1: # N3TX Enhancement Plan: Review & Corrections
+2: 
+3: Critical review of the UI Primitives Enhancement Plan (`02_UI_PRIMITIVES_ENHANCEMENT.md`). Each section identifies a gap or design flaw, explains why it matters, and proposes a concrete fix. These corrections should be applied before implementation begins.
+4: 
+5: **Companion documents**: `01_UI_SEPARATION_CONCERNS.md` (component analysis), `02_UI_PRIMITIVES_ENHANCEMENT.md` (enhancement plan).
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+11: 1. [Typed UI Configuration](#1-typed-ui-configuration)
+12: 2. [Child Resolution Chain Simplification](#2-child-resolution-chain-simplification)
+13: 3. [ResizeObserver as Opt-In, Not Default](#3-resizeobserver-as-opt-in-not-default)
+14: 4. [SSR Pre-Loading Naming Convention](#4-ssr-pre-loading-naming-convention)
+15: 5. [Field Exclusion: Convention Discovery](#5-field-exclusion-convention-discovery)
+16: 6. [Scaffolding XSS Prevention](#6-scaffolding-xss-prevention)
+17: 7. [Renderer Hints: Convention Over Configuration](#7-renderer-hints-convention-over-configuration)
+18: 8. [Parallel Sequencing: Backend and Frontend](#8-parallel-sequencing-backend-and-frontend)
+19: 9. [Loading and Error States](#9-loading-and-error-states)
+20: 10. [Migration Path](#10-migration-path)
+21: 
+22: ---
+23: 
+24: ## 1. Typed UI Configuration
+25: 
+26: ### What 02 Proposes
+27: 
+28: > The `__ui__` ClassVar is a plain dict, not a Pydantic model. It's injected into the schema output as-is.
+29: 
+30: ### The Problem
+31: 
+32: An untyped dict means:
+33: - No IDE autocomplete when writing `__ui__` configs
+34: - No validation — a typo like `'feild_order'` silently passes through
+35: - No documentation of valid keys without reading the enhancement doc
+36: - Contradicts N3TX's "transparent, not magical" principle — the framework's most developer-facing config surface has zero guardrails
+37: 
+38: ### The Fix
+39: 
+40: Define a `TypedDict` (or a simple dataclass) for the `__ui__` structure. This adds zero runtime overhead while giving static analysis, autocomplete, and validation.
+41: 
+42: ```python
+43: from typing import TypedDict, NotRequired
+44: 
+45: class UIRendererConfig(TypedDict, total=False):
+46:     item: str       # Custom element tag for single entity rendering
+47:     list: str       # Custom element tag for collection rendering
+48: 
+49: class UIDisplayModeConfig(TypedDict, total=False):
+50:     fields: list[str] | str   # '*' for all, or explicit list
+51:     layout: str                # 'full', 'card', 'inline', 'chip'
+52: 
+53: class UIConfig(TypedDict, total=False):
+54:     groups: dict[str, list[str]]
+55:     field_order: list[str]
+56:     exclude_render: list[str]
+57:     renderer: UIRendererConfig
+58:     display_modes: dict[str, UIDisplayModeConfig]
+59: ```
+60: 
+61: Usage stays identical:
+62: 
+63: ```python
+64: class Product(ProtoModel):
+65:     __ui__: ClassVar[UIConfig] = {
+66:         'groups': {'main': ['name', 'description']},
+67:         'field_order': ['name', 'price', 'description'],
+68:     }
+69: ```
+70: 
+71: The difference: IDEs now autocomplete keys, type checkers catch typos, and developers can cmd-click `UIConfig` to see every valid option.
+72: 
+73: ### Injection in `ProtoModel.schema()`
+74: 
+75: No change needed. `TypedDict` instances are regular dicts at runtime — `schema['ui'] = ui_config` works as-is.
+76: 
+77: ---
+78: 
+79: ## 2. Child Resolution Chain Simplification
+80: 
+81: ### What 02 Proposes (§5)
+82: 
+83: A 5-level resolution chain for which child component a list renders:
+84: 
+85: ```
+86: 1. <template item-template>        (light DOM template)
+87: 2. item-tag="..." attribute         (HTML attribute)
+88: 3. get childTag() JS property       (subclass override)
+89: 4. schema.ui.renderer.item          (schema hint)
+90: 5. 'ntx-item'                       (framework default)
+91: ```
+92: 
+93: ### The Problem
+94: 
+95: Five levels of override create debugging nightmares. When a list renders the wrong child, the developer has to mentally evaluate all five levels in priority order. The JS property override (level 3) is particularly problematic — it sits between two declarative mechanisms (attribute and schema) and can only be discovered by reading source code.
+96: 
+97: ### The Fix
+98: 
+99: Collapse to three levels:
+100: 
+101: ```
+102: 1. Explicit (template or attribute)    Developer chose this in HTML — highest priority
+103: 2. Schema hint                         Backend suggested this — respected unless overridden
+104: 3. 'ntx-item'                          Framework default
+105: ```
+106: 
+107: **Remove the `get childTag()` JS override.** Subclasses that need fully custom child rendering should override `render()` directly — that's the right extension point for structural changes. A getter that returns a tag string is a half-measure that creates an invisible override point.
+108: 
+109: ### Implementation
+110: 
+111: ```js
+112: get #resolvedItemFactory() {
+113:   // 1. Explicit: template in light DOM
+114:   const template = this.querySelector('template[item-template]');
+115:   if (template) return () => template.content.firstElementChild.cloneNode(true);
+116: 
+117:   // 1. Explicit: item-tag attribute
+118:   const itemTag = this.getAttribute('item-tag');
+119:   if (itemTag) return () => document.createElement(itemTag);
+120: 
+121:   // 2. Schema hint
+122:   const schemaTag = this.schema?.ui?.renderer?.item;
+123:   if (schemaTag) return () => document.createElement(schemaTag);
+124: 
+125:   // 3. Framework default
+126:   return () => document.createElement('ntx-item');
+127: }
+128: ```
+129: 
+130: Three levels. One declarative, one schema-driven, one default. No hidden JS property to discover.
+
+### docs/frontend/03_SYSTEM_IMPROVEMENTS_REFACTOR.md (639 total lines)
+131: 
+132: ---
+133: 
+134: ## 3. ResizeObserver as Opt-In, Not Default
+135: 
+136: ### What 02 Proposes (§8)
+137: 
+138: > Recommended: **Component base**. The ResizeObserver is cheap. Exposing `this.displayMode` to every component costs nothing if unused.
+139: 
+140: ### The Problem
+141: 
+142: A `ResizeObserver` per component instance is not cheap at scale. A list of 100 items creates 100 observers. Each fires on initial layout, on scroll-triggered reflows, on container resize. The browser's layout engine must report geometry for each observed element separately.
+143: 
+144: The plan also contradicts itself: §8 is marked **P3** (advanced, "transformative but complex") in the priority table, yet the recommendation is to bake it into the **P0** base class. If it's P3 complexity, it shouldn't be P0 infrastructure.
+145: 
+146: ### The Fix
+147: 
+148: Make `displayMode` opt-in via a static flag or by detecting whether the subclass uses it.
+149: 
+150: **Option A — Static flag:**
+151: 
+152: ```js
+153: class Component extends HTMLElement {
+154:   static adaptive = false;  // Subclasses set true to enable
+155: 
+156:   connectedCallback() {
+157:     super.connectedCallback();
+158:     if (this.constructor.adaptive) {
+159:       this.#initDisplayObserver();
+160:     }
+161:   }
+162: }
+163: 
+164: // Usage
+165: class ProductCard extends NTTElement {
+166:   static adaptive = true;
+167:   get displayBreakpoints() { return { page: 800, card: 400, chip: 0 }; }
+168: }
+169: ```
+170: 
+171: **Option B — Auto-detect via breakpoints override:**
+172: 
+173: ```js
+174: connectedCallback() {
+175:   super.connectedCallback();
+176:   // Only observe if subclass defines custom breakpoints
+177:   if (this.constructor.prototype.hasOwnProperty('displayBreakpoints')) {
+178:     this.#initDisplayObserver();
+179:   }
+180: }
+181: ```
+182: 
+183: Option A is more explicit. Option B is more "zero-config" but relies on prototype inspection. Either way, the 99% of components that don't use adaptive display pay zero cost.
+184: 
+185: ### What Stays in the Base
+186: 
+187: The `displayMode` getter and `#initDisplayObserver()` method still live in `Component` — they're available to every subclass. But the observer only activates when requested.
+188: 
+189: ---
+190: 
+191: ## 4. SSR Pre-Loading Naming Convention
+192: 
+193: ### What 02 Proposes (§7)
+194: 
+195: ```html
+196: <script type="application/json" data-ntx-schema="Product">...</script>
+197: <script type="application/json" data-ntx-data="products">...</script>
+198: ```
+199: 
+200: ### The Problem
+201: 
+202: The schema uses the class name (`Product`) but the data uses the table name (`products`). This leaks a backend convention (`__tablename__`) into the HTML template. The developer writing the template needs to know both the model name AND the pluralized table name — and they might not match (`Category` → `categories`, `Person` → `people`, or custom tablenames).
+203: 
+204: ### The Fix
+205: 
+206: Use the model name for both:
+207: 
+208: ```html
+209: <script type="application/json" data-ntx-schema="Product">...</script>
+210: <script type="application/json" data-ntx-data="Product">...</script>
+211: ```
+212: 
+213: In `N3TX.ATTACH`, look up both by model name:
+214: 
+215: ```js
+216: const preloadedSchema = document.querySelector(`script[data-ntx-schema="${model}"]`);
+217: const preloadedData = document.querySelector(`script[data-ntx-data="${model}"]`);
+218: ```
+219: 
+220: The N3TX core already knows how to map model name → API endpoint (it's in the schema's `$id`). The HTML template shouldn't need to duplicate that knowledge.
+221: 
+222: ### Backend Template
+223: 
+224: ```python
+225: return templates.TemplateResponse("page.html", {
+226:     "model_name": model_name,           # "Product" — used for both attributes
+227:     "schema_json": json.dumps(schema),
+228:     "data_json": json.dumps(data),
+229: })
+230: ```
+231: 
+232: ---
+233: 
+234: ## 5. Field Exclusion: Convention Discovery
+235: 
+236: ### What 02 Proposes (§9)
+237: 
+238: Automatic conventions applied by `ProtoModel.schema()`:
+239: - Fields ending in `_id` → `ui.display: false`
+240: - The `id` field → `ui.display: false`
+241: - `created_at`, `updated_at` → `ui.display: false`
+242: 
+243: ### The Problem
+244: 
+245: Invisible conventions that hide fields will surprise developers. A `category_id` or `tracking_id` might be meaningful to display. When a field doesn't render and the developer can't see why — no error, no warning, no visible config — they waste time debugging an absence.
+246: 
+247: The plan provides an explicit override (`json_schema_extra={'ui': {'display': True}}`), but that requires knowing the convention exists in the first place.
+248: 
+249: ### The Fix: Convention + Discoverability
+250: 
+251: Keep the conventions but make them discoverable through two mechanisms:
+252: 
+253: **A. Mark convention-hidden fields in the schema output:**
+254: 
+255: ```json
+256: "parent_id": {
+257:   "type": "integer",
+258:   "ui": {
+259:     "display": false,
+260:     "display_reason": "convention:suffix_id"
+
+### docs/frontend/03_SYSTEM_IMPROVEMENTS_REFACTOR.md (639 total lines)
+261:   }
+262: }
+263: ```
+264: 
+265: The `display_reason` key lets frontend dev tools (and Formidable's debug mode) explain WHY a field is hidden. It costs one extra key per hidden field.
+266: 
+267: **B. Log in dev mode:**
+268: 
+269: When `ProtoModel.schema()` applies a convention, emit a debug log:
+270: 
+271: ```python
+272: if field_name.endswith('_id') and not explicit_ui_display:
+273:     logger.debug(f"{cls.__name__}.{field_name}: hidden by convention (suffix_id)")
+274:     prop['ui'] = {'display': False, 'display_reason': 'convention:suffix_id'}
+275: ```
+276: 
+277: This means: conventions work silently in production, but developers running locally can see exactly which fields were auto-hidden and why.
+278: 
+279: **C. Document the conventions in schema metadata:**
+280: 
+281: Add a `ui_conventions` key to the schema root (dev mode only) that lists active conventions:
+282: 
+283: ```json
+284: "ui_conventions": [
+285:   {"pattern": "*_id", "effect": "display: false", "override": "json_schema_extra={'ui': {'display': True}}"},
+286:   {"pattern": "id", "effect": "display: false"},
+287:   {"pattern": "created_at|updated_at", "effect": "display: false"}
+288: ]
+289: ```
+290: 
+291: This makes the framework self-documenting — a developer inspecting the schema can see what conventions are in play without reading docs.
+292: 
+293: ---
+294: 
+295: ## 6. Scaffolding XSS Prevention
+296: 
+297: ### What 02 Proposes (§10)
+298: 
+299: Generated scaffold code:
+300: 
+301: ```js
+302: render() {
+303:   const { name, price, description } = this.value || {};
+304:   this.shadowRoot.innerHTML = `
+305:     <h2 class="product-name">${name ?? ''}</h2>
+306:     <p class="product-description">${description ?? ''}</p>
+307:     <span class="product-price">${price ?? ''}</span>
+308:   `;
+309: }
+310: ```
+311: 
+312: ### The Problem
+313: 
+314: This is textbook XSS. If `name` contains `<script>alert('xss')</script>` or `<img onerror="...">`, it executes. Scaffold-generated code is the first thing a developer sees and copies — it should model safe patterns, not teach unsafe ones.
+315: 
+316: ### The Fix
+317: 
+318: The scaffold should generate DOM-API code, not innerHTML with interpolation:
+319: 
+320: ```js
+321: render() {
+322:   const { name, price, description } = this.value || {};
+323: 
+324:   const card = document.createElement('div');
+325:   card.className = 'product-card';
+326: 
+327:   const h2 = document.createElement('h2');
+328:   h2.className = 'product-name';
+329:   h2.textContent = name ?? '';
+330:   card.appendChild(h2);
+331: 
+332:   const desc = document.createElement('p');
+333:   desc.className = 'product-description';
+334:   desc.textContent = description ?? '';
+335:   card.appendChild(desc);
+336: 
+337:   const priceEl = document.createElement('span');
+338:   priceEl.className = 'product-price';
+339:   priceEl.textContent = price ?? '';
+340:   card.appendChild(priceEl);
+341: 
+342:   this.shadowRoot.replaceChildren(this.$styles, card);
+343: }
+344: ```
+345: 
+346: `textContent` is safe by default — it cannot execute HTML. The scaffold teaches the right pattern from day one.
+347: 
+348: **Alternative**: If `innerHTML` is preferred for readability, the scaffold should generate code using an escape helper:
+349: 
+350: ```js
+351: import { esc } from '../utils/escape.js';
+352: 
+353: render() {
+354:   const { name, price, description } = this.value || {};
+355:   this.shadowRoot.innerHTML = `
+356:     <h2 class="product-name">${esc(name)}</h2>
+357:     <p class="product-description">${esc(description)}</p>
+358:   `;
+359: }
+360: ```
+361: 
+362: Where `escape.js` is a simple utility:
+363: 
+364: ```js
+365: export function esc(str) {
+366:   const el = document.createElement('span');
+367:   el.textContent = str ?? '';
+368:   return el.innerHTML;
+369: }
+370: ```
+371: 
+372: Either approach works. The generated code must not contain raw interpolation into innerHTML.
+373: 
+374: ---
+375: 
+376: ## 7. Renderer Hints: Convention Over Configuration
+377: 
+378: ### What 02 Proposes (§6)
+379: 
+380: Backend specifies frontend component tags explicitly:
+381: 
+382: ```python
+383: __ui__: ClassVar[dict] = {
+384:     'renderer': {
+385:         'item': 'product-card',
+386:         'list': 'product-grid',
+387:     }
+388: }
+389: ```
+390: 

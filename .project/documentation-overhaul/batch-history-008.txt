@@ -1,0 +1,435 @@
+
+### .project/reports/audits/agentic-flow/03-agentic-flow-audit.md (556 total lines)
+1: # Agentic Flow -- Deep Audit Report
+2: 
+3: **Scope**: `src/n3tx/core/agents/` (mixin.py, actor.py, deps.py, tools.py, schema_ext.py, tool_model.py) + integration boundaries (config.py, network_adapter.py, descriptors.py, proto_schema.py)
+4: **Branch**: v0.9 (commits through 0.10 agent features)
+5: **Date**: 2026-03-09
+6: **Sources**: Architecture & API analysis (01), Quality & Extensibility analysis (02), direct source verification
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+554: | T-03 | Architecture | -- | Transient adapter per run (isolation over reuse) | `mixin.py:314-327` | Trade-off (correct) |
+555: | T-04 | API | -- | `AgentActor.run()` returns str for `@expose_route` compat | `actor.py:129` | Trade-off (increasingly problematic) |
+556: | T-05 | Architecture | -- | Async-only API (no sync wrappers) | All entry points | Trade-off (correct for framework) |
+
+### .project/reports/audits/agents-arch/01-architecture-api.md (784 total lines)
+1: # Agent Subsystem Deep Audit: Architecture & API
+2: 
+3: **Scope:** `src/n3tx/core/agents/` + integration sites
+4: **Branch:** v0.9 (commits through 0.10 development)
+5: **Auditor:** Claude Opus 4.6
+6: **Date:** 2026-03-09
+7: 
+8: ---
+9: 
+10: ## 1. Component Inventory
+782: | **DX (Developer Experience)** | 8/10 | Zero-config works; advanced use is well-supported |
+783: 
+784: **Overall:** The agent subsystem is a well-designed, architecturally sound addition that faithfully follows N3TX's principles. The policy/engine split, schema-driven tool discovery, and TX-based tool routing are elegant. The main areas for improvement are reducing code duplication (adapter lifecycle, config cascade), implementing or removing `neighbor_depth`, strengthening type safety on the `run()` kwargs boundary, and fixing the test bug in `example_grants/tests/test_agent_run.py:54`.
+
+### .project/reports/audits/agents-arch/02-quality-extensibility.md (611 total lines)
+1: # Agents Subsystem Audit: Quality, Risks, Extensibility & Integration
+2: 
+3: **Date:** 2026-03-09
+4: **Scope:** `/workspace/src/n3tx/core/agents/` (mixin.py, actor.py, tools.py, deps.py, schema_ext.py, tool_model.py, config.py) + tests + integration sites
+5: **Branch:** v0.9
+6: 
+7: ---
+8: 
+9: ## 1. Architecture Summary
+10: 
+609: 10. **`schema_ext.py` hardcodes method list** (Section 16.4)
+610: 11. **No prompt injection mitigation** documentation (Section 6.2)
+611: 12. **Per-run overhead** from uncached tool function generation (Section 7.1)
+
+### .project/reports/audits/agents-arch/03-agents-audit.md (918 total lines)
+1: # Agents (LLM Integration) -- Deep Audit Report
+2: 
+3: **Subsystem:** `src/n3tx/core/agents/`
+4: **Branch:** v0.9 (through v0.10 development)
+5: **Date:** 2026-03-09
+6: **Sources:** Architecture & API analysis (01), Quality & Extensibility analysis (02), direct source verification
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+916: **Consolidated: adapter lifecycle duplication (F-05) and config cascade duplication (F-06).** Both reports flagged these independently. The architecture report identified the adapter lifecycle as duplicated in 4 places; the quality report identified the config cascade as duplicated in 2 places. These are related but distinct issues: the adapter lifecycle is a structural concern (create/register/use/cleanup pattern), while the config cascade is a data concern (3-tier resolution). Both should be extracted, but independently -- they serve different purposes and have different signatures. The refactoring sequence in the "For Refactoring" section addresses both.
+917: 
+918: **Confirmed: `neighbor_depth` dead config (F-02).** Both reports flagged this finding. The architecture report at Section 14 (Issue 2) and the quality report at Section 10.2 both identify the same root cause: `config.py:30` declares the key, `schema_ext.py:32` exposes it, but `mixin.py:252-257` never reads it. No contradiction between reports.
+
+### .project/reports/audits/agents/01-architecture.md (660 total lines)
+1: # N3TX Agents Subsystem: Architecture & Design Patterns Audit
+2: 
+3: **Auditor**: Claude Opus 4.6
+4: **Date**: 2026-03-26
+5: **Scope**: `packages/n3tx-agents/` — all Python backend, JS frontend, docs, and usage sites
+6: **Commit base**: Branch `v0.9`, commit `779137c`
+7: 
+8: ---
+9: 
+10: ## 1. Component Inventory
+658: **Supporting files** (2 files):
+659: - `/workspace/packages/n3tx-core/src/n3tx_core/utils/descriptors.py`
+660: - `/workspace/packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js`
+
+### .project/reports/audits/agents/02-api-contracts.md (697 total lines)
+1: # Agents Subsystem Audit: API Surface & Contracts
+2: 
+3: > Audit date: 2026-03-26 | Branch: v0.9 | Auditor: Claude Opus 4.6
+4: 
+5: ## 1. Public API Inventory
+6: 
+7: ### 1.1 Python Backend API
+8: 
+9: #### Module Exports (`__init__.py:29-33`)
+10: 
+695: The agents subsystem follows the project's "model is the app" philosophy well. `__agent__ = True` mirrors `__storable__ = True`. The schema extension pipeline integrates cleanly. The TX-based tool routing through Matrix is consistent with the actor system's design.
+696: 
+697: The main tension is between AgentActor (data-driven, DB-config) and AgentMixin (code-driven, config-cascade). They solve different problems but share the same method names with different return types and config resolution paths. This dual nature is powerful but requires careful documentation and consistent contracts.
+
+### .project/reports/audits/agents/03-quality-risks.md (577 total lines)
+1: # Agents Subsystem: Quality & Risk Assessment
+2: 
+3: **Audit date**: 2026-03-26
+4: **Scope**: `packages/n3tx-agents/` — all Python backend, JS frontend, and test files
+5: **Auditor**: Claude Opus 4.6
+6: 
+7: ---
+8: 
+9: ## 1. Potential Bugs
+10: 
+575: | 8 | `ntx-stream-agent.js` / `ntx-agent-live.js` duplicated handler code | Medium (debt) | N/A | Both files |
+576: | 9 | Agent-to-agent recursive invocation has no depth limit | Medium | Low | N/A |
+577: | 10 | Abandoned stream generator skips thread update | Low | Medium | `mixin.py:642-661` |
+
+### .project/reports/audits/agents/04-extensibility.md (803 total lines)
+1: # Agents Subsystem: Extensibility & Integration Audit
+2: 
+3: > Audit date: 2026-03-26 | Branch: v0.9 | Auditor: Claude Opus 4.6
+4: 
+5: ## Table of Contents
+6: 
+7: - [Extension Points](#extension-points)
+8: - [Integration Boundaries](#integration-boundaries)
+9: - [Dependency Graph](#dependency-graph)
+10: - [Data Contracts at Boundaries](#data-contracts-at-boundaries)
+801: Test coverage spans: mixin methods (`test_mixin.py`), tool discovery and generation (`test_tools.py`), AgentActor CRUD (`test_agent_actor.py`), Thread persistence (`test_thread.py`), streaming first-token (`test_run_stream_first_token.py`), and tool call auth (`test_tool_call_auth.py`).
+802: 
+803: Missing test coverage: the LLM pipeline (`schema_ext.py:58-101`), `_resolve_llm()` edge cases, and `AgentActor._resolve_tool_addrs()` with mixed href/instance formats.
+
+### .project/reports/audits/agents/05-improvements.md (846 total lines)
+1: # Agents Subsystem: Strategic Improvements
+2: 
+3: > Audit date: 2026-03-26 | Branch: v0.9 | Auditor: Claude Opus 4.6
+4: 
+5: ## Table of Contents
+6: 
+7: 1. [Mental Model Simplification](#1-mental-model-simplification)
+8: 2. [Interface Tightening](#2-interface-tightening)
+9: 3. [Composability Improvements](#3-composability-improvements)
+10: 4. [Resilience & Error Recovery](#4-resilience--error-recovery)
+844: ```
+845: 
+846: 3a and 6a are independent and can ship immediately. 1a is the most impactful single change but requires careful migration of AgentActor's override pattern.
+
+### .project/reports/audits/agents/06-agents-audit.md (908 total lines)
+1: # Agents -- Deep Audit Report
+2: 
+3: **Audit date**: 2026-03-26
+4: **Branch**: v0.9 (commit `779137c`)
+5: **Scope**: `packages/n3tx-agents/` -- all Python backend, JS frontend, tests, docs, and application usage sites
+6: **Synthesized from**: 01-architecture, 02-api-contracts, 03-quality-risks, 04-extensibility, 05-improvements
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+906: | P-R1 | Resilience | Proposition | -- | Agent execution timeout via constraints | `mixin.py` | Proposed |
+907: | P-R2 | Resilience | Proposition | -- | DiscoveryResult from discover_tools() | `tools.py:43-101` | Proposed |
+908: | P-R3 | Resilience | Proposition | -- | Agent-to-agent recursion depth limit | `deps.py`, `mixin.py` | Proposed |
+
+### .project/reports/audits/agents/design.md (227 total lines)
+1: # Agents Distilled Design
+2: 
+3: ## Summary
+4: 
+5: The agents subsystem should be presented as one capability: an actor/model that can reason with a prompt, tools, and conversation state. The existing class-configured path (`__agent__`) and instance-configured path (`AgentActor`) both remain, but they converge on one execution contract centered on `agentic()` and `agentic_stream()`.
+6: 
+7: This design reduces the visible surface area without removing needed flexibility. It keeps transparency, preserves inspection and audit needs, and recuts the boundary so storage shape, frontend rendering, streaming, and config precedence all line up behind one mental model.
+8: 
+9: ## Entropy Reduction
+10: 
+225: | `packages/n3tx-agents/docs/mixin.md` | Reframe advanced vs primary API surfaces and document `AgentConfig` precedence | package docs |
+226: | `packages/n3tx-agents/docs/agent-actor.md` | Reframe persisted agents as one config source for the shared capability; document `ToolRef` migration | package docs |
+227: | `packages/n3tx-agents/docs/tool-discovery.md` | Update discovery inputs, `ToolRef`, and default event vocabulary helper | package docs |
+
+### .project/reports/audits/consistency/00-synthesis.md (285 total lines)
+1: # N3TX Pattern Consistency Audit -- Global Synthesis
+2: 
+3: **Date**: 2026-03-26
+4: **Branch**: v0.9
+5: **Auditors**: 5 parallel analysis agents
+6: **Scope**: Full codebase -- packages/, examples/, apps/
+7: 
+8: ---
+9: 
+10: ## Audit Structure
+283: packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js
+284: packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js
+285: ```
+
+### .project/reports/audits/consistency/01-model-definitions.md (327 total lines)
+1: # Model Definition Patterns Audit
+2: 
+3: **Date**: 2026-03-26
+4: **Scope**: All Python model files across packages/, examples/, and apps/
+5: **Focus**: Consistency of model definitions, field patterns, class hierarchies, and schema configuration
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+325: 2. All models must have class-level docstrings
+326: 3. No `default=[]` or `default={}` on Field()
+327: 4. Standardize `__agent__` value type (document when bool vs dict)
+
+### .project/reports/audits/consistency/02-frontend-components.md (281 total lines)
+1: # Frontend JavaScript Component Patterns Audit
+2: 
+3: **Date**: 2026-03-26
+4: **Scope**: All JavaScript files across packages/ and apps/
+5: **Focus**: Component hierarchy, lifecycle patterns, event handling, schema consumption, CSS management
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+279: 7. Remove dead code in Actor.js and NTT.js
+280: 8. Add AbortController cleanup to sidebar/modal/profile (manual event listeners)
+281: 9. Document handler naming convention in CLAUDE.md
+
+### .project/reports/audits/consistency/03-test-patterns.md (355 total lines)
+1: # Test Patterns Audit
+2: 
+3: **Date**: 2026-03-26
+4: **Scope**: All test files across packages/, examples/, and apps/
+5: **Focus**: Fixture patterns, database strategy, auth handling, mocking, naming, isolation
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+353: 
+354: ### 6. Clean Up Stale Tests
+355: Review and either update or remove: `test_error_drop_guard.py`, `test_streaming_shutdown.py`
+
+### .project/reports/audits/consistency/04-imports-and-packages.md (261 total lines)
+1: # Import Patterns & Package Structure Audit
+2: 
+3: **Date**: 2026-03-26
+4: **Scope**: All Python files across packages/, examples/, and apps/
+5: **Focus**: Import styles, dependency graph, __init__.py exports, build system, logging, static files
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+259: grep -r "from n3tx\.core\|import n3tx\.core" examples/
+260: # Should return 0 results
+261: ```
+
+### .project/reports/audits/consistency/05-api-routes-and-auth.md (318 total lines)
+1: # API Routes & Authentication Patterns Audit
+2: 
+3: **Date**: 2026-03-26
+4: **Scope**: Route generation, auth enforcement, request handling, streaming, response formats
+5: **Focus**: Consistency between Level 1/2 and Level 3 routing, framework bypass detection
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+316: 
+317: ### Priority 6: Unify User Injection
+318: Level 3 custom methods should receive the same User instance as Level 1/2.
+
+### .project/reports/audits/design-system/01-architecture.md (562 total lines)
+1: # Design-System Architecture Audit
+2: 
+3: ## Scope
+4: 
+5: - Audit target: the frontend design-system subsystem across `n3tx-core`, `n3tx-ui`, and `n3tx-agents`, including CSS architecture, token flow, styling boundaries, form/widget rendering, HTML shell composition, and runtime/visual separation.
+6: - Audit standard: N3TX's own principles — model-driven UI, additive customization, primitives over opinions, transparent traceability, and modularity where it simplifies.
+7: - Audit method: documentation-first review, then direct source inspection of every requested file, plus relevant usage sites and tests.
+8: 
+9: ## Sources Reviewed
+10: 
+560: 
+561: - The design-system subsystem is architecturally promising because the hard part — schema-driven runtime/visual composition — is already in place and mostly aligned with N3TX's philosophy (`docs/CORE.md:109`, `Component.js:23`, `form.js:58`).
+562: - The next maturity step is not inventing a new design system; it is tightening the one that already exists by making tokens canonical, stylesheet boundaries uniform, cache invalidation explicit, and shell composition less repetitive.
+
+### .project/reports/audits/design-system/02-api-contracts.md (505 total lines)
+1: # Design-System Audit — API Contracts
+2: 
+3: ## Scope
+4: 
+5: - This report audits the frontend design-system contract surface across runtime primitives, visual components, forms, widgets, themes, cross-package imports, and the concrete consumer patterns exercised by examples and tests. The audit judges the subsystem against N3TX's stated principles that the backend is authoritative, frontend behavior is schema-driven, zero-config defaults should work, customization should be additive, and boundaries should remain transparent and traceable. `docs/CORE.md:109` `docs/CORE.md:144` `FRONTEND.md:17` `FRONTEND.md:127`
+6: - The audit is code-first but documentation-aware: I read the required architecture/frontend docs, the package docs for components/formidable/widgets/viewable/schema-pipeline/tool-discovery, every core source file requested under `n3tx-core`, `n3tx-ui`, and `n3tx-agents`, and every requested usage/test site. `docs/ARCHITECTURE.md:15` `FRONTEND.md:39` `packages/n3tx-ui/docs/components.md:79` `packages/n3tx-ui/docs/formidable.md:42` `packages/n3tx-ui/docs/widgets.md:37` `packages/n3tx-ui/docs/viewable-mixin.md:69` `packages/n3tx-core/docs/schema-pipeline.md:39` `packages/n3tx-agents/docs/tool-discovery.md:46`
+7: 
+8: ## Files Read
+9: 
+10: ### Documentation and Context
+503: | `Formidable` exports more than its docs advertise | The effective API surface is wider and less curated than documentation implies | `packages/n3tx-ui/docs/formidable.md:45` `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js:607` |
+504: | Tests depend on DOM class names and shape, not just visible behavior | CSS class names like `.list-field`, `.nested-collapsed`, `.currency-display`, `.ntx-group-*` are already compatibility surfaces | `tests/frontend/tests/e2e/form-rendering-unit.spec.js:21` `tests/frontend/tests/e2e/form-rendering-unit.spec.js:271` `tests/frontend/tests/e2e/form-rendering-unit.spec.js:401` |
+505: | Merged static namespace is a runtime contract with source-level cost | The browser sees one namespace, but source packages do not; tooling must emulate that | `FRONTEND.md:23` `FRONTEND.md:117` `tests/frontend/vitest.config.js:18` |
+
+### .project/reports/audits/design-system/03-quality-risks.md (671 total lines)
+1: # Design-System Quality & Risks Audit
+2: ## Scope
+3: This audit covers the frontend design-system surface of N3TX:
+4: 
+5: - CSS/theme correctness.
+6: - import-path fragility.
+7: - component rendering hazards.
+8: - schema/UI contract mismatches.
+9: - form and widget edge cases.
+10: - shell asset availability.
+669: There is no current broken-asset defect around `light-theme.css`.
+670: 
+671: There is a real high-blast-radius dependency on that file across shipped HTML, and current tests do not cover every consumer route.
+
+### .project/reports/audits/design-system/04-extensibility.md (800 total lines)
+1: # Design System Extensibility Audit
+2: 
+3: ## Scope
+4: 
+5: This audit covers the N3TX frontend design-system subsystem as defined in the prompt:
+6: 
+7: - extension points for custom components, widgets, themes, and agent UI;
+8: - package/import boundaries between `n3tx-core`, `n3tx-ui`, and `n3tx-agents`;
+9: - runtime-vs-visual separation;
+10: - HTML shell composition and static namespace assumptions;
+798: If the team finishes the split it has already started by cleaning up imports, consolidating CSS authorities, and reducing shell duplication, this subsystem can become one of the clearest parts of N3TX.
+799: 
+800: Right now it is good at additive customization for maintainers, but only moderately good at being obvious, portable, and self-explanatory for new extension authors.
+
+### .project/reports/audits/design-system/05-improvements.md (799 total lines)
+1: # Design System Improvements Audit
+2: 
+3: ## Scope and Framing
+4: 
+5: This report audits the frontend design-system subsystem with a strategic-improvements lens.
+6: The goal is not to redesign N3TX into a generic component library.
+7: The goal is to make the existing schema-driven frontend easier to understand,
+8: more additive to extend,
+9: more resilient under imperfect asset delivery,
+10: and more explicit about where runtime ends and visual policy begins.
+797: zero to working gets cheaper,
+798: customization becomes more additive,
+799: and the package split stays real without becoming confusing.
+
+### .project/reports/audits/design-system/06-design-system-audit.md (1091 total lines)
+1: # Design-System -- Deep Audit Report
+2: 
+3: ## Executive Summary
+4: The design-system subsystem is where N3TX's schema-driven backend becomes a working frontend. It takes backend-authored schema, access rules, renderer hints, and methods and turns them into dynamic entities, web components, forms, widgets, themes, and app shells. In broad terms, it succeeds: the backend stays authoritative, the frontend adapts at runtime, and many UI changes can be made by improving schema rather than hand-writing screens. `packages/n3tx-core/src/n3tx_core/static/core/Component.js:179` `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js:177` `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js:58`
+5: 
+6: The subsystem's biggest strength is its structural backbone. `Component` provides a strong shared base for schema attachment, ref resolution, adaptive display, and stylesheet loading, and the higher-level primitives build on that instead of re-implementing transport or bootstrap logic. That gives the engineering team good leverage: once a model schema is sound, much of the UI comes along with it. `packages/n3tx-core/src/n3tx_core/static/core/Component.js:91` `packages/n3tx-ui/src/n3tx_ui/static/components/NTTElement.js:63` `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js:43` `packages/n3tx-ui/src/n3tx_ui/static/widgets/registry.js:22`
+7: 
+8: Most of the real problems sit at the subsystem's edges. There are confirmed correctness bugs in method response rendering, async ref-picker freshness, and agent chat instance loading. More importantly, there is a serious security issue: several rendering paths still push unescaped values or unsanitized markdown into `innerHTML`, which creates an avoidable XSS surface. `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js:117` `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js:110` `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js:218` `packages/n3tx-ui/src/n3tx_ui/static/widgets/MarkdownWidget.js:17`
+9: 
+10: The other major weakness is implicitness. Theme loading, auth-sensitive layout caching, and shell bootstrapping all work, but too much of the contract lives in convention instead of explicit APIs. `light-theme.css` is present and shipped, but pages still depend on authors remembering the right combination of theme assets and boot scripts. `Permissions` and `Formidable` also cache aggressively without a fully explicit invalidation story, which makes the system harder to reason about during login, logout, and role changes. `packages/n3tx-core/src/n3tx_core/static/utils/theme.js:17` `packages/n3tx-ui/src/n3tx_ui/static/light-theme.css:1` `packages/n3tx-core/src/n3tx_core/static/utils/Permissions.js:38` `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js:13`
+1089: | P15 | Contract hygiene | Proposition | Medium | Remove or formalize ghost/legacy APIs like `forward` and `refInput()` | `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js:27`, `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js:45` | Proposed |
+1090: | P16 | Test resilience | Proposition | Medium | Add dedicated agent UI frontend tests for `ntx-chat`, `ntx-agent-live`, and `ntx-stream-agent` | `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js:25`, `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js:21` | Proposed |
+1091: | P17 | UX consistency | Proposition | Medium-Low | Replace naive pluralization and browser-native confirms with design-system-aware helpers | `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js:277`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js:81` | Proposed |
+
+### .project/reports/audits/frontend-router/01-architecture.md (673 total lines)
+1: # Frontend Router: Architecture & Design Patterns Audit
+2: 
+3: **Scope**: The "Frontend Router" subsystem spanning `n3tx-core` (Router, Observable, Actor, TX, Matrix) and `n3tx-ui` (NTTRouter, NTTSidebar, ListElement, NTTItem).
+4: **Date**: 2026-03-25
+5: **Auditor**: Claude Opus 4.6
+6: 
+7: ---
+8: 
+9: ## 1. Component Inventory
+10: 
+671: | "Backend is authoritative" | Partially aligned. Schema drives detail tag resolution. But sidebar constructs route objects client-side, bypassing schema authority. |
+672: | "Transparent, not magical" | Aligned for string routes (readable hash URLs). Not aligned for object routes (opaque, not inspectable in URL). |
+673: | "Modular where it simplifies" | Aligned. Router/NTTRouter split is a genuine simplifying boundary. NTTSidebar's non-Actor status is a pragmatic but inconsistent choice. |
+
+### .project/reports/audits/frontend-router/02-api-contracts.md (587 total lines)
+1: # Frontend Router — API Surface & Contracts Audit
+2: 
+3: ## 1. Public API Inventory
+4: 
+5: ### 1.1 Router (n3tx-core/static/core/Router.js)
+6: 
+7: | API | Signature | Returns | Side Effects | Notes |
+8: |-----|-----------|---------|-------------|-------|
+9: | `constructor` | `new Router(addr: string, { hash?: boolean })` | `Router` | Registers in Matrix, registers in module-level `routers` Map, optionally binds `hashchange` listener and reads initial hash | `hash` defaults to `false` |
+10: | `current` (getter) | `.current` | `string \| object \| null` | None | Read-only via private field `#current` |
+585: 9. **No API for programmatic Router removal**: No `destroy()` or `removeRouter()` exists.
+586: 
+587: 10. **Inconsistent TX construction**: Sidebar dispatches plain objects; other components construct TX instances explicitly.
+
+### .project/reports/audits/frontend-router/03-quality-risks.md (550 total lines)
+1: # Frontend Router: Quality & Risk Assessment
+2: 
+3: **Auditor:** Claude Opus 4.6
+4: **Date:** 2025-03-25
+5: **Scope:** Router.js, ntx-router.js, ntx-sidebar.js, Observable.js, Component.js, Actor.js, TX.js, Matrix.js, ListElement.js, ntx-item.js, usage sites, all test files.
+6: 
+7: ---
+8: 
+9: ## 1. Potential Bugs
+10: 
+548: | 3 | **Hash-clear stack inconsistency** | MEDIUM | `Router.js:81-85` | Clear the stack when hash is manually cleared, or at minimum push to make stack match browser history |
+549: | 4 | **Router instances never cleaned up** | MEDIUM | `Router.js:21,37` | Add `destroy()` method that removes from `routers` Map and Matrix, removes `hashchange` listener |
+550: | 5 | **Sidebar not an Actor** | LOW (tech debt) | `ntx-sidebar.js:61` | Extend Component or use ActorProxy to enable direct `send()` and eliminate async import pattern |
+
+### .project/reports/audits/frontend-router/04-extensibility.md (667 total lines)
+1: # Frontend Router Audit: Extensibility & Integration
+2: 
+3: **Subsystem**: Router (n3tx-core) + NTTRouter (n3tx-ui) + ntx-sidebar (n3tx-ui)
+4: **Date**: 2026-03-25
+5: **Scope**: Extension points, integration boundaries, dependency graph, data contracts, change analysis, limitations, and evolution trajectory.
+6: 
+7: ---
+8: 
+9: ## 1. Extension Points
+10: 
+665: | Evolution trajectory | Planned | Clear direction (Option D) but not yet implemented |
+666: | Error resilience | Poor | Minimal error handling; failures propagate as uncaught exceptions |
+667: | Cross-cutting integration | Minimal | No auth, minimal logging, no config API |
+
+### .project/reports/audits/frontend-router/05-improvements.md (983 total lines)
+1: # Frontend Router — Strategic Improvements & Propositions
+2: 
+3: ## Context
+4: 
+5: This report analyzes the N3TX frontend routing subsystem and proposes concrete improvements grounded in the current codebase. Each proposition includes the current state with file:line references, the problem it addresses, a proposed design, trade-offs, and a migration path.
+6: 
+7: The prior audit (`.traces/features/improve-routing/audit.md`) identified 10 issues and 4 improvement options. This report builds on that foundation, focusing on what to actually build and in what order.
+8: 
+9: ---
+10: 
+981: 3. **Sidebar inconsistency** (not an Actor, dynamic imports, object routes) creates a friction point between the navigation producer and consumer
+982: 
+983: The fix is straightforward: standardize on string routes, add `parseRoute()`/`buildRoute()` utilities, extend schema conventions, and provide extensibility hooks. The migration is incremental and backward-compatible at each phase. Total estimate: ~400 lines changed across 6 files, spread over 4 phases that can be shipped independently.
+
+### .project/reports/audits/frontend-router/06-frontend-router-audit.md (670 total lines)
+1: # Frontend Router -- Deep Audit Report
+2: 
+3: **Date**: 2026-03-25
+4: **Auditor**: Claude Opus 4.6
+5: **Scope**: Router.js, ntx-router.js, ntx-sidebar.js, Observable.js, Component.js, Actor.js, TX.js, Matrix.js, ListElement.js, ntx-item.js, all usage sites and test files.
+6: **Source Reports**: 01-architecture.md, 02-api-contracts.md, 03-quality-risks.md, 04-extensibility.md, 05-improvements.md
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+668: | P13 | Improvements | Proposition | Low | Default hash: true | Router.js:29 | Proposed |
+669: | P14 | Improvements | Proposition | Low | Title resolution from schema | ntx-router.js | Proposed |
+670: | P15 | Improvements | Proposition | Low | Eliminate hash-redirect special case | ntx-router.js:85-89 | Proposed |

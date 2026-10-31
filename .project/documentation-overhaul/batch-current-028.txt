@@ -1,0 +1,497 @@
+
+### docs/frontend/01_UI_SEPARATION_CONCERNS.md (489 total lines)
+391: | Fetch trigger | Receives push (DESCRIBE from N3TX instance) | Actively pulls (triggers collection READ) |
+392: | Mutation | Can save (sends UPDATE TX) | Read-only (creates children that mutate) |
+393: | Children | Leaf node (renders fields) | Container (stamps child components) |
+394: 
+395: A single base with mode flags would be a god class. Two bases is honest about a real domain distinction.
+396: 
+397: **Mitigation:** Component is the shared parent. A developer who never builds a list never sees ListElement.
+398: 
+399: ### Schema dependency = async bootstrap
+400: 
+401: Components can't render until the schema arrives from the backend. There's always a loading phase. LitElement renders immediately because properties are declared statically.
+402: 
+403: This is the tradeoff for not having to manually declare properties. The backend schema IS the property definition.
+404: 
+405: **Mitigation:** `connectedCallback` can set placeholder content. Could add a `renderLoading()` hook that Component calls before the schema arrives.
+406: 
+407: ### Actor/Matrix coupling
+408: 
+409: Developers inherit the TX message system. For basic use they never see it — `render()` just reads `this.value`. But for inter-component communication or custom data flows, they'd need to understand `send(new TX({...}))`.
+410: 
+411: **Mitigation:** For common operations, provide sugar methods:
+412: - `this.save()` — already provided by NTTElement
+413: - `this.dispatch(name, data)` — could wrap TX construction
+414: - Advanced users get the full TX system; basic users never touch it.
+415: 
+416: ### Edit/save entanglement (resolved)
+417: 
+418: Today, Item bakes in display/edit toggle, input binding, mode tracking, and save. In the refactored architecture, this is cleanly split:
+419: 
+420: - **NTTElement** provides `save()` (one-line TX send) — mechanical, unopinionated
+421: - **NTTItem** (built-in default) provides the full edit UX as a reference implementation
+422: - **Custom components** handle edit UX however they want, call `this.save()` when ready
+423: 
+424: ### Formidable coupling (resolved)
+425: 
+426: Today `Item.render()` calls `Formidable.getForm()` directly. After refactor, Formidable is a utility that NTTItem (the default) uses. Custom components that override `render()` never import or see Formidable.
+427: 
+428: ---
+429: 
+430: ## 9. Migration Assessment
+431: 
+432: ### What changes
+433: 
+434: | Current file | Becomes | Work |
+435: |---|---|---|
+436: | `core/Component.js` | **Deleted** — merged into new Component | Mechanical |
+437: | `components/ntx-element.js` | `core/Component.js` (new base) | Remove `describe()`, `update()`, auto-render from setter. Add `get styles()` hook. Absorb old Component.js internals. |
+438: | `components/ntx-item.js` | Split: `components/NTTElement.js` (entity base) + `components/ntx-item.js` (default) | Data handlers -> NTTElement. Formidable + edit UX -> NTTItem. |
+439: | `components/ntx-list.js` | Split: `components/ListElement.js` (collection base) + `components/ntx-list.js` (default) | Add `get childTag()`. NTTList becomes a thin shell. |
+440: 
+441: ### What does NOT change
+442: 
+443: - `core/N3TX.js` — Data layer, DynamicClass, schema registry. Untouched.
+444: - `core/Matrix.js` — Message routing. Untouched.
+445: - `core/Actor.js` — Actor system. Untouched.
+446: - `core/Observable.js` — Mixin. Untouched.
+447: - `core/TX.js` — Transaction format. Untouched.
+448: - `generators/form.js` — Formidable. Untouched (just consumed differently).
+449: - `components/ntx-method.js` — Method buttons. Untouched.
+450: 
+451: ### Cleanup included in migration
+452: 
+453: - Remove circular import (Component.js -> ntx-item.js)
+454: - Remove redundant `Actor.subclass(List)`
+455: - Merge `observedAttributes` properly (spread from parent)
+456: - Fix `disconnectedCallback` super chain
+457: - Remove `describe()` / `update()` dead paths from base
+458: - Move `subscribe()` to ListElement (only consumer)
+459: - Remove duplicate abstract `render()` declaration
+460: 
+461: ### Estimated scope
+462: 
+463: The N3TX core and message infrastructure are already clean and separate. The refactor is contained entirely within the component layer — roughly 4 files touched, ~400 lines total across all files. The hardest part is getting the lifecycle timing right: `define -> definedCallback -> first render` must work reliably for both NTTElement and ListElement.
+464: 
+465: ---
+466: 
+467: ## 10. File Structure (After)
+468: 
+469: ```
+470: core/
+471:   Component.js        NEW - merged base (HTMLElement + Actor + schema)
+472:   Actor.js            unchanged
+473:   Matrix.js           unchanged
+474:   N3TX.js              unchanged
+475:   Observable.js       unchanged
+476:   TX.js               unchanged
+477:   Utils.js            unchanged
+478: 
+479: components/
+480:   NTTElement.js       NEW - single entity base class
+481:   ListElement.js      NEW - collection base class
+482:   ntx-item.js         REFACTORED - thin default (extends NTTElement)
+483:   ntx-list.js         REFACTORED - thin default (extends ListElement)
+484:   ntx-element.js      DELETED - absorbed into core/Component.js
+485:   ntx-method.js       unchanged
+486: 
+487: generators/
+488:   form.js             unchanged (Formidable, consumed by ntx-item.js)
+489: ```
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+1: # N3TX UI Primitives Enhancement Plan
+2: 
+3: A comprehensive plan to evolve the N3TX frontend component layer into a developer-friendly framework that provides composable, schema-driven primitives — making tools like Redux, fetch(), React, and GraphQL redundant for most use cases.
+4: 
+5: **Companion document**: `01_UI_SEPARATION_CONCERNS.md` covers the component refactor analysis (P0).
+6: **Changelog**: `changelogs/02_Component_Layer_Refactor.md` documents the completed P0 implementation.
+7: 
+8: ---
+9: 
+10: ## Table of Contents
+11: 
+12: 1. [System Context](#1-system-context)
+13: 2. [Current Component Layer (Before)](#2-current-component-layer-before)
+14: 3. [Component Refactor (P0 Foundation)](#3-component-refactor-p0-foundation)
+15: 4. [Enhancement: Schema UI Extensions (Backend)](#4-enhancement-schema-ui-extensions-backend)
+16: 5. [Enhancement: Slot-Based Child Templates](#5-enhancement-slot-based-child-templates)
+17: 6. [Enhancement: Schema Renderer Hints](#6-enhancement-schema-renderer-hints)
+18: 7. [Enhancement: SSR Pre-Loading](#7-enhancement-ssr-pre-loading)
+19: 8. [Enhancement: Adaptive Display Modes](#8-enhancement-adaptive-display-modes)
+20: 9. [Enhancement: Field Exclusion Conventions](#9-enhancement-field-exclusion-conventions)
+21: 10. [Enhancement: Scaffolding / Template Generation](#10-enhancement-scaffolding--template-generation)
+22: 11. [Enhancement: Schema-Driven Validation](#11-enhancement-schema-driven-validation)
+23: 12. [Enhancement: Schema-Driven Permissions](#12-enhancement-schema-driven-permissions)
+24: 13. [Enhancement: Relationship-Aware Smart Defaults](#13-enhancement-relationship-aware-smart-defaults)
+25: 14. [Synthesis: Three Enhancement Layers](#14-synthesis-three-enhancement-layers)
+26: 15. [Priority & Sequencing](#15-priority--sequencing)
+27: 16. [Implementation Directives](#16-implementation-directives)
+28: 
+29: ---
+30: 
+31: ## 1. System Context
+32: 
+33: ### What N3TX/N3TX Is
+34: 
+35: N3TX is a schema-driven full-stack framework. The backend (Python/FastAPI) defines data models that automatically generate JSON Schemas, API routes, and CRUD operations. The frontend (vanilla JS Web Components) fetches these schemas at runtime, creates typed entity classes, and renders UI components that stay synchronized via a message bus.
+36: 
+37: The core philosophy: **the model definition is the single source of truth**. Everything flows from it — database schema, API endpoints, JSON Schema, frontend types, and (with this enhancement plan) UI rendering.
+38: 
+39: ### Key Backend Files
+40: 
+41: | File | Role |
+42: |---|---|
+43: | `src/n3tx/core/models/proto_model.py` | Base model class. Generates JSON Schema via `schema()` (delegates to `proto_schema` pipeline). Injects `StorableMixin` for DB ops. `model_response()` adds `$schema`/`$id` metadata via the `proto_dump` pipeline. |
+44: | `src/n3tx/core/models/storable_mixin.py` | CRUD operations (create/get/list/update/delete) |
+45: | `src/n3tx/core/models/ref.py` | `Ref[T]` distributed/local reference helpers |
+46: | `src/n3tx/core/utils/typer.py` | `Ref[T]` type for foreign keys, `Ref['self']` for self-referencing |
+47: | `src/n3tx/core/utils/decorators.py` | `@expose_route()` marks methods as API endpoints |
+48: | `src/n3tx/core/api/routes_fastapi.py` | Auto-generates CRUD routes from registered models |
+49: | `src/n3tx/core/config.py` | `HOST`, `PORT`, `API_URL`, `SQLITE_DB_FILE` |
+50: | `src/n3tx/core/main.py` | App entry: registers models, starts server |
+51: 
+52: ### Key Frontend Files
+53: 
+54: | File | Role |
+55: |---|---|
+56: | `static/core/N3TX.js` | Core entity system. `N3TX` class = schema registry + instance manager. `prototype()` factory creates DynamicClasses from schema. |
+57: | `static/core/Matrix.js` | Root actor / message bus. Routes TXs between actors. |
+58: | `static/core/Actor.js` | Actor base. `Actor.subclass(Type)` stamps `send`/`inbox`/`register`/`children` onto any class. |
+59: | `static/core/Observable.js` | Mixin: `signal()`, `observe()`, `notify()` for reactivity. |
+60: | `static/core/TX.js` | Transaction (message) class: `{name, source, target, data, meta}`. |
+61: | `static/core/Component.js` | **Unified base class** (merged HTMLElement + Actor bridge + schema resolution). All components inherit from this. |
+62: | `static/components/NTTElement.js` | **Single entity base class**. Handles UPDATE/DESCRIBE/READ handlers, save(), value auto-render. |
+63: | `static/components/ListElement.js` | **Collection base class**. Handles collection fetch, UPDATE handler, childTag/template resolution. |
+64: | `static/components/ntx-item.js` | Built-in default item (extends NTTElement). Formidable auto-render + edit toggle. |
+65: | `static/components/ntx-list.js` | Built-in default list (extends ListElement). Zero-config grid of children. |
+66: | `static/components/ntx-method.js` | Renders callable methods as buttons. Unchanged. |
+67: | `static/generators/form.js` | Formidable: schema-driven form/field generator. |
+68: | `static/config.js` | `API_URL`, event name constants, logging flags. |
+69: 
+70: ### Example Backend Model
+71: 
+72: ```python
+73: # src/n3tx/example/models/product.py
+74: class Product(ProtoModel):
+75:     __tablename__: ClassVar[str] = 'products'
+76:     __storable__: ClassVar[bool] = True
+77:     name: str
+78:     price: float
+79:     description: str = ''
+80:     comments: list[Comment] = Field(default=[], description="List of comments")
+81:     id: Optional[int] = Field(default=None)
+82: 
+83:     @expose_route('/comment', methods=['POST'])
+84:     def comment(self, comment: Comment) -> str:
+85:         comment.save()
+86:         return comment.model_dump_json()
+87: ```
+88: 
+89: ### Schema Output (approximate, from `Product.schema()`)
+90: 
+91: ```json
+92: {
+93:   "$schema": "http://localhost:5000/Schema",
+94:   "$id": "http://localhost:5000/Product",
+95:   "__name__": "Product",
+96:   "__tablename__": "products",
+97:   "title": "Product",
+98:   "type": "object",
+99:   "properties": {
+100:     "name": {"type": "string", "title": "Name"},
+101:     "price": {"type": "number", "title": "Price"},
+102:     "description": {"type": "string", "title": "Description", "default": ""},
+103:     "comments": {"type": "array", "items": {"$ref": "#/$defs/Comment"}},
+104:     "id": {"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Id", "default": null}
+105:   },
+106:   "required": ["name", "price"],
+107:   "methods": {
+108:     "comment": {
+109:       "route": "/comment",
+110:       "methods": ["POST"],
+111:       "scope": "instancemethod",
+112:       "parameters": {"comment": {"$ref": "#/$defs/Comment"}},
+113:       "returns": {"type": "string"}
+114:     }
+115:   },
+116:   "access": { ... },
+117:   "$defs": {
+118:     "Comment": {
+119:       "$id": "http://localhost:5000/Comment",
+120:       "properties": { ... },
+121:       "methods": { ... }
+122:     }
+123:   }
+124: }
+125: ```
+126: 
+127: ### Data Flow: Full Request Lifecycle
+128: 
+129: ```
+130: 1. <ntx-list model="Product">           Component appears in DOM
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+131: 2. attributeChangedCallback('model')     Sends ATTACH TX → target: 'N3TX'
+132: 3. N3TX.ATTACH("Product")                Static handler checks #prototypes registry:
+133:    - undefined → first time → set null, send SCHEMA TX to backend
+134:    - null → schema in flight → queue TX
+135:    - DynamicClass → ready → forward TX
+136: 4. NetworkAdapter                        GET /Product → receives JSON Schema
+137: 5. N3TX.SCHEMA(data)                     Creates DynamicClass via prototype()
+138:    - Registers nested $defs models
+139:    - Replays queued ATTACHes
+140:    - Triggers DynamicClass.call('READ')  → GET /products
+141: 6. DynamicClass.READ(data)              Creates N3TX instances per record
+142:    - Notifies all watchers with instance addresses
+143: 7. List.UPDATE([addrs])                 Receives address array, renders grid
+144: 8. <ntx-item ref="Product/1">           Stamped per address
+145: 9. N3TX instance.ATTACH(tx)             Instance responds with DESCRIBE TX
+146: 10. Item.DESCRIBE({proto, data})         Sets schema + value, renders
+147: ```
+148: 
+149: ### Actor / Message System
+150: 
+151: Every class that participates in messaging gets `Actor.subclass(Type)` applied. This stamps:
+152: - **Static**: `Type.addr`, `Type.children` (Map), `Type.send(tx)`, `Type.inbox(tx)`, `Type.register(actor)`
+153: - **Instance**: `this.addr`, `this.children`, `this.send(tx)`, `this.inbox(tx)`
+154: 
+155: Messages are TX objects: `{name, source, target, data, meta}`. Routing: Matrix (root) dispatches to children by address. If a target matches a child, it's delivered directly. If not, NetworkAdapter sends it to the backend.
+156: 
+157: **Convention**: A method matching the TX name on the target actor becomes the handler. E.g., a TX with `name: 'UPDATE'` arriving at a component calls `component.UPDATE(data, tx)`.
+158: 
+159: ---
+160: 
+161: ## 2. Previous Component Layer (Before P0 — historical)
+162: 
+163: > **This section documents the state before the P0 refactor, which is now complete.**
+164: > See §3 for the current architecture.
+165: 
+166: ### Old Hierarchy
+167: 
+168: ```
+169: HTMLElement
+170:   └── Component              (core/Component.js, ~70 lines)
+171:         └── NTTElement       (components/ntx-element.js, ~155 lines)
+172:               ├── Item       (components/ntx-item.js, ~165 lines)  → <ntx-item>
+173:               └── List       (components/ntx-list.js, ~72 lines)   → <ntx-list>
+174: ```
+175: 
+176: ### Component (`core/Component.js`)
+177: 
+178: ```js
+179: export class Component extends HTMLElement {
+180:   #addr;
+181:   #hash;
+182: 
+183:   constructor() {
+184:     super();
+185:     this.#hash = this.getAttribute('hash') || generateId();
+186:     this.#addr = this.getAttribute('addr') || `${this.constructor.name}-${this.#hash}`;
+187:     matrix.register(this);
+188:     this.constructor.register(this);
+189:   }
+190: 
+191:   static get observedAttributes() { return ['addr', 'hash']; }
+192:   connectedCallback() {}
+193:   disconnectedCallback() { console.error(`Component ${this.addr} disconnected.`); }
+194:   render() { throw new Error(`Not implemented`); }
+195: }
+196: 
+197: Actor.subclass(Component);
+198: matrix.register(Component);
+199: ```
+200: 
+201: **Problem**: Has zero independent consumers — every Component is always an NTTElement. Circular import (line 1: `import '../components/ntx-item.js'`).
+202: 
+203: ### NTTElement (`components/ntx-element.js`)
+204: 
+205: ```js
+206: export class NTTElement extends Component {
+207:   #href; #model; #proto = {}; #data; #defaultValue = {}; #unsubscribe; #detach;
+208: 
+209:   constructor(defaultValue={}) {
+210:     super();
+211:     this.attachShadow({mode: 'open'});
+212:     this.#model = this.getAttribute('model');
+213:     this.#href = this.getAttribute('href');
+214:     this.#data = defaultValue;
+215:   }
+216: 
+217:   static get observedAttributes() { return ['model', 'addr', 'hash', 'ref']; }
+218: 
+219:   // ref setter: sends READ TX (URL) or ATTACH TX (N3TX address)
+220:   set ref(href) { ... }
+221: 
+222:   // Called by N3TX core when DynamicClass prototype is ready
+223:   define(ptt) { this.#proto = ptt; this.definedCallback(); }
+224: 
+225:   // Legacy dual-init path (sets proto AND data, skips definedCallback)
+226:   describe(proto, data) { ... }
+227: 
+228:   // Trivial wrapper — children override via UPDATE handler anyway
+229:   update(data) { this.value = data; }
+230: 
+231:   // value setter: auto-renders if this.$schema is truthy (Item-only property!)
+232:   set value(data) {
+233:     this.#data = data;
+234:     if (this.$schema) this.render();
+235:   }
+236: 
+237:   // Only used by List
+238:   subscribe(tt, attribute, callback) { ... }
+239: 
+240:   render() { throw new Error(`Not implemented`); }
+241: }
+242: ```
+243: 
+244: **Problems**: `describe()` and `define()` are dual paths to same state. `set value()` depends on `$schema` (defined only on Item). `subscribe()` and `update()` used by one child each. Overrides `observedAttributes` without merging. Re-declares abstract `render()`.
+245: 
+246: ### Item (`components/ntx-item.js`)
+247: 
+248: Handles single entity: display/edit toggle, schema-driven form rendering via Formidable, input change handling, save via UPDATE TX. Message handlers: `UPDATE(data)`, `READ(data)`, `DESCRIBE(data)`.
+249: 
+250: ### List (`components/ntx-list.js`)
+251: 
+252: Handles collection: subscribes to DynamicClass watcher, triggers READ, receives address array, stamps `<ntx-item>` per address. Has redundant `Actor.subclass(List)`.
+253: 
+254: ### Identified Issues (Full List)
+255: 
+256: 1. Circular import: Component.js imports ntx-item.js (grandchild)
+257: 2. Component has zero independent consumers
+258: 3. Redundant `Actor.subclass(List)` (Item doesn't do it either)
+259: 4. `observedAttributes` overridden without merging via super
+260: 5. Broken `super.disconnectedCallback()` chain (NTTElement never calls super)
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+261: 6. Duplicate abstract `render()` in Component and NTTElement
+262: 7. `define()` vs `describe()` dual lifecycle paths
+263: 8. `set value()` depends on subclass-only property (`$schema`)
+264: 9. `subscribe()` only used by List
+265: 10. `update()` reimplemented by both children via message handlers
+266: 11. Edit UX baked into Item (can't extend without inheriting all of it)
+267: 12. List hardcodes `<ntx-item>` as child — no customization
+268: 13. Double registration (matrix + constructor) — unclear which is canonical
+269: 14. Stylesheet setup copy-pasted in each subclass constructor
+270: 
+271: ---
+272: 
+273: ## 3. Component Refactor (P0 Foundation) — COMPLETE
+274: 
+275: > **Status: Implemented and verified.**
+276: > See `changelogs/02_Component_Layer_Refactor.md` for full details.
+277: 
+278: ### Current Hierarchy
+279: 
+280: ```
+281: HTMLElement
+282:   └── Component              (merged Component + NTTElement)
+283:         ├── NTTElement       (single entity lifecycle)
+284:         │     └── NTTItem    (built-in default: auto-renders via Formidable)
+285:         └── ListElement      (collection lifecycle)
+286:               └── NTTList    (built-in default: grid of children)
+287: ```
+288: 
+289: ### Component (new base) — `core/Component.js`
+290: 
+291: Merges current `Component` + `NTTElement`. Single class, single file.
+292: 
+293: **Owns:**
+294: - HTMLElement extension + Shadow DOM (`attachShadow`)
+295: - Actor identity: `addr`, `hash`, `matrix.register(this)`, `Actor.subclass(Component)`
+296: - Schema resolution: `model` attr → ATTACH TX → N3TX core → `define(proto)` → `definedCallback()`
+297: - Ref resolution: `ref` attr → ATTACH TX (N3TX address) or READ TX (URL)
+298: - `value` storage: getter/setter with type guard, **no auto-render**
+299: - Stylesheet hook: `get styles()` returns CSS URL, base handles `<link>` injection
+300: - Adaptive display: `displayMode`, `displayBreakpoints`, `displayModeChanged()` via ResizeObserver (§8)
+301: - `observedAttributes`: `['addr', 'hash', 'model', 'ref']`
+302: - Lifecycle: `connectedCallback` (starts ResizeObserver), `disconnectedCallback` (cleanup)
+303: - Abstract `render()` (single declaration)
+304: 
+305: **Removed:**
+306: - `describe()` — dead dual-init path
+307: - `update()` — trivial wrapper, children use message handlers
+308: - Auto-render in `set value()` — children decide when to render
+309: 
+310: **Kept in Component (available to all subclasses):**
+311: - `subscribe(tt, attribute, callback)` — generic observable subscription helper
+312: - `attach(addr)` — imperative N3TX.attach convenience (lazy-imported)
+313: 
+314: ### NTTElement (entity base) — `components/NTTElement.js`
+315: 
+316: **Owns:**
+317: - Default value: `{}`
+318: - Message handlers: `UPDATE(data)`, `DESCRIBE(data)`, `READ(data)`
+319: - `save()` — sends UPDATE TX with current value to `this.ref`
+320: - Override `set value()` — auto-renders when schema is available
+321: 
+322: **Does NOT own:**
+323: - Rendering (abstract — NTTItem provides default, devs override)
+324: - Edit UX (mode toggle, input binding — that's NTTItem's concern)
+325: 
+326: ### ListElement (collection base) — `components/ListElement.js`
+327: 
+328: **Owns:**
+329: - Default value: `[]`
+330: - `definedCallback()` — subscribes to proto, triggers collection READ
+331: - `UPDATE(data)` — receives array of addresses, sets value, renders
+332: - `append(data)` helper
+333: - Default `render()` — stamps `this.childTag` per address
+334: - `get childTag()` — overridable, defaults to `'ntx-item'`
+335: 
+336: ### Built-in Defaults
+337: 
+338: ```js
+339: // components/ntx-item.js — zero-config single entity
+340: class NTTItem extends NTTElement {
+341:   mode = 'display';
+342:   render() { /* Formidable auto-render + edit toggle + methods */ }
+343: }
+344: customElements.define('ntx-item', NTTItem);
+345: 
+346: // components/ntx-list.js — zero-config collection
+347: class NTTList extends ListElement {}
+348: customElements.define('ntx-list', NTTList);
+349: ```
+350: 
+351: ### File Changes (completed)
+352: 
+353: | File | Action | Lines |
+354: |---|---|---|
+355: | `core/Component.js` | **Rewritten** — merged base + adaptive display (§8) | 317 |
+356: | `components/NTTElement.js` | **New** — entity base extracted from old Item | 107 |
+357: | `components/ListElement.js` | **New** — collection base extracted from old List | 131 |
+358: | `components/ntx-item.js` | **Slimmed** — thin NTTItem default over NTTElement | 115 |
+359: | `components/ntx-list.js` | **Slimmed** — thin NTTList default over ListElement | 19 |
+360: | `components/ntx-element.js` | **Deleted** — absorbed into `core/Component.js` | - |
+361: | `generators/form.js` | **Enhanced** — field_order, widget, groups, validation (§4, §11) | 268 |
+362: 
+363: ### Issues Resolved
+364: 
+365: 1. Circular import (Component → ntx-item) — **gone**
+366: 2. Redundant `Actor.subclass(List)` — **removed**
+367: 3. `observedAttributes` override — **single unified list in Component**
+368: 4. Broken `disconnectedCallback` chain — **single implementation in Component**
+369: 5. Duplicate abstract `render()` — **single declaration in Component**
+370: 6. `define()` / `describe()` duality — **`describe()` removed, single lifecycle path**
+371: 7. `value` setter depending on `$schema` — **auto-render moved to NTTElement only**
+372: 8. Stylesheet boilerplate — **`get styles()` hook in Component base**
+373: 9. Hardcoded `<ntx-item>` in List — **`childTag` + `createChild()` + template support in ListElement**
+374: 
+375: ### Unchanged Files
+376: 
+377: `core/Matrix.js`, `core/Actor.js`, `core/Observable.js`, `core/TX.js`, `components/ntx-method.js` — the actor system and message infrastructure remain untouched. `core/N3TX.js` was modified for SSR pre-loading (§7). `generators/form.js` was enhanced with UI hint consumption, field ordering, widget mapping, grouped rendering (§4, §11), schema-aware relationship rendering (§13), and field-level access control (§12). `utils/Permissions.js` was added for frontend permissions (§12).
+378: 
+379: ---
+380: 
+381: ## 4. Enhancement: Schema UI Extensions (Backend) — DONE
+382: 
+383: ### Goal
+384: 
+385: Extend the JSON Schema with optional `ui` hints that default renderers respect and custom components can use or ignore.
+386: 
+387: ### Backend API
+388: 
+389: **Model-level** via new `__ui__` ClassVar:
+390: 

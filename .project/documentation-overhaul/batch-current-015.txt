@@ -1,0 +1,820 @@
+
+### docs/API_CRUD_ENDPOINTS.md (936 total lines)
+391: ### Response
+392: 
+393: **Success Status**: 200 OK
+394: 
+395: **Success Body**: Resource object with `$schema` and `$id`
+396: 
+397: ```json
+398: {
+399:   "$schema": "http://localhost:8000/User",
+400:   "$id": "http://localhost:8000/User/1",
+401:   "id": 1,
+402:   "name": "Alice Johnson",
+403:   "email": "alice@example.com",
+404:   "age": 28
+405: }
+406: ```
+407: 
+408: **Error Responses**:
+409: 
+410: | Status | Cause | Detail |
+411: |--------|-------|--------|
+412: | 404 | Resource not found | `"Not found"` |
+413: 
+414: ### Example
+415: 
+416: ```javascript
+417: // Get specific user
+418: async function getUser(userId) {
+419:   const response = await fetch(`http://localhost:8000/users/${userId}`);
+420:   
+421:   if (response.status === 404) {
+422:     console.error('User not found');
+423:     return null;
+424:   }
+425:   
+426:   return await response.json();
+427: }
+428: 
+429: // Usage
+430: const user = await getUser(1);
+431: if (user) {
+432:   console.log(user['$schema']); // "http://localhost:8000/User"
+433:   displayUserProfile(user);
+434: }
+435: ```
+436: 
+437: ---
+438: 
+439: ## Update Resource
+440: 
+441: Update an existing resource.
+442: 
+443: > **Generated-route contract:** HTTP `PUT` is patch-oriented. Omitted fields
+444: > remain unchanged. Supplied fields are merged with the current entity and the
+445: > complete result is validated through the original model before only the
+446: > supplied fields are persisted.
+447: 
+448: ### Request
+449: 
+450: ```
+451: PUT /{resource}/{id}
+452: ```
+453: 
+454: **Path Parameters**:
+455: - `id` (integer, required): Resource ID
+456: 
+457: **Query Parameters**: None
+458: 
+459: **Request Headers**:
+460: - `Content-Type: application/json` (required)
+461: 
+462: **Request Body**: Partial writable model representation
+463: 
+464: ```json
+465: {
+466:   "name": "Alice Johnson",
+467:   "email": "alice@example.com",
+468:   "age": 29
+469: }
+470: ```
+471: 
+472: **Update Behavior**:
+473: - Omitted fields remain unchanged, including required and defaulted fields
+474: - The merged complete entity must pass the original model's validation
+475: - An explicit `[]` or `{}` replaces/clears the complete stored field
+476: - Do not send the `id` field; identity comes from the route
+477: - Backend-owned protected fields are stripped
+478: - Foreign keys can be updated by passing new ID
+479: 
+480: For append/remove/toggle behavior on relationship collections, prefer a
+481: domain-specific `@expose_route` method instead of client-side array replacement.
+482: 
+483: ### Response
+484: 
+485: **Success Status**: 200 OK
+486: 
+487: **Success Body**: Updated resource (complete object) with `$schema` and `$id`
+488: 
+489: ```json
+490: {
+491:   "$schema": "http://localhost:8000/User",
+492:   "$id": "http://localhost:8000/User/1",
+493:   "id": 1,
+494:   "name": "Alice Johnson",
+495:   "email": "alice@example.com",
+496:   "age": 29
+497: }
+498: ```
+499: 
+500: **Error Responses**:
+501: 
+502: | Status | Cause | Detail |
+503: |--------|-------|--------|
+504: | 404 | Resource not found | `"Not found"` |
+505: | 400 | Validation error | Custom validation message |
+506: | 422 | Invalid field type | `"Invalid field 'age': ..."` |
+507: 
+508: ### Example
+509: 
+510: ```javascript
+511: // Update user's email
+512: async function updateUserEmail(userId, newEmail) {
+513:   const current = await getUser(userId);
+514:   const { id, $id, $schema, ...writable } = current;
+515:   const response = await fetch(`http://localhost:8000/users/${userId}`, {
+516:     method: 'PUT',
+517:     headers: {
+518:       'Content-Type': 'application/json'
+519:     },
+520:     body: JSON.stringify({ ...writable, email: newEmail })
+
+### docs/API_CRUD_ENDPOINTS.md (936 total lines)
+521:   });
+522:   
+523:   if (!response.ok) {
+524:     const error = await response.json();
+525:     console.error('Update failed:', error.detail);
+526:     return null;
+527:   }
+528:   
+529:   return await response.json(); // Complete updated object with $schema and $id
+530: }
+531: 
+532: // Update multiple fields while preserving the complete current representation
+533: await fetch('http://localhost:8000/users/1', {
+534:   method: 'PUT',
+535:   headers: { 'Content-Type': 'application/json' },
+536:   body: JSON.stringify({
+537:     name: 'Alice Johnson',
+538:     age: 29,
+539:     email: 'alice.new@example.com'
+540:   })
+541: });
+542: ```
+543: 
+544: **Concurrency warning**: updates are last-write-wins. A stale complete object can
+545: overwrite a newer scalar or collection value. Re-fetch before updating when
+546: concurrent writers are possible.
+547: 
+548: **Idempotency**: PUT requests are idempotent - making the same request multiple times produces the same result.
+549: 
+550: ---
+551: 
+552: ## Delete Resource
+553: 
+554: Permanently delete a resource.
+555: 
+556: ### Request
+557: 
+558: ```
+559: DELETE /{resource}/{id}
+560: ```
+561: 
+562: **Path Parameters**:
+563: - `id` (integer, required): Resource ID
+564: 
+565: **Query Parameters**: None
+566: 
+567: **Request Body**: None
+568: 
+569: ### Response
+570: 
+571: **Success Status**: 200 OK
+572: 
+573: **Success Body**: Confirmation message
+574: 
+575: ```json
+576: {
+577:   "message": "Deleted successfully"
+578: }
+579: ```
+580: 
+581: **Error Responses**:
+582: 
+583: | Status | Cause | Detail |
+584: |--------|-------|--------|
+585: | 404 | Resource not found | `"Not found"` |
+586: 
+587: ### Example
+588: 
+589: ```javascript
+590: // Delete user
+591: async function deleteUser(userId) {
+592:   const confirmed = confirm('Are you sure you want to delete this user?');
+593:   if (!confirmed) return false;
+594:   
+595:   const response = await fetch(`http://localhost:8000/users/${userId}`, {
+596:     method: 'DELETE'
+597:   });
+598:   
+599:   if (response.status === 404) {
+600:     alert('User not found');
+601:     return false;
+602:   }
+603:   
+604:   if (response.ok) {
+605:     const result = await response.json();
+606:     console.log(result.message); // "Deleted successfully"
+607:     return true;
+608:   }
+609:   
+610:   return false;
+611: }
+612: ```
+613: 
+614: **Important Notes**:
+615: - Deletion is permanent (no soft delete by default)
+616: - No cascade delete by default (foreign key references may become orphaned)
+617: - Idempotent: Deleting same ID twice returns 404 on second attempt
+618: 
+619: ---
+620: 
+621: ## Nested Resource Endpoints
+622: 
+623: When models have many-to-many relationships, N3TX creates nested endpoints under parent resources.
+624: 
+625: ### Pattern
+626: 
+627: For a Product with Comments:
+628: 
+629: ```python
+630: class Product(ProtoModel):
+631:     __tablename__ = 'products'
+632:     comments: List[Comment] = []
+633: ```
+634: 
+635: Generated endpoints:
+636: 
+637: | Operation | Method | Path | Description |
+638: |-----------|--------|------|-------------|
+639: | Create | POST | `/products/{parent_id}/comments` | Add comment to product |
+640: | List | GET | `/products/{parent_id}/comments` | Get product's comments |
+641: | Read | GET | `/products/{parent_id}/comments/{id}` | Get specific comment |
+642: | Update | PUT | `/products/{parent_id}/comments/{id}` | Update comment |
+643: | Delete | DELETE | `/products/{parent_id}/comments/{id}` | Remove comment |
+644: 
+645: ### Create Nested Resource
+646: 
+647: ```
+648: POST /{parent_resource}/{parent_id}/{child_resource}
+649: ```
+650: 
+
+### docs/API_CRUD_ENDPOINTS.md (936 total lines)
+651: **Path Parameters**:
+652: - `parent_id` (integer, required): Parent resource ID
+653: 
+654: **Request Body**: Child resource data
+655: 
+656: ```json
+657: {
+658:   "text": "Great product!",
+659:   "rating": 5,
+660:   "user": 1
+661: }
+662: ```
+663: 
+664: **Response** (201 Created):
+665: ```json
+666: {
+667:   "$schema": "http://localhost:8000/Comment",
+668:   "$id": "http://localhost:8000/Product/5/Comment/1",
+669:   "id": 1,
+670:   "text": "Great product!",
+671:   "rating": 5,
+672:   "user": 1,
+673:   "product_id": 5
+674: }
+675: ```
+676: 
+677: **Note**: `product_id` foreign key is automatically added.
+678: 
+679: ### List Nested Resources
+680: 
+681: ```
+682: GET /{parent_resource}/{parent_id}/{child_resource}
+683: ```
+684: 
+685: Returns only child resources belonging to specified parent:
+686: 
+687: ```json
+688: [
+689:   {
+690:     "$schema": "http://localhost:8000/Comment",
+691:     "$id": "http://localhost:8000/Product/5/Comment/1",
+692:     "id": 1,
+693:     "text": "Great product!",
+694:     "product_id": 5,
+695:     "user": 1
+696:   },
+697:   {
+698:     "$schema": "http://localhost:8000/Comment",
+699:     "$id": "http://localhost:8000/Product/5/Comment/2",
+700:     "id": 2,
+701:     "text": "Fast shipping",
+702:     "product_id": 5,
+703:     "user": 2
+704:   }
+705: ]
+706: ```
+707: 
+708: ### Example: Product Comments
+709: 
+710: ```javascript
+711: // Add comment to product
+712: async function addComment(productId, commentData) {
+713:   return await fetch(`http://localhost:8000/products/${productId}/comments`, {
+714:     method: 'POST',
+715:     headers: { 'Content-Type': 'application/json' },
+716:     body: JSON.stringify(commentData)
+717:   }).then(r => r.json());
+718: }
+719: 
+720: // Get all comments for a product
+721: async function getProductComments(productId) {
+722:   return await fetch(`http://localhost:8000/products/${productId}/comments`)
+723:     .then(r => r.json());
+724: }
+725: 
+726: // Update a comment
+727: async function updateComment(productId, commentId, updates) {
+728:   return await fetch(
+729:     `http://localhost:8000/products/${productId}/comments/${commentId}`,
+730:     {
+731:       method: 'PUT',
+732:       headers: { 'Content-Type': 'application/json' },
+733:       body: JSON.stringify(updates)
+734:     }
+735:   ).then(r => r.json());
+736: }
+737: 
+738: // Delete a comment
+739: async function deleteComment(productId, commentId) {
+740:   return await fetch(
+741:     `http://localhost:8000/products/${productId}/comments/${commentId}`,
+742:     { method: 'DELETE' }
+743:   ).then(r => r.json());
+744: }
+745: ```
+746: 
+747: ---
+748: 
+749: ## Collection Routes
+750: 
+751: When join models are registered (e.g., `ProductComment`, `ProductLike`), N3TX generates **collection routes** that return all child records across all parents.
+752: 
+753: ### Pattern
+754: 
+755: ```
+756: GET /{parent_table}/{child_table}
+757: ```
+758: 
+759: ### Examples
+760: 
+761: | Route | Returns |
+762: |-------|---------|
+763: | `GET /products/comments` | All comments across all products |
+764: | `GET /products/likes` | All favorites across all products |
+765: 
+766: ### Response
+767: 
+768: Collection routes support the same pagination as regular list endpoints:
+769: 
+770: ```bash
+771: # All comments (unpaginated)
+772: GET /products/comments
+773: 
+774: # Paginated
+775: GET /products/comments?limit=20&offset=0
+776: ```
+777: 
+778: Response format matches the standard list endpoint (plain array without params, `{data, meta}` with pagination).
+779: 
+780: **Note**: Collection routes are registered before CRUD routes (Pass 1) to avoid path conflicts with `{id:int}` segments. This ensures `/products/comments` is not interpreted as `/products/{id}` with `id="comments"`.
+
+### docs/API_CRUD_ENDPOINTS.md (936 total lines)
+781: 
+782: ---
+783: 
+784: ## Complete CRUD Workflow Example
+785: 
+786: ```javascript
+787: // 1. Create a product
+788: const product = await fetch('http://localhost:8000/products', {
+789:   method: 'POST',
+790:   headers: { 'Content-Type': 'application/json' },
+791:   body: JSON.stringify({
+792:     name: 'Laptop',
+793:     price: 999.99,
+794:     description: 'High-performance laptop'
+795:   })
+796: }).then(r => r.json());
+797: 
+798: console.log('Created:', product);
+799: // { "$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/Product/1", "id": 1, "name": "Laptop", ... }
+800: 
+801: // 2. Get all products
+802: const allProducts = await fetch('http://localhost:8000/products')
+803:   .then(r => r.json());
+804: 
+805: console.log('Total products:', allProducts.length);
+806: 
+807: // 3. Get specific product
+808: const retrievedProduct = await fetch('http://localhost:8000/products/1')
+809:   .then(r => r.json());
+810: 
+811: console.log('Retrieved:', retrievedProduct);
+812: // Includes $schema and $id
+813: 
+814: // 4. Update product price
+815: const updated = await fetch('http://localhost:8000/products/1', {
+816:   method: 'PUT',
+817:   headers: { 'Content-Type': 'application/json' },
+818:   body: JSON.stringify({ price: 899.99 })
+819: }).then(r => r.json());
+820: 
+821: console.log('Updated price:', updated.price); // 899.99
+822: 
+823: // 5. Add comment to product (nested resource)
+824: const comment = await fetch('http://localhost:8000/products/1/comments', {
+825:   method: 'POST',
+826:   headers: { 'Content-Type': 'application/json' },
+827:   body: JSON.stringify({
+828:     text: 'Great laptop!',
+829:     user: 1
+830:   })
+831: }).then(r => r.json());
+832: 
+833: console.log('Comment added:', comment);
+834: // Includes $schema and $id
+835: 
+836: // 6. Get product's comments
+837: const comments = await fetch('http://localhost:8000/products/1/comments')
+838:   .then(r => r.json());
+839: 
+840: console.log('Product has', comments.length, 'comments');
+841: 
+842: // 7. Delete product
+843: await fetch('http://localhost:8000/products/1', {
+844:   method: 'DELETE'
+845: });
+846: 
+847: console.log('Product deleted');
+848: ```
+849: 
+850: ---
+851: 
+852: ## TypeScript Integration
+853: 
+854: Generate TypeScript interfaces from schemas:
+855: 
+856: ```typescript
+857: // Fetch schema and generate types
+858: interface User {
+859:   $schema: string;
+860:   $id: string;
+861:   id: number;
+862:   name: string;
+863:   email: string;
+864:   age?: number;
+865: }
+866: 
+867: // Type-safe API calls
+868: async function getUser(id: number): Promise<User> {
+869:   const response = await fetch(`http://localhost:8000/users/${id}`);
+870:   return await response.json();
+871: }
+872: 
+873: async function createUser(data: Omit<User, 'id' | '$schema' | '$id'>): Promise<User> {
+874:   const response = await fetch('http://localhost:8000/users', {
+875:     method: 'POST',
+876:     headers: { 'Content-Type': 'application/json' },
+877:     body: JSON.stringify(data)
+878:   });
+879:   return await response.json();
+880: }
+881: ```
+882: 
+883: ---
+884: 
+885: ## Performance Considerations
+886: 
+887: ### Response Times
+888: 
+889: - **List operations**: Use `?limit=N&offset=M` for large datasets. The COUNT query runs before the SELECT, so paginated requests are efficient.
+890: - **Get by ID** is fast (single database lookup)
+891: - **Create/Update/Delete** are typically fast
+892: 
+893: ### Best Practices
+894: 
+895: 1. **Use pagination**: Pass `?limit=20` for list endpoints with many records
+896: 2. **Caching**: Consider caching GET responses in frontend
+897: 3. **Optimistic updates**: Update UI immediately, revert on error
+898: 4. **Batch operations**: For multiple creates, consider custom batch endpoint
+899: 
+900: ### Example: Optimistic Update
+901: 
+902: ```javascript
+903: async function updateUser(userId, updates) {
+904:   // 1. Optimistically update UI
+905:   const oldState = getCurrentUser();
+906:   updateUIWithNewState({ ...oldState, ...updates });
+907:   
+908:   try {
+909:     // 2. Send request
+910:     const result = await fetch(`http://localhost:8000/users/${userId}`, {
+
+### docs/API_CRUD_ENDPOINTS.md (936 total lines)
+911:       method: 'PUT',
+912:       headers: { 'Content-Type': 'application/json' },
+913:       body: JSON.stringify(updates)
+914:     });
+915:     
+916:     if (!result.ok) throw new Error('Update failed');
+917:     
+918:     // 3. Confirm with server response (includes $schema and $id)
+919:     const confirmedState = await result.json();
+920:     updateUIWithNewState(confirmedState);
+921:     
+922:   } catch (err) {
+923:     // 4. Revert on error
+924:     updateUIWithNewState(oldState);
+925:     showError('Failed to update user');
+926:   }
+927: }
+928: ```
+929: 
+930: ---
+931: 
+932: ## Next Steps
+933: 
+934: - [Custom Endpoints](./API_CUSTOM_ENDPOINTS.md) - Learn about `@expose_route` methods
+935: - [Data Models Reference](./API_DATA_MODELS.md) - Detailed schemas for each model
+936: - [API Overview](./API_OVERVIEW.md) - General conventions and error handling
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+1: # Custom Endpoints
+2: 
+3: Beyond standard CRUD operations, N3TX models can expose custom business logic through the `@expose_route` decorator. This document explains how these custom endpoints work from a frontend perspective.
+4: 
+5: ## Overview
+6: 
+7: Custom endpoints are defined in model classes using `@expose_route`:
+8: 
+9: ```python
+10: @expose_route('/login', methods=['POST'])
+11: def login(email: str, password: str) -> User:
+12:     # Custom logic
+13:     return user
+14: ```
+15: 
+16: The decorator creates an HTTP endpoint that frontend can call.
+17: 
+18: ---
+19: 
+20: ## Endpoint URL Patterns
+21: 
+22: Custom endpoint URLs depend on the method type:
+23: 
+24: | Method Type | URL Pattern | Example |
+25: |-------------|-------------|---------|
+26: | **Static Method** | `/{resource}{custom_path}` | `POST /users/login` |
+27: | **Class Method** | `/{resource}{custom_path}` | `GET /users/search` |
+28: | **Instance Method** | `/{resource}/{id}{custom_path}` | `POST /products/1/discount` |
+29: 
+30: ### Static Method
+31: 
+32: Called on the model class, not on a specific instance.
+33: 
+34: **Backend**:
+35: ```python
+36: @staticmethod
+37: @expose_route('/login', methods=['POST'])
+38: def login(email: str, password: str) -> User:
+39:     users = User.list()
+40:     return next(u for u in users if u.email == email)
+41: ```
+42: 
+43: **Frontend**:
+44: ```javascript
+45: // POST /users/login
+46: const user = await fetch('http://localhost:8000/users/login', {
+47:   method: 'POST',
+48:   headers: { 'Content-Type': 'application/json' },
+49:   body: JSON.stringify({
+50:     email: 'alice@example.com',
+51:     password: 'secret123'
+52:   })
+53: }).then(r => r.json());
+54: ```
+55: 
+56: ### Class Method
+57: 
+58: Called on the model class, has access to `cls`.
+59: 
+60: **Backend**:
+61: ```python
+62: @classmethod
+63: @expose_route('/search', methods=['GET'])
+64: def search(cls, query: str) -> List[User]:
+65:     return [u for u in cls.list() if query in u.name]
+66: ```
+67: 
+68: **Frontend**:
+69: ```javascript
+70: // GET /users/search
+71: const users = await fetch('http://localhost:8000/users/search', {
+72:   method: 'GET',  // Note: Even though backend uses GET, you must POST with body
+73:   headers: { 'Content-Type': 'application/json' },
+74:   body: JSON.stringify({
+75:     query: 'alice'
+76:   })
+77: }).then(r => r.json());
+78: ```
+79: 
+80: **Important**: Custom endpoints always require JSON body, even if declared as GET.
+81: 
+82: ### Instance Method
+83: 
+84: Operates on a specific resource instance (requires ID in path).
+85: 
+86: **Backend**:
+87: ```python
+88: @expose_route('/discount', methods=['POST'])
+89: def apply_discount(self, percentage: float) -> Product:
+90:     self.price = self.price * (1 - percentage / 100)
+91:     self.save()
+92:     return self
+93: ```
+94: 
+95: **Frontend**:
+96: ```javascript
+97: // POST /products/1/discount
+98: const updated = await fetch('http://localhost:8000/products/1/discount', {
+99:   method: 'POST',
+100:   headers: { 'Content-Type': 'application/json' },
+101:   body: JSON.stringify({
+102:     percentage: 10
+103:   })
+104: }).then(r => r.json());
+105: 
+106: console.log('New price:', updated.price);
+107: ```
+108: 
+109: ---
+110: 
+111: ## Automatic User Injection
+112: 
+113: Custom methods can receive the authenticated user automatically by declaring a `user` parameter. The route layer bridges the auth-layer identity (JWT dict) to the model-layer entity, respecting the separation of concerns between the `authorize` package and N3TX models.
+114: 
+115: ### How It Works
+116: 
+117: When a custom method declares a `user` parameter, the route handler:
+118: 
+119: 1. Skips `user` during request body parsing (it's never read from the POST body)
+120: 2. Extracts the JWT identity from the request (`request.state.user`)
+121: 3. Resolves the type based on the parameter's type hint:
+122:    - **Model class** (e.g., `User`) — fetches the full model instance via `User.get(user_id)`
+123:    - **`dict`** — passes the raw JWT payload `{"user_id", "email", "role"}`
+124:    - **No type hint** — passes the raw JWT dict
+125: 
+126: ### Example
+127: 
+128: **Backend**:
+129: ```python
+130: from .user_model import User
+
+### docs/API_CUSTOM_ENDPOINTS.md (1103 total lines)
+131: 
+132: class Product(ProtoModel):
+133:     @expose_route('/comment', methods=['POST'])
+134:     def comment(self, comment: Comment, user: User = None) -> Comment:
+135:         comment.user_owner = user.id if user else 1
+136:         created = Comment.create(comment)
+137:         self.update({'comments': [*(self.comments or []), created]})
+138:         return created
+139: ```
+140: 
+141: **Frontend** — `user` is NOT included in the request body:
+142: ```javascript
+143: // POST /products/1/comment
+144: await fetch('http://localhost:8000/products/1/comment', {
+145:   method: 'POST',
+146:   headers: {
+147:     'Content-Type': 'application/json',
+148:     'x-access-token': jwtToken
+149:   },
+150:   body: JSON.stringify({
+151:     comment: { name: "Great product!" }
+152:     // No "user" field — injected server-side from JWT
+153:   })
+154: });
+155: ```
+156: 
+157: ### Design: Auth/Model Boundary
+158: 
+159: The `authorize` package is standalone — it speaks plain dicts (`{"user_id", "email", "role"}`) and has zero N3TX model imports. The `_resolve_user()` bridge in the route layer translates between these two worlds:
+160: 
+161: ```
+162: JWT Middleware (authorize)          Route Layer (_resolve_user)         Model Layer
+163: ─────────────────────────          ─────────────────────────          ─────────────
+164: request.state.user =          →    type hint is User?            →    User.get(user_id)
+165:   {"user_id": 1,                     Yes → fetch model instance        → full User instance
+166:    "email": "alice@...",             No  → pass raw dict               → plain dict
+167:    "role": "user"}
+168: ```
+169: 
+170: This keeps the auth package decoupled from models while giving model methods access to the full entity when needed.
+171: 
+172: ### Rules
+173: 
+174: - `user` is a reserved parameter name — never included in request body parsing
+175: - The `user` parameter should have a default of `None` for unauthenticated endpoints
+176: - Works in both instance methods (`post_with_id`) and class/static methods (`post_no_id`)
+177: - The type hint drives resolution: `User` → model instance, `dict` → raw JWT payload
+178: 
+179: ---
+180: 
+181: ## Type-Driven File Materialization
+182: 
+183: When `n3tx_files` is imported, it registers a neutral argument materializer for
+184: parameters annotated as `File`. This lets model methods accept a file address in
+185: the request payload and receive an authorized `File` instance at invocation time.
+186: 
+187: ```python
+188: from n3tx_files import File
+189: 
+190: class Transcriber(ActorModel):
+191:     __tablename__ = 'transcribers'
+192:     __storable__ = False
+193: 
+194:     @expose_route('/transcribe', methods=['POST'])
+195:     async def transcribe(audio: File) -> dict:
+196:         local = await audio.ensure_local()
+197:         return {'path': local['path']}
+198: ```
+199: 
+200: Request body:
+201: 
+202: ```json
+203: {"audio": "http://localhost:5000/File/1"}
+204: ```
+205: 
+206: The value must be the canonical absolute `$id` of a File on the current API.
+207: 
+208: Rules:
+209: 
+210: - Materialization is type-gated: only parameters annotated as `File` resolve.
+211: - Plain `str` parameters receive the original string unchanged.
+212: - `File.resolve()` enforces `read` access before returning the metadata record.
+213: - Byte download remains explicit through `download` routes or `ensure_local()`;
+214:   materialization itself resolves metadata, not arbitrary external bytes.
+215: 
+216: ---
+217: 
+218: ## Request Format
+219: 
+220: ### HTTP Method
+221: 
+222: Custom endpoints can specify their HTTP method via the decorator:
+223: ```python
+224: @expose_route('/action', methods=['POST'])  # POST
+225: @expose_route('/data', methods=['GET'])     # GET (but still requires body)
+226: ```
+227: 
+228: **Frontend Impact**: Always use the specified HTTP method in `fetch()`.
+229: 
+230: ### Request Body
+231: 
+232: All custom endpoints require a JSON request body containing the method parameters.
+233: 
+234: **Parameter Mapping**:
+235: 
+236: Backend method signature:
+237: ```python
+238: def custom_method(self, name: str, age: int, active: bool = True):
+239:     pass
+240: ```
+241: 
+242: Frontend request body:
+243: ```json
+244: {
+245:   "name": "Alice",
+246:   "age": 28,
+247:   "active": false
+248: }
+249: ```
+250: 
+251: **Rules**:
+252: - Parameter names must match exactly (case-sensitive)
+253: - All parameters without defaults are required
+254: - Parameters with defaults are optional
+255: - `self`, `cls`, and `user` are never included in request body (see [Automatic User Injection](#automatic-user-injection))
+256: 
+257: ---
+258: 
+259: ## Response Format
+260: 

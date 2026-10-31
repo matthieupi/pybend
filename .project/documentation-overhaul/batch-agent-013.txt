@@ -1,0 +1,735 @@
+
+### .opencode/skills/improve-n3tx-alignement/SKILL.md (231 total lines)
+131: - Which callers, tests, and docs are likely affected?
+132: 
+133: ### 4. Frame the problem space
+134: 
+135: Before spawning sub-agents or proposing a final shape, write a user-facing explanation of the selected candidate:
+136: 
+137: - The N3TX philosophy or primitive the refactor should align with.
+138: - The constraints any new interface or module shape must satisfy.
+139: - The dependencies it needs to rely on or hide.
+140: - A rough illustrative code sketch to ground the constraints. This is not a proposal; it is only a way to make the problem concrete.
+141: - A compact work map showing likely implementation phases.
+142: 
+143: Show this to the user, then proceed to Step 5. The user can read and think while the sub-agents work in parallel.
+144: 
+145: ### 5. Design multiple N3TX-aligned approaches
+146: 
+147: Spawn 3+ sub-agents in parallel using the Agent tool. Each must produce a meaningfully different N3TX-aligned approach for the selected refactor.
+148: 
+149: Prompt each sub-agent with a technical brief containing:
+150: 
+151: - relevant file paths and execution paths
+152: - the current non-idiomatic shape
+153: - the N3TX primitives, conventions, or philosophy involved
+154: - what complexity should be hidden
+155: - what must remain stable for callers
+156: - test and migration constraints
+157: 
+158: Give each agent a different design constraint:
+159: 
+160: - Agent 1: **Maximize N3TX idiomaticity** — use existing framework primitives as directly as possible.
+161: - Agent 2: **Minimize migration risk** — preserve call sites and introduce alignment incrementally.
+162: - Agent 3: **Maximize declarative clarity** — move behavior into schemas, metadata, registration, or definitions where appropriate.
+163: - Agent 4, if applicable: **Optimize for extension** — create a composable N3TX-native seam for future features.
+164: 
+165: Each sub-agent outputs:
+166: 
+167: 1. Proposed architecture or interface shape.
+168: 2. Usage example showing how N3TX-facing callers would use it.
+169: 3. What N3TX primitive or philosophy it aligns with.
+170: 4. What complexity it hides or removes.
+171: 5. Migration path.
+172: 6. Test strategy.
+173: 7. Trade-offs and risks.
+174: 
+175: Present the designs sequentially, then compare them in prose.
+176: 
+177: After comparing, give your own recommendation. Be opinionated: choose the design that best improves N3TX alignment while keeping the implementation practical. If elements from different designs combine well, propose a hybrid.
+178: 
+179: ### 6. User picks an approach
+180: 
+181: If the user accepts the recommendation or chooses an approach, produce a concrete refactor RFC or implementation plan.
+182: 
+183: The plan should include:
+184: 
+185: - problem statement
+186: - N3TX alignment goal
+187: - proposed architecture
+188: - affected files and modules
+189: - migration sequence
+190: - compatibility notes
+191: - testing strategy
+192: - risks and open questions
+193: - small, reviewable implementation steps
+194: 
+195: If the user asks for implementation, follow the build agent workflow: present an implementation overview, wait for validation, implement in small steps, show diffs, and verify.
+196: 
+197: ## Evaluation Lens
+198: 
+199: When judging whether a change is truly N3TX-aligned, ask:
+200: 
+201: - Does it make the framework's intended mental model more visible?
+202: - Does it remove application-specific reinventions of N3TX behavior?
+203: - Does it remove more code, concepts, or special cases than it adds?
+204: - Does it reduce the number of places a concept must be updated?
+205: - Does it make common N3TX use cases easier while keeping advanced cases possible?
+206: - Does it make behavior discoverable through normal N3TX entry points?
+207: - Does it preserve or improve compatibility for existing callers?
+208: - Does it shift tests toward stable behavior boundaries?
+209: - Does it make future features easier to express in N3TX terms?
+210: 
+211: ## Anti-Patterns to Watch For
+212: 
+213: - Local mini-frameworks that duplicate N3TX primitives.
+214: - Imperative orchestration where declarative registration would be clearer.
+215: - Repeated metadata, schema, or configuration definitions across layers.
+216: - Callers reaching through N3TX abstractions into implementation details.
+217: - Tests coupled to internals that should be hidden by a N3TX boundary.
+218: - Feature code that bypasses discovery, lifecycle, routing, or resource conventions.
+219: - Naming or file placement that makes N3TX concepts hard to recognize.
+220: - Adapters that leak external service details into N3TX-facing modules.
+221: 
+222: ## Output Style
+223: 
+224: Use concise, structured, high-signal engineering artifacts:
+225: 
+226: - Lead with the strongest candidate or recommendation when one is clear.
+227: - Use compact tables for improvement options and trade-offs.
+228: - Include ASCII flow diagrams when they clarify ownership or migration.
+229: - Separate evidence from inference.
+230: - Say what is unknown rather than pretending certainty.
+231: - Keep proposals grounded in actual files, call paths, and tests.
+
+### .opencode/skills/n3tx-actors/SKILL.md (114 total lines)
+1: ---
+2: name: n3tx-actors
+3: description: N3TX actors, ActorModel, TX messages, Matrix routing, RemoteMatrix distributed refs, reusable compute capabilities, lifecycle events, and actor-oriented app design. Use when building actor-backed capabilities.
+4: argument-hint: "<actor capability>"
+5: ---
+6: 
+7: # N3TX Actors
+8: 
+9: Actors are the reusable compute and message boundary in N3TX.
+10: 
+11: ## Core concept
+12: 
+13: ```text
+14: TX(name, source, target, data, meta)
+15:    -> Matrix routes by target address
+16:    -> Actor / ActorModel handler
+17:    -> reply/error/stream TX
+18: ```
+19: 
+20: `ActorModel` combines model/schema/storage with actor messaging.
+21: 
+22: ## Use ActorModel for app capabilities
+23: 
+24: ```python
+25: from n3tx_actors.models.actor_model import ActorModel
+26: from n3tx_core.utils.decorators import expose_route
+27: 
+28: 
+29: class Calculator(ActorModel):
+30:     __tablename__ = 'calculators'
+31:     __storable__ = False
+32: 
+33:     @expose_route('/add', methods=['POST'])
+34:     def add(self, a: float, b: float) -> dict:
+35:         return {'result': a + b}
+36: ```
+37: 
+38: This capability can be used by UI, agents, MCP/tools, workflows, or other actors.
+39: 
+40: ## Addressing
+41: 
+42: ```text
+43: Class actor:    products
+44: Instance actor: products/1
+45: ```
+46: 
+47: For storable `ActorModel`, CRUD TX names include `schema`, `create`, `get`, `list`, `update`, `delete`.
+48: 
+49: ## When to use each shape
+50: 
+51: | Shape | Use when |
+52: |---|---|
+53: | `ActorModel` storable | Entity plus actor behavior |
+54: | `ActorModel` non-storable | Tool/service capability with schema-discoverable methods |
+55: | Plain `Actor` | Low-level actor without model/schema/storage needs |
+56: | `ActorProxy` | Wrap third-party object as actor |
+57: | `RemoteRef` | Explicit async handle for a remote `n3tx://...` model identity |
+58: | `NetworkAdapter` | Protocol bridge or external network boundary |
+59: 
+60: ## Distributed actor refs
+61: 
+62: Canonical distributed refs use class-name identity:
+63: 
+64: ```text
+65: n3tx://<service>/<ClassName>/<id>
+66: ```
+67: 
+68: `RemoteMatrix` routes those refs through existing remote class-name REST routes:
+69: 
+70: ```text
+71: TX(name='get', target='n3tx://storage/File/12')     -> GET  /File/12
+72: TX(name='process', target='n3tx://storage/File/12') -> POST /File/12/process
+73: TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})
+74:   -> RemoteMatrix.stream() -> remote generated SSE route -> TX chunks
+75: ```
+76: 
+77: For distributed streaming, keep the capability as an exposed actor/model method
+78: with `@expose_route(..., stream=True)`. `RemoteMatrix.stream()` reads the remote
+79: schema method route before falling back to the legacy method-name URL shape, so
+80: custom decorator routes remain the source of truth.
+81: 
+82: For explicit Python calls, use `ActorModel.ref()` rather than hidden network IO
+83: in normal field access:
+84: 
+85: ```python
+86: artifact = Artifact.ref('n3tx://storage/Artifact/42', matrix=matrix)
+87: data = await artifact.get()
+88: result = await artifact.call('process', mode='fast')
+89: ```
+90: 
+91: ## Lifecycle events
+92: 
+93: `ActorModel` publishes lifecycle TX after create/update/delete. Subscribers can power federation, audit, agents, or realtime bridges.
+94: 
+95: ## Guardrails
+96: 
+97: - Put reusable compute in actors, not hidden helpers.
+98: - Do not route internal work through plain HTTP.
+99: - Do not hide remote network IO behind ordinary model field access; use populate or `RemoteRef`.
+100: - Do not bypass `ActorModel` CRUD when actor routing is the app architecture.
+101: - Do not make the actor system depend on UI/HTML concerns.
+102: 
+103: ## Verification
+104: 
+105: - Actor is registered with Matrix under the expected address.
+106: - TX reaches the correct handler.
+107: - Errors return error TXs.
+108: - Exposed methods appear in schema and can be discovered as tools.
+109: - Remote refs route through Matrix adapter fallback and return TX replies/errors.
+110: - Remote streaming refs yield TX chunks/errors/end through `RemoteMatrix.stream()`.
+111: 
+112: ## Source-reading policy
+113: 
+114: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+
+### .opencode/skills/n3tx-agents/SKILL.md (106 total lines)
+1: ---
+2: name: n3tx-agents
+3: description: N3TX agents, AgentActor, AgentMixin, agentic models, tool discovery, Pydantic AI, actor tools, thread context, and agent streaming. Use when building LLM-powered N3TX features.
+4: argument-hint: "<agent feature>"
+5: ---
+6: 
+7: # N3TX Agents
+8: 
+9: Agents are actors that reason. Actors are tool collections. `@expose_route` methods are tools.
+10: 
+11: ## Import order
+12: 
+13: ```python
+14: import n3tx_agents  # before defining/importing __agent__ models
+15: ```
+16: 
+17: ## Path A: dynamic agents
+18: 
+19: ```python
+20: from n3tx_agents import AgentActor
+21: 
+22: scanner = AgentActor(
+23:     name='Grant Scanner',
+24:     prompt='Find grants and create records for new opportunities.',
+25:     tools=['grants', 'web_tools'],
+26:     llm='anthropic:claude-sonnet-4-5-20250929',
+27:     constraints={'max_iterations': 30},
+28: )
+29: 
+30: result = await scanner.run(task='Find renewable energy grants')
+31: ```
+32: 
+33: Via API:
+34: 
+35: ```text
+36: POST /agents
+37: POST /agents/{id}/run
+38: ```
+39: 
+40: ## Path B: agentic model methods
+41: 
+42: ```python
+43: class Product(ActorModel):
+44:     __tablename__ = 'products'
+45:     __storable__ = True
+46:     __agent__ = True
+47: 
+48:     @expose_route('/create_from_text', methods=['POST'])
+49:     async def create_from_text(self, text: str, tools: list = []) -> str:
+50:         result = await self.agentic(
+51:             task=text,
+52:             prompt='Parse text into a Product and save it.',
+53:             tools=['products'] + tools,
+54:         )
+55:         return result['answer']
+56: ```
+57: 
+58: ## Tool discovery
+59: 
+60: An agent's `tools` list contains actor addresses. For each actor:
+61: 
+62: - storable models produce CRUD tools: list/get/create/update/delete
+63: - `@expose_route` methods become method tools
+64: - tool names follow `{tablename}_{method}`
+65: - `user` parameters are injected and not exposed to LLM args
+66: 
+67: ## Tool actor pattern
+68: 
+69: ```python
+70: class WebTools(ActorModel):
+71:     __tablename__ = 'web_tools'
+72:     __storable__ = False
+73: 
+74:     @expose_route('/scrape', methods=['POST'])
+75:     async def scrape(self, url: str) -> dict:
+76:         ...
+77: ```
+78: 
+79: Do not create separate ad-hoc LLM tool registries when an actor method can expose the capability.
+80: 
+81: ## Streaming agents
+82: 
+83: Agent stream methods declare event schemas: `text`, `tool_call`, `tool_result`, `thinking`, `done`. Frontend components such as `ntx-chat` and `ntx-agent-live` handle typed stream events.
+84: 
+85: ## Testing agents
+86: 
+87: Use Pydantic AI `TestModel` instead of real LLMs:
+88: 
+89: ```python
+90: from pydantic_ai.models.test import TestModel
+91: 
+92: result = await agent.run(task='Hello', llm=TestModel(call_tools=[]))
+93: ```
+94: 
+95: Use file-based SQLite, not `:memory:`, when migrations are involved.
+96: 
+97: ## Guardrails
+98: 
+99: - Agents are data, not hardcoded bespoke workflows unless truly static.
+100: - Tools are actor/model methods, not separate tool decorators.
+101: - External APIs used by agents must be wrapped in tool actors/adapters.
+102: - Keep prompts/config in fields for dynamic agents when possible.
+103: 
+104: ## Source-reading policy
+105: 
+106: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+
+### .opencode/skills/n3tx-app-bootstrap/SKILL.md (154 total lines)
+1: ---
+2: name: n3tx-app-bootstrap
+3: description: N3TX application bootstrap with create_app, N3TXApp, routing levels, distributed remotes, package imports, static files, storage, ManyToMany relationship generation, n3tx-files, and model registration. Use when creating or wiring an N3TX app entrypoint.
+4: argument-hint: "<app bootstrap task>"
+5: ---
+6: 
+7: # N3TX App Bootstrap
+8: 
+9: ## Import order matters
+10: 
+11: Import packages that register mixins before defining/importing models that use their flags:
+12: 
+13: ```python
+14: import n3tx_ui      # enables __ui__ / ViewableMixin hooks
+15: import n3tx_agents  # enables __agent__ / AgentMixin hooks
+16: import n3tx_files   # enables File typed-argument materialization, when used
+17: 
+18: from models import Product, User
+19: ```
+20: 
+21: If a model with `__agent__ = True` is defined before `n3tx_agents` is imported, `AgentMixin` will not be injected.
+22: 
+23: ## Level 1: one-liner direct app
+24: 
+25: ```python
+26: from n3tx_core.app import create_app
+27: 
+28: app = create_app(models=[Product, User], storage='sqlite:///app.db')
+29: ```
+30: 
+31: ## Level 3: actor-routed app
+32: 
+33: ```python
+34: app = create_app(
+35:     models=[Product, User],
+36:     storage='sqlite:///app.db',
+37:     routing='actor',
+38: )
+39: ```
+40: 
+41: Use Level 3 when actor/network/agent integration matters. HTTP requests become TX messages routed through `NetworkAPI -> Matrix -> ActorModel`.
+42: 
+43: ## Distributed remotes
+44: 
+45: Distributed refs use deployment config by default:
+46: 
+47: ```text
+48: N3TX_SERVICE_NAME=api
+49: N3TX_SERVICE_TOKEN=...
+50: N3TX_REMOTES={"storage":{"url":"http://storage:7100","token":"..."}}
+51: ```
+52: 
+53: Apps can override config during bootstrap:
+54: 
+55: ```python
+56: app = create_app(
+57:     models=[Job],
+58:     storage='sqlite:///app.db',
+59:     routing='actor',
+60:     remotes={'storage': {'url': 'http://storage:7100', 'token': '...'}},
+61:     service_name='api',
+62:     service_token='...',
+63: )
+64: ```
+65: 
+66: With `routing='actor'` and configured `remotes`, bootstrap registers
+67: `RemoteMatrix` and injects `MatrixReferenceResolver` into compatible storage
+68: backends. Direct routing can store/canonicalize distributed refs, but remote
+69: method calls and remote populate require actor routing/resolver wiring.
+70: 
+71: ## Builder style
+72: 
+73: ```python
+74: from n3tx_core.app import N3TXApp
+75: 
+76: pb = N3TXApp(storage='sqlite:///app.db', routing='actor')
+77: pb.model(Product).model(User)
+78: app = pb.build()
+79: ```
+80: 
+81: ## Relationships and join models
+82: 
+83: When manually registering raw primitives, generated join models must be registered too. With the builder/factory, prefer the highest-level API available.
+84: 
+85: ```python
+86: from n3tx_core.models.proto_model import generate_join_model
+87: 
+88: ProductComment = generate_join_model(Product, Comment)
+89: ```
+90: 
+91: For shared field-declared relationships, prefer `ManyToMany[T]`:
+92: 
+93: ```python
+94: from n3tx_core.models.relationships import ManyToMany
+95: 
+96: class Product(ActorModel):
+97:     tags: ManyToMany[Tag] = []
+98: ```
+99: 
+100: `create_app()` / `N3TXApp` discover `ManyToMany` fields from the explicit model
+101: classes and generate/register link models in the same preparation flow as join
+102: models.
+103: 
+104: ## File capability bootstrap
+105: 
+106: `n3tx-files` is absent by default. Add it only when the app uses files:
+107: 
+108: ```python
+109: from n3tx_files import File, LocalFileStore, configure_file_store
+110: 
+111: configure_file_store(LocalFileStore('./file-blobs'))
+112: app = create_app(models=[File, Product], storage='sqlite:///app.db')
+113: ```
+114: 
+115: If `configure_file_store()` is omitted, `LocalFileStore` uses
+116: `N3TX_FILE_STORE_DIR` or `.n3tx-files/blobs`.
+117: 
+118: ## Static files
+119: 
+120: At runtime N3TX merges static directories from installed packages:
+121: 
+122: 1. app-specific static dirs
+123: 2. `n3tx-agents`
+124: 3. `n3tx-ui`
+125: 4. `n3tx-core`
+126: 
+127: The browser sees one URL namespace.
+128: 
+129: ## Bootstrap guardrails
+130: 
+
+### .opencode/skills/n3tx-app-bootstrap/SKILL.md (154 total lines)
+131: - Do not hand-register duplicate routes for normal model CRUD/actions.
+132: - Do not bypass `create_app()`/`N3TXApp` unless you need raw primitives.
+133: - Keep actor-routed apps on `ActorModel` for addressable capabilities.
+134: - Use actor routing when distributed refs must remote-populate or call methods.
+135: - Keep package import order explicit for UI/agent mixins.
+136: - Keep file byte storage behind `FileStore`; do not mount user uploads as static assets.
+137: 
+138: ## Verification
+139: 
+140: - Server starts from the app directory.
+141: - `GET /{ClassName}` returns schema.
+142: - `GET /{tablename}` returns data or auth-gated response.
+143: - Static shell loads frontend assets.
+144: - In actor routing, generated HTTP behavior matches direct routes.
+145: - With remotes configured, `RemoteMatrix` is registered and storage has a reference resolver.
+146: - `ManyToMany` link models/tables are present when declared.
+147: - File upload/download routes work when `File` is registered.
+148: 
+149: ## Source-reading policy
+150: 
+151: Read `AGENTS.md`, app-bootstrap docs, `BACKEND.md`, and `FRONTEND.md` as
+152: appropriate before source. Inspect framework source only when docs/skills are
+153: insufficient, stale, or contradicted by observed behavior. Update or propose
+154: docs/skills when gaps are found.
+
+### .opencode/skills/n3tx-authorization/SKILL.md (116 total lines)
+1: ---
+2: name: n3tx-authorization
+3: description: N3TX authorization and authentication with BaseUser, JWT, service-token remote refs, ABAC access rules, OWNER, ROLE, Where, field protection, and frontend access adaptation. Use when working on auth/access behavior.
+4: argument-hint: "<auth or access task>"
+5: ---
+6: 
+7: # N3TX Authorization
+8: 
+9: Authorization is backend-owned and schema-exposed. The frontend adapts; it is not the source of truth.
+10: 
+11: ## Built-in rules
+12: 
+13: ```python
+14: from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE, Where
+15: ```
+16: 
+17: Rules compose:
+18: 
+19: ```python
+20: OWNER | ROLE('admin')
+21: OWNER & Where(status='draft')
+22: ~ROLE('banned')
+23: ```
+24: 
+25: ## Model access
+26: 
+27: ```python
+28: class Product(ActorModel):
+29:     __owner_field__ = 'user_owner'
+30:     __access__ = {
+31:         'read': ANYONE,
+32:         'create': AUTHENTICATED,
+33:         'update': OWNER | ROLE('admin'),
+34:         'delete': ROLE('admin'),
+35:     }
+36: ```
+37: 
+38: If `__access__` is omitted, the schema exposes the authenticated wildcard fallback.
+39: 
+40: ## Method access
+41: 
+42: ```python
+43: @expose_route('/publish', methods=['POST'], access=OWNER | ROLE('admin'))
+44: def publish(self) -> dict:
+45:     return {'status': 'published'}
+46: ```
+47: 
+48: ## User injection
+49: 
+50: Custom methods can receive authenticated user context by declaring `user`:
+51: 
+52: ```python
+53: @expose_route('/comment', methods=['POST'], access=AUTHENTICATED)
+54: def comment(self, text: str, user: User = None) -> dict:
+55:     return {'author': user.id if user else None, 'text': text}
+56: ```
+57: 
+58: The `user` parameter is injected by the route layer and is not read from request body.
+59: 
+60: ## Protected fields
+61: 
+62: ```python
+63: class Comment(ActorModel):
+64:     __owner_field__ = 'user_owner'
+65:     __protected_fields__ = {'user_owner'}
+66:     user_owner: int | None = None
+67: ```
+68: 
+69: Protected fields are hidden in edit forms, auto-injected on create, and stripped on update.
+70: 
+71: ## Actor routing auth
+72: 
+73: In Level 3, auth is two-tier:
+74: 
+75: ```text
+76: NetworkAPI.request interceptor
+77:    -> identity/role gate and list SQL filter
+78: Matrix -> ActorModel.handler_crud
+79:    -> resource-aware OWNER check
+80: ```
+81: 
+82: ## Service-to-service auth for distributed refs
+83: 
+84: `RemoteMatrix` sends trusted backend identity and optional user continuity:
+85: 
+86: ```text
+87: Authorization: Bearer <remote-or-service-token>
+88: X-N3TX-Service: <local-service-name>
+89: X-N3TX-User: <json-user-context>  # optional
+90: ```
+91: 
+92: The receiving backend accepts the request only when the bearer token matches its
+93: configured `SERVICE_TOKEN`. If `X-N3TX-User` is present, it must be a JSON object
+94: and becomes `request.state.user`, so generated routes and ActorModel ABAC remain
+95: the authoritative authorization path. Service auth establishes backend trust; it
+96: does not replace model `__access__` or method `access=` rules.
+97: 
+98: ## Guardrails
+99: 
+100: - Do not rely on UI-only auth.
+101: - Do not duplicate access logic in frontend code as source of truth.
+102: - Do not bypass `__access__` with custom routes.
+103: - Do not trust request body for protected ownership fields.
+104: - Do not treat service tokens as user permissions; forward user context and let ABAC evaluate it.
+105: 
+106: ## Verification
+107: 
+108: - Unauthorized create/update/delete fails.
+109: - OWNER succeeds for owned records and fails for others.
+110: - Admin/role rules behave as expected.
+111: - Schema `access` section reflects rules for frontend adaptation.
+112: - Service-token remote calls reject invalid tokens and preserve forwarded user context.
+113: 
+114: ## Source-reading policy
+115: 
+116: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+
+### .opencode/skills/n3tx-backend/SKILL.md (170 total lines)
+1: ---
+2: name: n3tx-backend
+3: description: N3TX backend index/workflow: models, storage, distributed refs, auth, methods, actors, agents, files, app bootstrap, external integrations, and backend verification. Use when backend scope is broad or unclear; delegate focused tasks to specialist N3TX skills.
+4: argument-hint: "<backend feature>"
+5: ---
+6: 
+7: # N3TX Backend
+8: 
+9: Backend work in N3TX starts from models and actor boundaries, not hand-written controllers.
+10: 
+11: If the task is focused, prefer the specialist skill directly. Use
+12: `n3tx-skill-routing` when skill choice is ambiguous.
+13: 
+14: ## Backend mental model
+15: 
+16: ```text
+17: Pydantic model definition
+18:   -> ProtoModel schema pipeline
+19:   -> registered storage and routes
+20:   -> ActorModel TX dispatch when actor-capable
+21:   -> frontend/agent/tool discovery from schema
+22: ```
+23: 
+24: The backend is authoritative. It owns schema, validation, access control, routes, entity identity, and capability discovery.
+25: 
+26: ## Public imports
+27: 
+28: ```python
+29: from n3tx_core.app import create_app, N3TXApp
+30: from n3tx_core.models.proto_model import ProtoModel, generate_join_model
+31: from n3tx_core.models.base_user import BaseUser
+32: from n3tx_core.models.ref import Ref, ListRef
+33: from n3tx_core.models.relationships import ManyToMany
+34: from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE, Where
+35: from n3tx_core.utils.decorators import expose_route
+36: from n3tx_actors.models.actor_model import ActorModel
+37: from n3tx_files import File, LocalFileStore, configure_file_store
+38: ```
+39: 
+40: Use `ActorModel` when the model should participate in TX routing, agents, MCP, WebSocket, federation, lifecycle events, or reusable compute.
+41: 
+42: ## Delegate focused work
+43: 
+44: | Backend task | Prefer |
+45: |---|---|
+46: | Model fields/schema/validation | `n3tx-models` |
+47: | Relationships/pagination/ownership | `n3tx-storage-relationships` |
+48: | Distributed `Ref[T]`, `list[Ref[T]]`, remote populate | `n3tx-storage-relationships` + `n3tx-networking` |
+49: | Dict/list JSON storage | `n3tx-json-fields` |
+50: | File uploads/downloads/blob providers/materialization | `n3tx-files` |
+51: | Auth/access/JWT/protected fields | `n3tx-authorization` |
+52: | `@expose_route` methods/user injection/route grammar | `n3tx-methods-routes` |
+53: | Actor/TX/Matrix/lifecycle | `n3tx-actors` |
+54: | NetworkAPI/WebSocket/MCP/AP protocol bridges | `n3tx-networking` |
+55: | AgentMixin/AgentActor/tool discovery | `n3tx-agents` |
+56: | App bootstrap/static/import ordering | `n3tx-app-bootstrap` |
+57: | External APIs/webhooks/scraping/cloud services | `n3tx-external-integrations` |
+58: 
+59: ## Backend feature shape
+60: 
+61: ```python
+62: class Product(ActorModel):
+63:     __tablename__ = 'products'
+64:     __storable__ = True
+65:     __owner_field__ = 'user_owner'
+66:     __access__ = {
+67:         'read': ANYONE,
+68:         'create': AUTHENTICATED,
+69:         'update': OWNER | ROLE('admin'),
+70:         'delete': ROLE('admin'),
+71:     }
+72:     __ui__ = {'field_order': ['name', 'price'], 'renderer': {'item': 'ntx-item'}}
+73: 
+74:     name: str
+75:     price: float
+76:     user_owner: int | None = None
+77: 
+78:     @expose_route('/publish', methods=['POST'], access=OWNER | ROLE('admin'))
+79:     def publish(self, user=None) -> dict:
+80:         return {'status': 'published'}
+81: ```
+82: 
+83: ## Relationships
+84: 
+85: Prefer field-declared relationships over manual plumbing:
+86: 
+87: ```python
+88: class Product(ActorModel):
+89:     __tablename__ = 'products'
+90:     __storable__ = True
+91:     comments: ListRef['Comment'] = []       # parent-scoped children
+92:     tags: ManyToMany[Tag] = []              # shared independent entities
+93: ```
+94: 
+95: `ListRef[T]` expresses parent/child nesting. `ManyToMany[T]` expresses shared
+96: membership and is discovered by `create_app()` / `N3TXApp`, which generates the
+97: link model/table during bootstrap.
+98: 
+99: ## Distributed refs
+100: 
+101: Use `Ref[T]` for a single local/distributed model identity and `list[Ref[T]]` for
+102: JSON-backed pointer arrays. Keep `ListRef[T]` for local owned relationships.
+103: 
+104: ```python
+105: class Job(ActorModel):
+106:     __tablename__ = 'jobs'
+107:     __storable__ = True
+108: 
+109:     owner: Ref[User] | None = None
+110:     files: list[Ref[File]] = []
+111:     comments: ListRef[Comment] = []
+112: ```
+113: 
+114: Configured remote HTTP refs canonicalize to `n3tx://service/Class/id`. Actor
+115: routing with `remotes={...}` registers `RemoteMatrix` and injects a
+116: `MatrixReferenceResolver` so populate can best-effort resolve remote refs without
+117: making `n3tx-core` import actors.
+118: 
+119: ## Files
+120: 
+121: For detailed file behavior, load `n3tx-files`. This backend index only names the
+122: boundary: files are first-class metadata records and bytes live behind a
+123: `FileStore` provider.
+124: 
+125: ```python
+126: from n3tx_files import File, LocalFileStore, configure_file_store
+127: 
+128: configure_file_store(LocalFileStore('./file-blobs'))
+129: app = create_app(models=[File, Product], storage='sqlite:///app.db')
+130: ```

@@ -1,0 +1,538 @@
+
+### docs/frontend/PACKAGE_ARCHITECTURE.md (528 total lines)
+1: # N3TX Package Architecture
+2: 
+3: Module boundaries, dependency analysis, and packaging strategy for the N3TX frontend framework and its N3TX backend.
+4: 
+5: **Related:** `UI_SEPARATION_CONCERNS.md` covers the component-layer refactor in detail. This document focuses on the broader question of how the entire system should be organized into distributable units.
+6: 
+7: ---
+8: 
+9: ## 1. System Overview
+10: 
+11: ### What N3TX Is
+12: 
+13: N3TX (Named Transfer Type) is a schema-driven frontend framework built on vanilla JS Web Components. It pairs with a Python/FastAPI backend (N3TX) where **model definitions are the single source of truth**. The backend publishes JSON Schemas for every model. The frontend fetches these schemas at runtime, creates typed entity classes, and renders UI components that stay in sync via a message bus.
+14: 
+15: The framework's goal is to make storage, fetching, state management, and rendering automatic — replacing the need for Redux, fetch(), React, GraphQL, and similar tools. Developers define models on the backend and get a working UI with minimal frontend code.
+16: 
+17: ### Architecture Layers
+18: 
+19: The system has five distinct functional layers, listed from lowest (no dependencies) to highest (depends on everything below):
+20: 
+21: ```
+22: ┌─────────────────────────────────────────────┐
+23: │  Kit: NTTItem, NTTList, NTTMethod,          │  Zero-config defaults
+24: │       Formidable form generator             │  "Drop in HTML, it works"
+25: ├─────────────────────────────────────────────┤
+26: │  Components: Component, NTTElement,         │  Web Component base classes
+27: │              ListElement                    │  Developer extends these
+28: ├─────────────────────────────────────────────┤
+29: │  Core: N3TX, TT, DynamicClass,              │  Schema-driven data layer
+30: │        Transport (HTTP, WebSocket)          │  Framework-agnostic
+31: ├─────────────────────────────────────────────┤
+32: │  Actor: Actor, Matrix, TX, Observable       │  Message-passing infrastructure
+33: │                                             │  General-purpose, no DOM
+34: ├─────────────────────────────────────────────┤
+35: │  Utils: Assert, Logging, Utils, config      │  Pure utilities
+36: └─────────────────────────────────────────────┘
+37: ```
+38: 
+39: ### Backend (N3TX)
+40: 
+41: ```
+42: N3TX (Python/FastAPI)
+43:   models/proto_model.py    ProtoModel base class, schema generation (via proto_schema pipeline), model_response()
+44:   models/storable_mixin.py CRUD operations (create/get/list/update/delete)
+45:   models/*_model.py        Domain models (Product, Comment, Like, etc.)
+46:   storage/                 SQLite backend with FK hydration, migrations
+47:   api/routes_fastapi.py    Auto-generated CRUD routes from registered models
+48:   utils/decorators.py      @expose_route() for custom method endpoints
+49:   utils/registrar.py       Model registry
+50:   config.py                HOST, PORT, API_URL
+51:   main.py                  App entry point
+52: ```
+53: 
+54: ---
+55: 
+56: ## 2. Current File Structure and Import Graph
+57: 
+58: ### Frontend Files
+59: 
+60: ```
+61: static/
+62:   config.js                     Configuration (API_URL, event constants)
+63: 
+64:   core/
+65:     Actor.js                    Actor base class, subclass(), message routing
+66:     Matrix.js                   Root actor, message bus, dispatch
+67:     N3TX.js                      TT + N3TX + DynamicClass factory (prototype())
+68:     TX.js                       Transaction/event format
+69:     Observable.js               Signal/observe mixin
+70:     Component.js                HTMLElement + Actor bridge (to be merged)
+71:     Utils.js                    Pure utility functions
+72:     transport/
+73:       HTTP.js                   HTTP client (GET/POST/PUT/DELETE)
+74:       Socket.js                 WebSocket client with reconnect
+75:       NetworkAdapter.js         Transport abstraction layer
+76: 
+77:   components/
+78:     ntx-element.js              Entity-aware base component (to be merged with Component)
+79:     ntx-item.js                 Single entity display/edit (<ntx-item>)
+80:     ntx-list.js                 Collection display (<ntx-list>)
+81:     ntx-method.js               Method invocation buttons (<ntx-method>)
+82: 
+83:   generators/
+84:     form.js                     Formidable: schema-to-HTML form generator
+85: 
+86:   utils/
+87:     Assert.js                   Runtime assertions
+88:     Logging.js                  Styled console logging
+89:     registrar.js                Legacy callback registry (unused in v0.8)
+90: ```
+91: 
+92: ### Dependency Graph
+93: 
+94: Arrows mean "imports from". No arrow means no dependency.
+95: 
+96: ```
+97: config.js ──────────────────────────────────────── (imported by everything)
+98: 
+99: Utils.js ───────────────────────────────────────── (no imports)
+100: Assert.js ← config
+101: Logging.js ← config
+102: 
+103: TX.js ← Assert, Utils, config
+104: 
+105: Actor.js ← Assert, Logging, TX
+106: 
+107: Observable.js ← Actor, Assert
+108: 
+109: Matrix.js ← Actor, TX, NetworkAdapter, Assert, Logging, config
+110:   └── NetworkAdapter.js ← HTTP.js, Socket.js, Assert, Utils, config, Logging
+111:         ├── HTTP.js ─────────────────────────────── (no imports)
+112:         └── Socket.js ← Logging
+113: 
+114: N3TX.js ← Actor, Matrix, TX, Observable, NetworkAdapter, Assert, Utils, Logging, config
+115:   └── prototype() creates DynamicClass (extends N3TX, applies Actor.subclass + Observable)
+116: 
+117: Component.js ← Actor, Matrix, TX, Utils, Logging, [ntx-item.js ← CIRCULAR]
+118: 
+119: ntx-element.js ← Component, N3TX, TX, Matrix, Utils, Logging, [ntx-item.js ← CIRCULAR]
+120: 
+121: ntx-item.js ← ntx-element, N3TX, ntx-method, Formidable, TX, Assert, Logging
+122: ntx-list.js ← ntx-element, ntx-item, Observable, Actor, Utils, Logging
+123: ntx-method.js ← N3TX
+124: 
+125: form.js ← (no explicit imports, uses global N3TX — missing import bug)
+126: ```
+127: 
+128: ### Circular Dependencies
+129: 
+130: 1. **Component.js ↔ ntx-item.js**: Component.js has `import '../components/ntx-item.js'` (side-effect import for `customElements.define`). ntx-item.js imports Component.js through ntx-element.js. Managed by JS module system but architecturally wrong — a base class importing a grandchild. **Resolved by the component refactor** (see UI_SEPARATION_CONCERNS.md).
+
+### docs/frontend/PACKAGE_ARCHITECTURE.md (528 total lines)
+131: 
+132: 2. **form.js → N3TX (implicit global)**: Formidable calls `N3TX.get()` without importing N3TX. Works because `window.N3TX = N3TX` is set in N3TX.js, but fragile. Needs an explicit import.
+133: 
+134: ---
+135: 
+136: ## 3. Natural Package Boundaries
+137: 
+138: The dependency graph reveals four clean tiers with no upward imports between them. Each tier could be an independent package.
+139: 
+140: ### Tier 1: `@ntt/actor` — General-Purpose Actor System
+141: 
+142: **Files:**
+143: ```
+144: Actor.js, Matrix.js, TX.js, Observable.js
+145: + Utils.js, Assert.js, Logging.js, config.js (shared utilities)
+146: ```
+147: 
+148: **What it provides:**
+149: - Actor base class with address-based identity
+150: - `Actor.subclass(Type)` stamps messaging capabilities onto any class
+151: - Matrix: root actor, message routing (local children → parent hierarchy → root)
+152: - TX: typed transaction format (name, source, target, data, meta)
+153: - Observable: mixin adding signal/observe/notify to any Actor
+154: - No DOM dependency, no schema knowledge, no HTTP/WebSocket
+155: 
+156: **Who would use this alone:**
+157: - Developers wanting a message-passing actor model in the browser
+158: - Game developers, real-time collaborative UIs, event-driven architectures
+159: - Could run in Node/Deno (Matrix doesn't assume browser APIs)
+160: 
+161: **Independent value: HIGH.** Actor model implementations in vanilla JS are rare. This is a genuinely reusable library.
+162: 
+163: **Dependency: None** (only shared utils).
+164: 
+165: ### Tier 2: `@ntt/core` — Schema-Driven Data Layer
+166: 
+167: **Files:**
+168: ```
+169: N3TX.js (TT, N3TX, prototype()/DynamicClass factory)
+170: transport/HTTP.js, transport/Socket.js, transport/NetworkAdapter.js
+171: ```
+172: 
+173: **What it provides:**
+174: - TT (Transfer Type): base entity class with href, watch/notify, remote call()
+175: - N3TX: global schema registry, ATTACH/SCHEMA protocol, DynamicClass lifecycle
+176: - `prototype()`: factory that creates a typed DynamicClass from a JSON Schema
+177:   - Property accessors with type checking from schema
+178:   - Method proxies for schema-defined methods
+179:   - Instance management (create/update/track)
+180:   - Watcher pattern (components subscribe, get notified on data changes)
+181: - Transport: HTTP client, WebSocket client, NetworkAdapter abstraction
+182: - No DOM dependency, no rendering knowledge
+183: 
+184: **Who would use this alone (with `@ntt/actor`):**
+185: - React/Vue/Svelte developers with a N3TX backend who want schema-driven data without N3TX's web components
+186: - Anyone wanting automatic entity management from JSON Schema
+187: 
+188: **Example standalone usage:**
+189: ```js
+190: import { N3TX } from '@ntt/core';
+191: import { matrix } from '@ntt/actor';
+192: 
+193: // React component using N3TX data layer
+194: function ProductList() {
+195:   const [products, setProducts] = useState([]);
+196: 
+197:   useEffect(() => {
+198:     N3TX.attach('Product', (DynamicClass) => {
+199:       DynamicClass.observe('UPDATE', (data) => setProducts(data));
+200:       DynamicClass.call('READ', {});
+201:     });
+202:   }, []);
+203: 
+204:   return products.map(p => <div key={p.id}>{p.name}</div>);
+205: }
+206: ```
+207: 
+208: **Independent value: MEDIUM-HIGH.** The "schema from backend, typed data just works" story is valuable regardless of rendering framework. This is the part that replaces Redux + fetch + GraphQL.
+209: 
+210: **Dependency:** `@ntt/actor`
+211: 
+212: ### Tier 3: `@ntt/components` — Web Component Base Classes
+213: 
+214: **Files (after component refactor):**
+215: ```
+216: Component.js     — Merged base: HTMLElement + Actor + schema resolution
+217: NTTElement.js    — Single entity base class
+218: ListElement.js   — Collection base class
+219: ```
+220: 
+221: **What it provides:**
+222: - Component: the bridge between HTMLElement and the N3TX data layer
+223:   - Shadow DOM setup with stylesheet hook (`get styles()`)
+224:   - Actor identity (addr, hash, Matrix registration)
+225:   - Schema resolution: `model` attribute → ATTACH TX → N3TX core → `define(proto)` → `definedCallback()`
+226:   - Ref resolution: `ref` attribute → ATTACH/READ TX
+227:   - Value storage (getter/setter)
+228:   - Display mode via ResizeObserver (`displayMode` property for adaptive rendering)
+229:   - Abstract `render()` contract
+230: - NTTElement: single entity lifecycle
+231:   - Default value: `{}` (object)
+232:   - Message handlers: UPDATE, DESCRIBE, READ
+233:   - `save()` sends UPDATE TX back to backend
+234:   - Auto-render on value change when schema is ready
+235: - ListElement: collection lifecycle
+236:   - Default value: `[]` (array)
+237:   - Triggers collection READ on proto definition
+238:   - Stamps child components per item
+239:   - `get childTag()` hook, slot-based template support
+240:   - `item-tag` attribute for HTML-level customization
+241: 
+242: **Who would use this:**
+243: - Developers building custom web components for their domain with N3TX
+244: - The primary "developer API" of the framework
+245: 
+246: **Example usage:**
+247: ```js
+248: import { NTTElement } from '@ntt/components';
+249: 
+250: class InvoiceCard extends NTTElement {
+251:   get styles() { return './invoice-card.css'; }
+252:   render() {
+253:     const { number, total, status } = this.value;
+254:     this.shadowRoot.innerHTML = `
+255:       <div class="invoice">
+256:         <h2>#${number}</h2>
+257:         <span class="total">$${total}</span>
+258:         <span class="status ${status}">${status}</span>
+259:       </div>
+260:     `;
+
+### docs/frontend/PACKAGE_ARCHITECTURE.md (528 total lines)
+261:   }
+262: }
+263: customElements.define('invoice-card', InvoiceCard);
+264: ```
+265: 
+266: **Independent value: HIGH within the N3TX ecosystem.** This is the layer most developers interact with.
+267: 
+268: **Dependency:** `@ntt/core`
+269: 
+270: ### Tier 4: `@ntt/kit` — Batteries-Included Defaults
+271: 
+272: **Files:**
+273: ```
+274: ntx-item.js      — Zero-config entity component (auto-renders via Formidable)
+275: ntx-list.js      — Zero-config collection component
+276: ntx-method.js    — Method invocation buttons
+277: Formidable.js    — Schema-to-HTML form generator (renamed from form.js)
+278: ```
+279: 
+280: **What it provides:**
+281: - NTTItem: extends NTTElement with Formidable-powered auto-rendering, edit/save toggle, input binding, method button rendering. Registered as `<ntx-item>`.
+282: - NTTList: extends ListElement with zero configuration. Registered as `<ntx-list>`.
+283: - NTTMethod: renders callable methods from schema as buttons with parameter forms. Registered as `<ntx-method>`.
+284: - Formidable: schema-to-HTML generator
+285:   - `getForm(ntt, mode)` — full form from schema properties
+286:   - `getInput(ntt, key, mode)` — individual field rendering
+287:   - `getListInput()` — array/reference field rendering
+288:   - Support for text, number, boolean, checkbox, textarea, array, $ref, selfref types
+289: 
+290: **Who would use this:**
+291: - Rapid prototyping, admin panels, internal tools
+292: - Getting started with N3TX (zero frontend code needed)
+293: - Reference implementations for developers building custom components
+294: 
+295: **Example usage (HTML-only, zero JS):**
+296: ```html
+297: <ntx-list model="Product"></ntx-list>
+298: <!-- That's it. Schema fetched, data loaded, list rendered, items editable. -->
+299: ```
+300: 
+301: **Independent value: MEDIUM.** Essential for the "wow" demo and rapid development. Most production apps override pieces of it with custom components.
+302: 
+303: **Dependency:** `@ntt/components`
+304: 
+305: ### Tier 5: Add-ons (Optional)
+306: 
+307: **`@ntt/preload`** — SSR/Pre-loading:
+308: - Patches N3TX.ATTACH to check for inline `<script type="application/json" data-ntx-schema="...">` before making network requests
+309: - Eliminates the two round-trips (schema fetch + data fetch) for server-rendered pages
+310: - Backend renders HTML with pre-loaded JSON; frontend hydrates instantly
+311: - **Dependency:** `@ntt/core` (patches N3TX behavior)
+312: 
+313: **`@ntt/scaffold`** — Code Generation:
+314: - CLI tool or API endpoint that reads a model's schema and generates starter component files
+315: - Produces a working component with explicit render() that the developer customizes
+316: - Dev-time only, never shipped to production
+317: - **Dependency:** `@ntt/core` (reads schema), file system access
+318: 
+319: ---
+320: 
+321: ## 4. What Should vs Should Not Be Split
+322: 
+323: ### Split (clear independent value):
+324: 
+325: | Boundary | Why separate | Standalone consumer? |
+326: |---|---|---|
+327: | `@ntt/actor` | General-purpose actor model, no schema/DOM coupling | Game devs, event architectures, any message-passing app |
+328: | `@ntt/core` | Schema-driven data layer, rendering-framework-agnostic | React/Vue/Svelte developers using N3TX backend |
+329: | `@ntt/components` | DOM-specific base classes developers extend | N3TX web component developers |
+330: | `@ntt/kit` | Opinionated defaults that shouldn't be in the base | Rapid prototyping, admin panels |
+331: | `@ntt/preload` | Deploy-time optimization, not universally needed | Server-rendered N3TX apps |
+332: | `@ntt/scaffold` | Dev-time tooling, never shipped to production | Developers generating starter components |
+333: 
+334: ### Do NOT split (too coupled or too small):
+335: 
+336: | What | Why keep together |
+337: |---|---|
+338: | Adaptive rendering + `@ntt/components` | `displayMode` belongs on Component base. ResizeObserver is cheap; every component benefits; costs nothing if unused. |
+339: | Transport + `@ntt/core` | NetworkAdapter only speaks N3TX's TX protocol. Useless without N3TX. |
+340: | Formidable + `@ntt/kit` | Formidable only exists to serve NTTItem's auto-render. No standalone consumer. |
+341: | Backend UI schema extensions + N3TX | ~30-40 lines in ProtoModel.schema(). Not worth a package boundary. |
+342: | Observable + `@ntt/actor` | Tightly integrated mixin applied via Actor.subclass(). No value alone. |
+343: | Utils/Assert/Logging + any tier | Shared utilities. Duplicating them across packages adds bloat. Ship as internal shared dependency or include in `@ntt/actor` (lowest tier). |
+344: 
+345: ---
+346: 
+347: ## 5. The Backend: Don't Split
+348: 
+349: All backend enhancements belong in the existing `n3tx` package:
+350: 
+351: **Schema UI extensions** (`__ui__` class variable, `json_schema_extra` ui keys):
+352: - Adds ~30 lines to `ProtoModel.schema()` method
+353: - Too small for its own package
+354: - Tightly coupled to schema generation which is core to ProtoModel
+355: 
+356: **Scaffolding** (code generation from schema):
+357: - Reads models from the same codebase it's scaffolding for
+358: - Best as a CLI subcommand: `python -m n3tx scaffold Product`
+359: - Or a dev-mode API endpoint: `GET /Product?scaffold=item`
+360: 
+361: **Schema pre-loading helper** (server-side template rendering):
+362: - A FastAPI utility that inlines schema + data into HTML responses
+363: - Lives alongside the existing route factories in `api/`
+364: 
+365: The backend is a single coherent unit. Its models, storage, routes, and schema generation are tightly coupled by design — the schema IS the model.
+366: 
+367: ---
+368: 
+369: ## 6. Dependency Rules
+370: 
+371: Each package tier may only import from tiers below it. Never upward.
+372: 
+373: ```
+374: @ntt/kit        → @ntt/components, @ntt/core, @ntt/actor
+375: @ntt/components → @ntt/core, @ntt/actor
+376: @ntt/core       → @ntt/actor
+377: @ntt/actor      → (nothing)
+378: @ntt/preload    → @ntt/core
+379: @ntt/scaffold   → @ntt/core (reads schema)
+380: ```
+381: 
+382: **Violations in current code (to fix during refactor):**
+383: 1. `Component.js` imports `ntx-item.js` (tier 3 importing tier 4) — dies in refactor
+384: 2. `form.js` uses global `window.N3TX` without import — needs explicit import from `@ntt/core`
+385: 3. `ntx-list.js` calls `Actor.subclass(List)` directly (tier 4 reaching into tier 1 internals) — unnecessary, inherited through Component
+386: 
+387: ---
+388: 
+389: ## 7. Practical Strategy: Monorepo with Clean Boundaries
+390: 
+
+### docs/frontend/PACKAGE_ARCHITECTURE.md (528 total lines)
+391: **Don't publish 5+ npm packages today.** Instead, organize as if they're separate packages — clean directory boundaries, barrel exports, enforced dependency direction — and ship as one until there's demand for independent use.
+392: 
+393: ### Target Directory Structure
+394: 
+395: ```
+396: ntt/
+397:   actor/                    ← @ntt/actor boundary
+398:     index.js                  Barrel: exports Actor, Matrix, TX, Observable
+399:     Actor.js
+400:     Matrix.js
+401:     TX.js
+402:     Observable.js
+403: 
+404:   core/                     ← @ntt/core boundary
+405:     index.js                  Barrel: exports N3TX, TT
+406:     N3TX.js
+407:     transport/
+408:       index.js
+409:       HTTP.js
+410:       Socket.js
+411:       NetworkAdapter.js
+412: 
+413:   components/               ← @ntt/components boundary
+414:     index.js                  Barrel: exports Component, NTTElement, ListElement
+415:     Component.js              Merged base (HTMLElement + Actor + schema)
+416:     NTTElement.js             Single entity base class
+417:     ListElement.js            Collection base class
+418: 
+419:   kit/                      ← @ntt/kit boundary
+420:     index.js                  Barrel: exports NTTItem, NTTList, NTTMethod, Formidable
+421:     ntx-item.js               Zero-config entity component
+422:     ntx-list.js               Zero-config list component
+423:     ntx-method.js             Method buttons
+424:     Formidable.js             Schema-to-HTML generator
+425: 
+426:   addons/
+427:     preload.js              ← @ntt/preload
+428:     adaptive.js             ← Mixin for display mode (may move to components/)
+429: 
+430:   utils/                    ← Shared internals (not a public package)
+431:     Assert.js
+432:     Logging.js
+433:     Utils.js
+434: 
+435:   config.js
+436: ```
+437: 
+438: ### Barrel Exports
+439: 
+440: Each directory exposes a clean public API:
+441: 
+442: ```js
+443: // actor/index.js
+444: export { default as Actor } from './Actor.js';
+445: export { Matrix, matrix } from './Matrix.js';
+446: export { default as TX } from './TX.js';
+447: export { default as Observable } from './Observable.js';
+448: 
+449: // core/index.js
+450: export { N3TX } from './N3TX.js';
+451: export { NetworkAdapter } from './transport/NetworkAdapter.js';
+452: 
+453: // components/index.js
+454: export { Component } from './Component.js';
+455: export { NTTElement } from './NTTElement.js';
+456: export { ListElement } from './ListElement.js';
+457: 
+458: // kit/index.js
+459: export { NTTItem } from './ntx-item.js';
+460: export { NTTList } from './ntx-list.js';
+461: export { NTTMethod } from './ntx-method.js';
+462: export { Formidable } from './Formidable.js';
+463: ```
+464: 
+465: ### Entry Points
+466: 
+467: HTML files import from barrel exports:
+468: 
+469: ```html
+470: <!-- Minimal: just the data layer (for React/Vue integration) -->
+471: <script type="module">
+472:   import { N3TX } from './core/index.js';
+473: </script>
+474: 
+475: <!-- Standard: custom components -->
+476: <script type="module">
+477:   import { NTTElement, ListElement } from './components/index.js';
+478: </script>
+479: 
+480: <!-- Full: zero-config defaults -->
+481: <script type="module">
+482:   import './kit/index.js';  // Registers <ntx-item>, <ntx-list>, <ntx-method>
+483: </script>
+484: <ntx-list model="Product"></ntx-list>
+485: ```
+486: 
+487: ### When to Extract to Actual Packages
+488: 
+489: Extract a tier to its own npm package when:
+490: 1. **An external consumer appears** — someone wants `@ntt/actor` without the rest
+491: 2. **Version cadence diverges** — actor system stabilizes while components iterate rapidly
+492: 3. **Bundle size matters** — tree-shaking isn't enough and consumers need to avoid loading unused tiers
+493: 
+494: Until then, the directory structure IS the package boundary. Extraction is mechanical: move directory, add `package.json`, publish. No code changes needed because imports already respect the boundary.
+495: 
+496: ---
+497: 
+498: ## 8. Enhancement Features by Package
+499: 
+500: The following enhancements are planned (see UI_SEPARATION_CONCERNS.md for component-level detail). Each belongs to a specific package tier:
+501: 
+502: | Enhancement | Package | Description |
+503: |---|---|---|
+504: | UI hints in schema | Backend (n3tx) | `__ui__` class variable and `json_schema_extra` ui keys on fields. Schema emits `ui` section with groups, field_order, widget types, display modes. |
+505: | Slot-based list templates | `@ntt/components` (ListElement) | `<template item-template>` in light DOM provides child element template. Resolution chain: template > `item-tag` attr > `childTag` property > schema hint > `'ntx-item'` fallback. |
+506: | Schema renderer hint | `@ntt/components` + backend | Schema `ui.renderer.item` / `ui.renderer.list` suggests which component tag to use. Part of the slot resolution chain. |
+507: | Schema pre-loading | `@ntt/preload` addon | N3TX.ATTACH checks for inline `<script data-ntx-schema>` before network fetch. Eliminates async bootstrap latency. |
+508: | Adaptive rendering | `@ntt/components` (Component) | ResizeObserver on Component base exposes `displayMode` (page/card/list-item/chip). Schema `ui.display_modes` defines which fields per mode. |
+509: | Field exclusion | Backend + `@ntt/kit` (Formidable) | Schema `ui.display: false` per field + conventions (`*_id`, `id`, timestamps). Formidable checks before rendering. |
+510: | Template scaffolding | `@ntt/scaffold` CLI tool | Generates starter component files from schema. Dev customizes from working code instead of writing from scratch. |
+511: | Schema-driven validation | `@ntt/kit` (Formidable) | Auto-applies HTML5 validation attributes (required, min, max, pattern) from schema constraints. |
+512: | Field-level permissions | `@ntt/components` + backend | Schema `access` per field. Component disables/hides fields based on user role. |
+513: | Relationship rendering | `@ntt/kit` (Formidable) | `list[T]` fields render hydrated child objects with schema-aware item components. |
+514: 
+515: ---
+516: 
+517: ## 9. The One Split to Do Now
+518: 
+519: Before the full directory reorganization, make one structural change: **separate `actor/` from `core/`**.
+520: 
+
+### docs/frontend/PACKAGE_ARCHITECTURE.md (528 total lines)
+521: This is the highest-value boundary because:
+522: 
+523: 1. **The Actor system has genuine independent utility** beyond N3TX and N3TX
+524: 2. **It's the only layer with zero DOM dependency** — could run server-side
+525: 3. **It forces clean interfaces** between messaging infrastructure and schema concerns
+526: 4. **N3TX.js currently imports Actor, Matrix, TX, Observable directly** — moving these to `actor/` makes the dependency explicit via an import path change
+527: 
+528: Everything else can remain as directory boundaries within the existing structure, to be reorganized when the component refactor (UI_SEPARATION_CONCERNS.md) is implemented.

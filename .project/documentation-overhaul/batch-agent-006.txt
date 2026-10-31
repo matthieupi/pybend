@@ -1,0 +1,512 @@
+
+### .agents/prompts/deep-audit.md (616 total lines)
+391: <list all analysis file paths>
+392: 
+393: ## Project Context
+394: <relevant CLAUDE.md sections>
+395: 
+396: ## Output Structure
+397: 
+398: Write the final audit to: <output path>
+399: 
+400: The document MUST follow this exact structure:
+401: 
+402: # <Subsystem> — Deep Audit Report
+403: 
+404: ## Executive Summary
+405: 3-5 paragraphs written for a **technical CEO and engineering leads**:
+406: what this subsystem does, how well it does it, the most important findings,
+407: the top 3 recommendations, and the top 3 strategic improvement propositions.
+408: Frame findings in terms of engineering velocity, system resilience, and
+409: developer experience — not just correctness. A reader should be able to stop
+410: here and know what needs attention and what investments would pay off.
+411: 
+412: ## Component Overview
+413: Consolidated component map with relationships. ASCII diagram of the full
+414: subsystem showing all components and their connections.
+415: 
+416: ## Key Findings
+417: 
+418: ### Critical Issues
+419: Issues that could cause bugs, data loss, security problems, or silent
+420: incorrect behavior. Each entry:
+421: - **Finding**: one-line description
+422: - **Evidence**: file:line reference and code snippet
+423: - **Severity**: Critical / High / Medium
+424: - **Recommendation**: specific fix or investigation needed
+425: 
+426: ### Design Strengths
+427: What the current design does well. Important for knowing what NOT to
+428: change during refactoring. Each entry with evidence.
+429: 
+430: ### Design Trade-offs
+431: Intentional trade-offs: what was gained, what was sacrificed, and whether
+432: the trade-off still makes sense given current requirements.
+433: 
+434: ### Improvement Opportunities
+435: Non-critical improvements ranked by impact/effort ratio. Table format:
+436: | # | Improvement | Impact | Effort | Category |
+437: 
+438: ## Strategic Propositions
+439: 
+440: This section is the forward-looking heart of the audit. Each proposition is
+441: a concrete, evidence-based recommendation for improving the subsystem —
+442: not a vague suggestion. Written for a technical CEO deciding what to invest
+443: in and an engineering team deciding how to execute.
+444: 
+445: ### Simplification Propositions
+446: Mental model reductions, interface tightening, concept unification. For each:
+447: - **Current state** with file:line references
+448: - **Proposed change** with code sketches or API signatures
+449: - **What gets simpler**: fewer concepts, fewer files, less cognitive load
+450: - **Migration path**: how to get there incrementally
+451: - **Risk**: what could go wrong
+452: 
+453: ### Composability & Extensibility Propositions
+454: Designs that make extension additive and composition natural. For each:
+455: - **Current friction**: what's hard to do today and why
+456: - **Proposed design** with concrete code examples
+457: - **What it enables**: new capabilities or use cases unlocked
+458: - **Effort estimate**: Small / Medium / Large
+459: 
+460: ### Resilience Propositions
+461: Failure modes, error recovery, graceful degradation. For each:
+462: - **Current failure mode**: what breaks and how
+463: - **Proposed improvement** with specific patterns
+464: - **Blast radius reduction**: how the improvement contains failures
+465: 
+466: ### Proposition Priority Matrix
+467: All propositions in a single table, ranked by impact/effort:
+468: | # | Proposition | Simplifies | Impact | Effort | Risk | Enables |
+469: 
+470: Mark dependencies between propositions (e.g., "P2 depends on P1").
+471: Identify quick wins (high impact, low effort) and strategic investments
+472: (high impact, high effort but unlocks future work).
+473: 
+474: ## Downstream Use Guide
+475: 
+476: ### For Bug Hunting
+477: - Known risk areas ranked by probability of containing bugs
+478: - Untested edge cases with specific scenarios to test
+479: - Suggested test cases to write (function names and what they verify)
+480: 
+481: ### For Feature Development
+482: - Extension points with difficulty ratings and examples
+483: - Patterns to follow (cite existing code as templates)
+484: - Constraints to be aware of before starting
+485: - Common pitfalls when modifying this subsystem
+486: 
+487: ### For Integration Planning
+488: - All integration boundaries with data contracts
+489: - Dependencies and their stability assessment
+490: - Impact analysis checklist: what to verify when changing this subsystem
+491: - Compatibility considerations for connecting new subsystems
+492: 
+493: ### For Refactoring
+494: - Technical debt items ranked by severity and coupling risk
+495: - Suggested refactoring sequence (dependency order — what to change first)
+496: - Risk assessment for each proposed change
+497: - Before/after sketches for major refactoring candidates
+498: 
+499: ## Appendix: Complete Finding Index
+500: Table of ALL findings and propositions across all dimensions:
+501: | ID | Dimension | Type | Severity | Finding/Proposition | File(s) | Status |
+502: 
+503: (Type: Finding / Proposition)
+504: 
+505: ## Rules
+506: - Cross-reference findings across dimension reports — if Architecture and
+507:   Quality both flag the same area, consolidate into one finding.
+508: - Cross-reference improvement propositions with findings — if a proposition
+509:   directly addresses a finding, link them explicitly.
+510: - Resolve contradictions: if one report says X is good and another says X
+511:   is risky, investigate and take a position.
+512: - Every finding must have a file:line citation.
+513: - Every proposition must include a concrete code sketch or API signature —
+514:   not just a description of what should change.
+515: - The Strategic Propositions section should be actionable enough that an
+516:   engineer could create a task or PR from any single proposition.
+517: - The Downstream Use Guide sections must be ACTIONABLE — a developer should
+518:   be able to pick up any section and start working immediately.
+519: - Target: 1000-1500 lines for the complete document.
+520: ```
+
+### .agents/prompts/deep-audit.md (616 total lines)
+521: 
+522: **Wait for the synthesis agent to complete.**
+523: 
+524: ---
+525: 
+526: ## Phase 4: Delivery
+527: 
+528: After the final audit is written, verify it exists and report:
+529: 
+530: ### Deep mode delivery:
+531: 
+532: > **Deep Audit Complete: `<subsystem>`**
+533: >
+534: > | Deliverable | File | Lines |
+535: > |------------|------|-------|
+536: > | Architecture & Design | `01-architecture.md` | N |
+537: > | API & Contracts | `02-api-contracts.md` | N |
+538: > | Quality & Risks | `03-quality-risks.md` | N |
+539: > | Extensibility | `04-extensibility.md` | N |
+540: > | Strategic Improvements | `05-improvements.md` | N |
+541: > | **Final Audit** | `06-<subsystem>-audit.md` | N |
+542: >
+543: > **Top 3 findings:**
+544: > 1. [most critical finding — one line]
+545: > 2. [second finding — one line]
+546: > 3. [third finding — one line]
+547: >
+548: > **Top 3 propositions:**
+549: > 1. [highest-impact proposition — one line + effort estimate]
+550: > 2. [second proposition — one line + effort estimate]
+551: > 3. [third proposition — one line + effort estimate]
+552: >
+553: > **How to use this audit:**
+554: > - **5 min**: Executive Summary in the final audit — big picture, key decisions, and strategic direction
+555: > - **15 min**: Key Findings + Strategic Propositions — what needs attention and what to invest in
+556: > - **30 min**: Downstream Use Guide — actionable next steps for your specific goal
+557: > - **Deep dive**: Individual dimension reports — every detail with file:line refs
+558: >
+559: > **Next steps:** Use these findings with `/bugfix`, `/ideation`, or
+560: > `/gsd:plan-phase` to act on specific recommendations or propositions.
+561: 
+562: ### Quick mode delivery:
+563: 
+564: > **Deep Audit Complete: `<subsystem>`** (quick mode)
+565: >
+566: > | Deliverable | File | Lines |
+567: > |------------|------|-------|
+568: > | Architecture & API | `01-architecture-api.md` | N |
+569: > | Quality & Extensibility | `02-quality-extensibility.md` | N |
+570: > | **Final Audit** | `03-<subsystem>-audit.md` | N |
+571: >
+572: > **Top 3 findings:**
+573: > 1. [most critical finding — one line]
+574: > 2. [second finding — one line]
+575: > 3. [third finding — one line]
+576: 
+577: ---
+578: 
+579: ## Error Handling
+580: 
+581: - If the subsystem name matches no files, search for partial matches and
+582:   similar names in the codebase. Suggest alternatives and ask the user to
+583:   pick one.
+584: - If an analysis agent produces an empty or very short file (< 100 lines),
+585:   resume it with instructions to expand, citing which sections are missing.
+586: - If the synthesis agent produces fewer than 800 lines, resume it with
+587:   instructions to expand the Strategic Propositions, Downstream Use Guide,
+588:   and Finding Index.
+589: - If the user's subsystem description is ambiguous (e.g., "model" could mean
+590:   ProtoModel, ActorModel, or data models), ask one clarifying question using
+591:   AskUserQuestion before proceeding.
+592: - If an agent fails entirely, relaunch it once with the same prompt.
+593: 
+594: ---
+595: 
+596: ## Quality Standards for All Reports
+597: 
+598: These are embedded in every agent prompt:
+599: 
+600: 1. **Read the code, don't guess.** Every claim must cite file:line.
+601: 2. **Be concrete.** "The error handling is weak" is useless. "In actor.py:142,
+602:    `send()` catches Exception but logs nothing — a failed message is silently
+603:    dropped" is useful.
+604: 3. **Show, don't tell.** Include code snippets for bugs, patterns, and examples.
+605: 4. **Quantify when possible.** "3 of 7 public methods lack input validation"
+606:    beats "some methods lack validation."
+607: 5. **Distinguish fact from opinion.** "This IS a bug" vs "This COULD be a bug
+608:    under condition X" — be explicit about certainty level.
+609: 6. **Judge against the project's own philosophy.** Read CLAUDE.md. Evaluate
+610:    against the project's stated principles, not generic best practices from
+611:    a textbook.
+612: 7. **Think about the reader.** The audience is a technical CEO deciding what to
+613:    invest in and an engineering team deciding how to execute. The Executive
+614:    Summary and Strategic Propositions must work for the CEO. The Downstream
+615:    Use Guide and dimension reports must work for the engineers. Every section
+616:    should be directly actionable for its intended reader.
+
+### .agents/prompts/distill-deep.md (276 total lines)
+1: ---
+2: description: Deep entropy reduction through orchestrated agent dialogue. Spawns an analyst agent and guides it through progressive discovery — exploration, simplification proposals, boundary challenges, and refinement — mirroring how a skilled architect interviews a system. Use when user wants thorough subsystem simplification with agent-driven analysis, or mentions "distill deep".
+3: argument-hint: "<subsystem>  e.g. 'router', 'actor system', 'schema pipeline', 'auth'"
+4: ---
+5: # Distill Deep: Entropy Reduction Through Orchestrated Agent Dialogue
+6: 
+7: You are an **orchestrator** who guides a subagent through a structured entropy
+8: reduction exercise. You play the role of the skilled interviewer — the one who
+9: asks the right questions, challenges assumptions, and pushes toward simplicity.
+10: The subagent reads code, analyzes the system, and proposes designs.
+11: 
+12: You conduct a multi-turn dialogue with a single agent via SendMessage, steering
+13: it through progressive discovery. You never read source code yourself. You
+14: think, question, and direct.
+15: 
+16: **Raw arguments:** $ARGUMENTS
+17: 
+18: ## Argument Parsing
+19: 
+20: Parse `$ARGUMENTS` to extract:
+21: - **Subsystem**: The subsystem or area to distill (e.g., "router", "auth",
+22:   "schema pipeline", "actor system")
+23: 
+24: If no subsystem is provided, ask the user what they'd like to simplify.
+25: 
+26: ---
+27: 
+28: ## Principles
+29: 
+30: These principles guide YOUR questioning of the agent. You use them to evaluate
+31: the agent's proposals and push it toward better designs.
+32: 
+33: **Entropy** = the number of concepts a developer must hold in their head to work
+34: with a subsystem. Every class, special case, parallel registry, mixin alongside
+35: an alternative mechanism — each adds to the count.
+36: 
+37: **The boundary test**: For every separation, ask the agent: *"Does this boundary
+38: make code easier to read, test, or replace one side? Or does it just add a hop?"*
+39: 
+40: **The concept test**: For every concept, push the agent: *"Can this be derived
+41: from something that already exists? Merged with a sibling? Eliminated entirely?"*
+42: 
+43: **Bold first, constrain later**: Always push the agent toward the most aggressive
+44: simplification first. It's easier to add back what's needed than to extract
+45: simplicity from a conservative proposal.
+46: 
+47: ---
+48: 
+49: ## The Dialogue
+50: 
+51: ### Step 1: Explore
+52: 
+53: Spawn a **general-purpose** agent and ask it to read and understand the
+54: subsystem. Include any relevant context you have (user's description, prior
+55: audit paths, etc.).
+56: 
+57: ```
+58: Read and understand the <subsystem> subsystem in this codebase.
+59: 
+60: Start by reading CLAUDE.md (and BACKEND.md / FRONTEND.md if relevant) for
+61: architectural context. Then find and read every source file that constitutes
+62: the subsystem. Also find its consumers — every file that imports from or
+63: references it.
+64: 
+65: Once you've read everything, give me:
+66: 
+67: 1. A list of every file in the subsystem with a one-line purpose
+68: 2. Every concept the subsystem introduces (classes, patterns, mechanisms,
+69:    data shapes, registries) — with where each is defined
+70: 3. Every consumer and what they actually use
+71: 4. Anything that surprised you or seemed inconsistent
+72: 
+73: Don't propose changes yet. Just map what exists.
+74: ```
+75: 
+76: When the agent responds, review its inventory. Note the concept count, any
+77: boundaries, any special patterns. This informs your next question.
+78: 
+79: ### Step 2: Ask for simplification
+80: 
+81: Send a follow-up via **SendMessage** to the same agent:
+82: 
+83: ```
+84: Now the key question: how can we simplify this subsystem's interface and
+85: reduce the entropy — both at the code level and in the mental model a
+86: developer needs to work with it?
+87: 
+88: Look at every concept you listed. Which ones could be merged, eliminated,
+89: or recut to reduce the total count? Which boundaries don't earn their keep?
+90: Where does the system ask the developer to understand more than they should
+91: need to?
+92: 
+93: Be bold — propose the most aggressive simplification you think could work.
+94: We'll add back what's needed.
+95: ```
+96: 
+97: ### Step 3: Challenge the proposal
+98: 
+99: When the agent proposes simplifications, **push back** on them. Your job is
+100: to stress-test the design by asking questions the agent wouldn't ask itself:
+101: 
+102: Challenge patterns to use (pick whichever are relevant):
+103: 
+104: - **"What breaks?"** — "If we merge X and Y, what concrete thing stops working?
+105:   Show me the specific consumer that would break."
+106: 
+107: - **"Is there a way to get the same simplification while keeping both?"** —
+108:   When the agent proposes eliminating something, ask if the boundary could be
+109:   recut instead of removed. Often the right move is moving intelligence to the
+110:   correct side of a boundary, not deleting the boundary.
+111: 
+112: - **"What about future requirements?"** — If you know (from user context or
+113:   project docs) that the system needs to support other frameworks, platforms,
+114:   or use cases in the future, challenge: "At some point we might want to X.
+115:   Does your proposal still work?"
+116: 
+117: - **"What does the project's own philosophy say?"** — Push the agent to
+118:   evaluate against the project's stated principles (in CLAUDE.md), not generic
+119:   best practices.
+120: 
+121: - **"Show me the concept count."** — After every proposed change, ask: "What's
+122:   the concept count before and after?" Keep the conversation anchored in the
+123:   concrete metric.
+124: 
+125: Use SendMessage for each challenge. Let the agent respond fully before posing
+126: the next challenge. Do not stack multiple challenges — one at a time lets the
+127: agent think deeply about each.
+128: 
+129: ### Step 4: Refine through iteration
+130: 
+
+### .agents/prompts/distill-deep.md (276 total lines)
+131: Continue the back-and-forth. The agent will refine its proposals based on your
+132: challenges. Common patterns in this phase:
+133: 
+134: - The agent proposes a merge → you challenge with a constraint → the agent
+135:   proposes a recut instead → you ask about the trade-off → the agent quantifies
+136:   it → you accept or push further.
+137: 
+138: - The agent proposes eliminating a concept → you ask who consumes it → the
+139:   agent discovers it's only used in one place → you agree it can go, or
+140:   discover it's load-bearing and ask for an alternative.
+141: 
+142: - The agent overlooks a coupling → you ask "doesn't X depend on Y?" → the
+143:   agent investigates and adjusts its proposal.
+144: 
+145: Iterate until the proposals feel stable — the agent isn't finding new
+146: simplifications and your challenges aren't revealing new problems.
+147: 
+148: ### Step 5: Search for what was missed
+149: 
+150: When the proposals feel solid, ask one more question via SendMessage:
+151: 
+152: ```
+153: Is there any other way we could simplify or make this more elegant that
+154: we haven't considered? Step back and look at the whole picture — are there
+155: any concepts, patterns, or boundaries we accepted as given that could
+156: actually be questioned?
+157: ```
+158: 
+159: This often surfaces a second wave of insights. The agent has been deep in
+160: the details and may see new connections after the iterative refinement.
+161: 
+162: If the agent proposes something new, cycle back to Step 3 (challenge it).
+163: If not, proceed.
+164: 
+165: ### Step 6: Present to the user
+166: 
+167: Synthesize the entire dialogue into a concise result for the user. Structure
+168: your response as:
+169: 
+170: ```
+171: ## Distillation: <Subsystem>
+172: 
+173: ### Current state (N concepts)
+174: [Brief description of the current system and its concept count]
+175: 
+176: ### Proposed simplification (M concepts)
+177: [The distilled design — what changes, what stays, and why]
+178: 
+179: ### Key decisions
+180: [The most important trade-offs and design choices, with reasoning]
+181: 
+182: ### What was challenged and held up
+183: [Proposals that survived stress-testing — these are high-confidence]
+184: 
+185: ### What was challenged and changed
+186: [Proposals that were refined during dialogue — show the evolution]
+187: 
+188: ### Constraints to verify with you
+189: [Any assumptions or future requirements the agent flagged that need
+190:  your confirmation before proceeding]
+191: 
+192: ### Migration path
+193: [How to get from here to there, incrementally]
+194: ```
+195: 
+196: The user can then confirm constraints, reject proposals, or accept the design.
+197: If they have questions or pushback, you can send follow-up messages to the
+198: agent to investigate further.
+199: 
+200: ---
+201: 
+202: ## After User Approval
+203: 
+204: Once the user accepts the design (with any modifications), spawn a final
+205: **general-purpose** agent to write the design document:
+206: 
+207: ```
+208: Write the distilled design document for the "<subsystem>" subsystem.
+209: 
+210: ## The agreed design
+211: <paste the final design as confirmed by the user>
+212: 
+213: ## What to verify
+214: Read the source files involved and verify all file paths, line references,
+215: and assumptions are current.
+216: 
+217: ## Output
+218: Write to: .traces/features/<subsystem>-distill/design.md
+219: 
+220: Structure:
+221: - Summary (2-3 sentences)
+222: - Entropy Reduction (before N / after M, with concept lists)
+223: - The Design (full description, enough for implementation)
+224: - Constraints (what shaped the design)
+225: - Migration Path (phased, incremental)
+226: - Files Affected (table: file, change, scope)
+227: ```
+228: 
+229: ---
+230: 
+231: ## Orchestration Rules
+232: 
+233: ### One agent, many turns
+234: 
+235: The core of this skill is a **single long-lived agent conversation** via
+236: SendMessage. Don't spawn separate agents for each step — the same agent
+237: accumulates context about the subsystem across the entire dialogue. This is
+238: crucial: by Step 4, the agent understands the system deeply enough to see
+239: second-order implications of proposed changes.
+240: 
+241: ### You think, the agent reads
+242: 
+243: Never read source code yourself. The agent reads code and reports findings.
+244: You evaluate findings, formulate challenges, and decide what to investigate
+245: next. This keeps your context focused on the design problem.
+246: 
+247: ### One question per turn
+248: 
+249: Each SendMessage should pose one clear question or challenge. Don't bundle
+250: "what about X, also Y, and have you considered Z?" into one message. One
+251: question at a time gives the agent space to think deeply and gives you better
+252: signal from each response.
+253: 
+254: ### Bold first, constrain later
+255: 
+256: Always start with the most aggressive simplification. "What if we just
+257: delete this?" is a better opening than "How might we reduce the coupling?"
+258: The agent will explain why deletion doesn't work, and in doing so will reveal
+259: the actual constraints — which are far more valuable than a cautious proposal
+260: that never tests the boundaries.
+
+### .agents/prompts/distill-deep.md (276 total lines)
+261: 
+262: ### Adapt to what you learn
+263: 
+264: Steps 3 and 4 are not scripted. The specific challenges you pose depend on
+265: what the agent proposed in Step 2 and how it responded to previous challenges.
+266: Use your judgment — if a proposal feels too conservative, push harder. If a
+267: proposal breaks something important, help the agent find the recut. If the
+268: agent is going in circles, ask it to step back and state the core problem.
+269: 
+270: ### Know when to stop
+271: 
+272: Stop the dialogue when:
+273: - The concept count has meaningfully decreased
+274: - Every boundary either earns its keep or has been recut
+275: - Your challenges aren't revealing new problems
+276: - The agent's proposals are stable across iterations

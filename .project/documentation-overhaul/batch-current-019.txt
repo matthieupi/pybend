@@ -1,0 +1,1004 @@
+
+### docs/API_OVERVIEW.md (598 total lines)
+261:   ]
+262: }
+263: ```
+264: 
+265: Use custom model methods for domain-specific append/toggle actions. Shared
+266: relationships should be modeled with explicit link models; `ManyToMany[T]` is a
+267: legacy helper for existing shared-link cases.
+268: 
+269: ---
+270: 
+271: ## Data Types
+272: 
+273: ### Type Mapping
+274: 
+275: | Python Type | JSON Type | Example |
+276: |-------------|-----------|---------|
+277: | `str` | string | `"hello"` |
+278: | `int` | number | `42` |
+279: | `float` | number | `3.14` |
+280: | `bool` | boolean | `true` |
+281: | `Optional[T]` | T or null | `"value"` or `null` |
+282: | `List[T]` | array | `[1, 2, 3]` |
+283: | `Ref[Model]` | number | `1` |
+284: | `datetime` (as string) | string (ISO 8601) | `"2025-01-15T10:00:00Z"` |
+285: | `Enum` | string | `"pending"` |
+286: 
+287: ### Date/Time Format
+288: 
+289: All datetime fields are strings in ISO 8601 format:
+290: - `"2025-01-15T10:00:00Z"` (UTC)
+291: - `"2025-01-15T10:00:00-05:00"` (with timezone)
+292: 
+293: Frontend should parse these using `new Date()` or date libraries.
+294: 
+295: ### Enums
+296: 
+297: Enum fields accept and return string values:
+298: 
+299: ```python
+300: class OrderStatus(str, Enum):
+301:     PENDING = "pending"
+302:     SHIPPED = "shipped"
+303: ```
+304: 
+305: Valid values in requests:
+306: ```json
+307: {
+308:   "status": "pending"
+309: }
+310: ```
+311: 
+312: Invalid values return 422 with validation error.
+313: 
+314: ---
+315: 
+316: ## Error Handling
+317: 
+318: ### Error Response Structure
+319: 
+320: All errors return this structure:
+321: ```json
+322: {
+323:   "detail": [
+324:     {
+325:       "file": "models/product_model.py",
+326:       "line": 42,
+327:       "function": "apply_discount",
+328:       "code": "self.price = self.price * (1 - percentage / 100)",
+329:       "error": "Discount percentage must be between 0 and 100"
+330:     }
+331:   ]
+332: }
+333: ```
+334: 
+335: ### Common Error Scenarios
+336: 
+337: #### 1. Missing Required Field (400)
+338: 
+339: Request:
+340: ```json
+341: {
+342:   "name": "Product"
+343: }
+344: ```
+345: 
+346: Response:
+347: ```json
+348: {
+349:   "detail": [
+350:     {
+351:       "file": "...",
+352:       "error": "Field required: price"
+353:     }
+354:   ]
+355: }
+356: ```
+357: 
+358: #### 2. Invalid Field Type (422)
+359: 
+360: Request:
+361: ```json
+362: {
+363:   "name": "Product",
+364:   "price": "not-a-number"
+365: }
+366: ```
+367: 
+368: Response (422):
+369: ```json
+370: {
+371:   "detail": "Invalid field 'price': could not convert string to float"
+372: }
+373: ```
+374: 
+375: #### 3. Resource Not Found (404)
+376: 
+377: Request: `GET /users/999`
+378: 
+379: Response (404):
+380: ```json
+381: {
+382:   "detail": "Not found"
+383: }
+384: ```
+385: 
+386: #### 4. Validation Error (400)
+387: 
+388: Custom validation in model fails:
+389: 
+390: Response (400):
+
+### docs/API_OVERVIEW.md (598 total lines)
+391: ```json
+392: {
+393:   "detail": [
+394:     {
+395:       "error": "Email must be unique"
+396:     }
+397:   ]
+398: }
+399: ```
+400: 
+401: ### Frontend Error Handling Pattern
+402: 
+403: ```javascript
+404: async function createUser(userData) {
+405:   try {
+406:     const response = await fetch('/users', {
+407:       method: 'POST',
+408:       headers: { 'Content-Type': 'application/json' },
+409:       body: JSON.stringify(userData)
+410:     });
+411:     
+412:     if (!response.ok) {
+413:       const error = await response.json();
+414:       
+415:       // Extract error message
+416:       const message = error.detail?.[0]?.error || 'Unknown error';
+417:       
+418:       // Handle based on status
+419:       switch (response.status) {
+420:         case 400:
+421:           // Validation error - show to user
+422:           showValidationError(message);
+423:           break;
+424:         case 404:
+425:           // Not found - redirect or show message
+426:           showNotFoundError();
+427:           break;
+428:         case 422:
+429:           // Invalid format - show field error
+430:           showFieldError(message);
+431:           break;
+432:         default:
+433:           // Server error - log and show generic message
+434:           console.error('API Error:', error);
+435:           showGenericError();
+436:       }
+437:       return null;
+438:     }
+439:     
+440:     return await response.json();
+441:   } catch (err) {
+442:     // Network error
+443:     console.error('Network error:', err);
+444:     showNetworkError();
+445:     return null;
+446:   }
+447: }
+448: ```
+449: 
+450: ---
+451: 
+452: ## Rate Limiting
+453: 
+454: **Current Version**: Not implemented
+455: 
+456: N3TX does not enforce rate limiting by default. Implement in your backend if needed.
+457: 
+458: ---
+459: 
+460: ## Versioning
+461: 
+462: **Current Version**: No API versioning
+463: 
+464: The current API is unversioned. Future versions may add:
+465: - Path-based versioning: `/v1/users`, `/v2/users`
+466: - Header-based versioning: `Accept: application/json; version=1`
+467: 
+468: ---
+469: 
+470: ## OpenAPI / Swagger Documentation
+471: 
+472: ### Interactive Documentation
+473: 
+474: N3TX automatically generates OpenAPI-compliant documentation:
+475: 
+476: **FastAPI**: Visit `http://localhost:8000/docs`
+477: 
+478: This provides:
+479: - Interactive API explorer
+480: - Request/response schemas
+481: - Try-it-out functionality
+482: 
+483: ### Programmatic Schema Access
+484: 
+485: Get the schema for any model:
+486: 
+487: ```bash
+488: GET /{ModelName}
+489: ```
+490: 
+491: Example:
+492: ```bash
+493: GET /User
+494: ```
+495: 
+496: Response:
+497: ```json
+498: {
+499:   "$schema": "http://localhost:8000/Schema",
+500:   "$id": "http://localhost:8000/User",
+501:   "type": "object",
+502:   "properties": {
+503:     "id": {"type": "integer"},
+504:     "name": {"type": "string"},
+505:     "email": {"type": "string"}
+506:   },
+507:   "required": ["name", "email"],
+508:   "methods": {
+509:     "login": {
+510:       "route": "/login",
+511:       "methods": ["POST"],
+512:       "parameters": {...},
+513:       "returns": {...}
+514:     }
+515:   },
+516:   "$defs": {
+517:     "User": {
+518:       "$id": "http://localhost:8000/User"
+519:     }
+520:   }
+
+### docs/API_OVERVIEW.md (598 total lines)
+521: }
+522: ```
+523: 
+524: The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
+525: 
+526: Storable models can be accessed through either the original table-name API or
+527: the class-name JSON mirror grammar:
+528: 
+529: ```text
+530: GET  /users/1  -> legacy table-name JSON read
+531: GET  /User/1   -> class-name read mirror of the same entity
+532: GET  /User/_   -> class-name collection mirror
+533: POST /User     -> class-name create mirror
+534: PUT  /User/1   -> class-name update mirror
+535: ```
+536: 
+537: Both update route grammars accept narrow patches, matching Python
+538: `Model.update(id, patch)`, actor TX updates, and agent update tools. Omitted
+539: fields remain unchanged. Supplied values are merged with the current entity and
+540: validated through the original model before persistence. See
+541: [CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource).
+542: 
+543: Entity payloads keep `$schema` pointing to `/{ClassName}` and now advertise
+544: `$id` as `/{ClassName}/{id}`, even when fetched through the legacy table-name
+545: route. Literal custom methods may also be mirrored under class-name paths, for
+546: example `/User/1/run`; there is no generic method catch-all.
+547: 
+548: View routes reserve `@` for HTML/component entrypoints, for example
+549: `GET /User/@` and frontend hashes such as `#User/@table`; those routes are not
+550: JSON data routes.
+551: 
+552: Custom method responses, including auth methods such as `/users/login` and
+553: `/users/register`, may be returned either as the method payload directly or under
+554: `data` when response debugging/enveloping is enabled. Browser test helpers should
+555: read auth tokens with `body.token ?? body.data?.token` rather than assuming only
+556: one envelope shape.
+557: 
+558: This is useful for:
+559: - Dynamic form generation
+560: - Client-side validation
+561: - Auto-generating TypeScript types
+562: 
+563: ---
+564: 
+565: ## CORS
+566: 
+567: **FastAPI Backend**: CORS is enabled for all origins by default.
+568: 
+569: If you need to restrict origins, modify `backend.py`:
+570: 
+571: ```python
+572: app.add_middleware(
+573:     CORSMiddleware,
+574:     allow_origins=["https://yourdomain.com"],  # Specific domains
+575:     allow_credentials=True,
+576:     allow_methods=["*"],
+577:     allow_headers=["*"],
+578: )
+579: ```
+580: 
+581: ---
+582: 
+583: ## Next Steps
+584: 
+585: - [Standard CRUD Endpoints](./API_CRUD_ENDPOINTS.md) - Complete reference for auto-generated endpoints
+586: - [Custom Endpoints](./API_CUSTOM_ENDPOINTS.md) - How custom `@expose_route` methods work
+587: - [Data Models Reference](./API_DATA_MODELS.md) - Schema for each model with examples
+588: 
+589: ---
+590: 
+591: ## Getting Help
+592: 
+593: If you encounter issues not covered here:
+594: 
+595: 1. Check the interactive documentation at `/docs`
+596: 2. Examine the model schema: `GET /{ModelName}`
+597: 3. Check response error details for specific issues
+598: 4. Refer to example implementations in the Examples documentation
+
+### docs/API_REFERENCE.md (1136 total lines)
+1: # N3TX API Reference
+2: 
+3: Complete reference for all N3TX classes, methods, and decorators.
+4: 
+5: ## Table of Contents
+6: 
+7: - [Models](#models)
+8:   - [ProtoModel](#protomodel)
+9:   - [StorableMixin](#storablemixin)
+10:   - [ViewableMixin](#viewablemixin)
+11: - [Storage](#storage)
+12:   - [AbstractStorage](#abstractstorage)
+13:   - [SQLiteStorage](#sqlitestorage)
+14:   - [JSONStorage](#jsonstorage)
+15: - [Types](#types)
+16:   - [Ref](#ref)
+17: - [Decorators](#decorators)
+18:   - [@expose_route](#expose_route)
+19: - [Agents](#agents)
+20:   - [AgentMixin](#agentmixin)
+21:   - [AgentActor](#agentactor)
+22:   - [AgentDeps](#agentdeps)
+23:   - [ToolSpec](#toolspec)
+24: - [Files](#files-optional-n3tx-files)
+25:   - [File](#file)
+26:   - [LocalFileStore](#localfilestore)
+27: - [Backends](#backends)
+28:   - [FastAPIBackend](#fastapibackend)
+29:   - [FlaskBackend](#flaskbackend)
+30: - [Utilities](#utilities)
+31: 
+32: ---
+33: 
+34: ## Files (optional `n3tx-files`)
+35: 
+36: ### File
+37: 
+38: Optional actor-backed file metadata model.
+39: 
+40: **Module**: `n3tx_files.file`
+41: 
+42: ```python
+43: from n3tx_core.app import create_app
+44: from n3tx_files import File, LocalFileStore, configure_file_store
+45: 
+46: configure_file_store(LocalFileStore('./file-blobs'))
+47: app = create_app(models=[File], storage='sqlite:///app.db')
+48: ```
+49: 
+50: Key fields:
+51: 
+52: | Field | Purpose |
+53: |---|---|
+54: | `filename` | Display/original filename |
+55: | `content_type` | MIME type |
+56: | `size` | Byte size, provider-computed |
+57: | `sha256` | Content checksum, provider-computed |
+58: | `storage_key` | Provider key for bytes |
+59: | `user_owner` | Owner id for authorization |
+60: 
+61: Package-owned byte routes:
+62: 
+63: | Method | Path | Purpose |
+64: |---|---|---|
+65: | POST | `/files/upload` | Multipart upload using form field `upload` |
+66: | GET | `/files/{id}/download` | Binary download |
+67: | GET | `/File/{id}/download` | Class-name download mirror |
+68: 
+69: Methods:
+70: 
+71: | Method | Purpose |
+72: |---|---|
+73: | `File.resolve(ref, user=None)` | Resolve a canonical local absolute File `$id` with read authorization |
+74: | `file.ensure_local(user=None)` | Return local path metadata for locally stored bytes |
+75: 
+76: When `n3tx_files` is imported, parameters annotated as `File` are materialized
+77: from canonical File URL strings in direct and actor custom-method routing.
+78: 
+79: ### LocalFileStore
+80: 
+81: Filesystem-backed byte provider.
+82: 
+83: **Module**: `n3tx_files.store`
+84: 
+85: | Method | Purpose |
+86: |---|---|
+87: | `put_stream(source, key=None, meta=None)` | Stream bytes into storage and compute size/sha256 |
+88: | `open_stream(key, start=None, end=None)` | Async byte iterator with optional inclusive range |
+89: | `stat(key)` | Recompute size/checksum for stored bytes |
+90: | `delete(key)` | Remove stored bytes |
+91: 
+92: ---
+93: 
+94: ## Models
+95: 
+96: ### ProtoModel
+97: 
+98: Base class for all N3TX models. Provides schema generation, validation, and optional storage.
+99: 
+100: **Module**: `models.proto_model`
+101: 
+102: #### Config
+103: 
+104: ProtoModel sets `extra='allow'` in its Pydantic Config. This allows extra fields like `$schema` and `$id` to be included in serialized output without being rejected by FastAPI's response model validation.
+105: 
+106: #### Class Variables
+107: 
+108: ```python
+109: class MyModel(ProtoModel):
+110:     __storable__: ClassVar[bool] = True        # Enable CRUD operations
+111:     __tablename__: ClassVar[str] = 'my_models' # Database table name
+112: ```
+113: 
+114: #### Class Methods
+115: 
+116: ##### `schema() -> Dict[str, Any]`
+117: 
+118: Returns the complete JSON schema for the model via the composable schema pipeline (`proto_schema.run_pipeline(cls)`). The pipeline consists of 8 stages: `base`, `strip_hidden`, `methods`, `agent`, `defs`, `access`, `ui`, `metadata`. Extensions can insert additional stages via `@schema_extension`.
+119: 
+120: The schema output includes:
+121: - `$schema` at the top level, pointing to `{API_URL}/Schema`
+122: - `$id` at the top level, pointing to `{API_URL}/{ClassName}`
+123: - `$id` on each entry in `$defs`, pointing to `{API_URL}/{DefClassName}`
+124: 
+125: The schema endpoint is `GET /{ClassName}`. For storable models, N3TX also
+126: registers class-name JSON mirrors for collection, create, read, update, delete,
+127: and literal custom methods. Those mirrors return the same entity payloads as
+128: the table-name routes and advertise entity `$id` values using
+129: `/{ClassName}/{id}`.
+130: 
+
+### docs/API_REFERENCE.md (1136 total lines)
+131: **Returns**: Dictionary with OpenAPI-compatible schema
+132: 
+133: **Example**:
+134: ```python
+135: schema = User.schema()
+136: # {
+137: #   "$schema": "http://localhost:8000/Schema",
+138: #   "$id": "http://localhost:8000/User",
+139: #   "type": "object",
+140: #   "properties": {...},
+141: #   "methods": {...},
+142: #   "$defs": {
+143: #     "User": {
+144: #       "$id": "http://localhost:8000/User",
+145: #       ...
+146: #     }
+147: #   }
+148: # }
+149: ```
+150: 
+151: ##### `referenced_json_schema() -> Dict[str, Any]`
+152: 
+153: Returns a schema suitable for inclusion in `$defs`. Resolves Ref fields to `$ref` pointers.
+154: 
+155: **Returns**: Schema dictionary without circular references
+156: 
+157: ##### `blueprint() -> Dict[str, Any]`
+158: 
+159: Static method that returns schemas for all registered models.
+160: 
+161: **Returns**: Dictionary mapping model names to their schemas
+162: 
+163: **Example**:
+164: ```python
+165: blueprint = ProtoModel.blueprint()
+166: # {
+167: #   "users": {...},
+168: #   "products": {...}
+169: # }
+170: ```
+171: 
+172: #### Instance Methods
+173: 
+174: ##### `__init__(**kwargs)`
+175: 
+176: Initializes a model instance. If `__storable__` is True and only `id` is provided, fetches from storage.
+177: 
+178: **Parameters**:
+179: - `**kwargs`: Field values
+180: 
+181: **Example**:
+182: ```python
+183: # Create new instance
+184: user = User(name="Alice", email="alice@example.com")
+185: 
+186: # Load from storage (lazy loading)
+187: user = User(id=1)  # Fetches from database
+188: ```
+189: 
+190: ##### `model_dump(**kwargs) -> Dict[str, Any]`
+191: 
+192: Serializes the model to a plain dictionary (Pydantic standard). Used for storage operations. Does NOT include `$schema` or `$id` metadata.
+193: 
+194: **Parameters**:
+195: - `**kwargs`: Keyword arguments passed to Pydantic's `model_dump()`
+196: 
+197: **Returns**: Dictionary of field values.
+198: 
+199: ##### `model_response(**kwargs) -> Dict[str, Any]`
+200: 
+201: Serializes the model through the composable dump pipeline (`proto_dump`). Used for HTTP API responses.
+202: 
+203: Runs `proto_dump.run_pipeline(self)` with stages:
+204: 1. `base` -- plain Pydantic `model_dump()`
+205: 2. `relationships` -- enriches hydrated `T` and `list[T]` children
+206: 3. `schema_url` -- injects `$schema`
+207: 4. `instance_url` -- injects `$id`
+208: 5. `populate` -- overlays explicitly populated relationship data
+209: 
+210: Extensions can add stages via `@dump_extension` (e.g., federation, MCP).
+211: 
+212: **Parameters**:
+213: - `**kwargs`: Passed to the base stage
+214: 
+215: **Returns**: Dictionary with `$schema` and `$id` prepended, followed by field values.
+216: 
+217: **Example**:
+218: ```python
+219: product = Product.get(1)
+220: 
+221: # Plain dump (for storage, no metadata)
+222: product.model_dump()
+223: # {"id": 1, "name": "Laptop", "price": 999.99, ...}
+224: 
+225: # Response dump (for HTTP, with metadata)
+226: product.model_response()
+227: # {
+228: #   "$schema": "http://localhost:8000/Product",
+229: #   "$id": "http://localhost:8000/Product/1",
+230: #   "id": 1,
+231: #   "name": "Laptop",
+232: #   "price": 999.99,
+233: #   ...
+234: # }
+235: ```
+236: 
+237: ---
+238: 
+239: ### StorableMixin
+240: 
+241: Provides CRUD operations through dependency injection. Automatically added to models with `__storable__ = True`.
+242: 
+243: **Module**: `models.storable_mixin`
+244: 
+245: #### Class Variables
+246: 
+247: ```python
+248: __pk__: ClassVar[str] = 'id'  # Primary key field name
+249: __tablename__: ClassVar[str]   # Required: table name
+250: storage: ClassVar[AbstractStorage] = None  # Injected storage backend
+251: ```
+252: 
+253: #### Class Methods
+254: 
+255: ##### `set_storage(storage: AbstractStorage)`
+256: 
+257: Injects the storage backend into the model.
+258: 
+259: **Parameters**:
+260: - `storage`: Instance of AbstractStorage implementation
+
+### docs/API_REFERENCE.md (1136 total lines)
+261: 
+262: **Example**:
+263: ```python
+264: storage = SQLiteStorage('database.db')
+265: User.set_storage(storage)
+266: ```
+267: 
+268: ##### `create_table()`
+269: 
+270: Delegates table creation to the storage backend.
+271: 
+272: **Example**:
+273: ```python
+274: User.create_table()
+275: ```
+276: 
+277: ##### `create(data: Union[BaseModel, Dict]) -> Any`
+278: 
+279: Creates a new record in storage.
+280: 
+281: **Parameters**:
+282: - `data`: Model instance or dictionary
+283: 
+284: **Returns**: Created model instance with ID assigned
+285: 
+286: **Example**:
+287: ```python
+288: user = User.create(User(name="Alice", email="alice@example.com"))
+289: # or
+290: user = User.create({"name": "Alice", "email": "alice@example.com"})
+291: ```
+292: 
+293: ##### `list() -> List[Any]`
+294: 
+295: Retrieves all records from storage.
+296: 
+297: **Returns**: List of model instances
+298: 
+299: **Example**:
+300: ```python
+301: all_users = User.list()
+302: ```
+303: 
+304: ##### `get(id: int, as_dict: bool = False) -> Any`
+305: 
+306: Retrieves a single record by ID.
+307: 
+308: **Parameters**:
+309: - `id`: Primary key value
+310: - `as_dict`: If True, return dictionary instead of model instance
+311: 
+312: **Returns**: Model instance or dictionary, or None if not found
+313: 
+314: **Example**:
+315: ```python
+316: user = User.get(1)
+317: user_dict = User.get(1, as_dict=True)
+318: ```
+319: 
+320: ##### `update(id: int, data: Union[BaseModel, Dict]) -> Any`
+321: 
+322: Updates an existing record.
+323: 
+324: **Parameters**:
+325: - `id`: Primary key value
+326: - `data`: Model instance or dictionary with fields to update
+327: 
+328: **Returns**: Updated model instance
+329: 
+330: **Example**:
+331: ```python
+332: User.update(1, {"email": "newemail@example.com"})
+333: # or
+334: User.update(1, User(email="newemail@example.com"))
+335: ```
+336: 
+337: ##### `delete(id: int)`
+338: 
+339: Deletes a record by ID.
+340: 
+341: **Parameters**:
+342: - `id`: Primary key value
+343: 
+344: **Example**:
+345: ```python
+346: User.delete(1)
+347: ```
+348: 
+349: #### Instance Methods
+350: 
+351: ##### `save() -> Any`
+352: 
+353: Saves the current instance. Creates if no ID, updates if ID exists.
+354: 
+355: **Returns**: Saved model instance
+356: 
+357: **Example**:
+358: ```python
+359: user = User(name="Alice", email="alice@example.com")
+360: user = user.save()  # Creates new record
+361: 
+362: user.email = "alice.new@example.com"
+363: user.save()  # Updates existing record
+364: ```
+365: 
+366: ---
+367: 
+368: ### ViewableMixin
+369: 
+370: Provides UI view support for models.
+371: 
+372: **Module**: `models.viewable_mixin`
+373: 
+374: #### Fields
+375: 
+376: ```python
+377: name: str  # Display name
+378: desc: str  # Description
+379: src: str   # Path to resource's inbox for callbacks
+380: ```
+381: 
+382: #### Class Variables
+383: 
+384: ```python
+385: href: ClassVar[str]  # Automatically set to /{modelname}
+386: ```
+387: 
+388: #### Class Methods
+389: 
+390: ##### `view() -> str`
+
+### docs/API_REFERENCE.md (1136 total lines)
+391: 
+392: Returns the HTML view component URL for this resource.
+393: 
+394: **Returns**: URL string
+395: 
+396: **Decorator**: Automatically exposed as `GET /{model}/view`
+397: 
+398: **Example**:
+399: ```python
+400: url = Product.view()  # Returns "/product/view"
+401: ```
+402: 
+403: ---
+404: 
+405: ## Storage
+406: 
+407: ### AbstractStorage
+408: 
+409: Abstract base class for storage backends.
+410: 
+411: **Module**: `storage.abstract_storage`
+412: 
+413: #### Abstract Methods
+414: 
+415: All methods must be implemented by subclasses.
+416: 
+417: ##### `create_table(model_class: Type[Any])`
+418: 
+419: Creates the storage structure (table, collection, etc.) for a model.
+420: 
+421: **Parameters**:
+422: - `model_class`: Model class to create storage for
+423: 
+424: ##### `create(model_class: Type[Any], data: Dict[str, Any]) -> Any`
+425: 
+426: Persists a new record.
+427: 
+428: **Parameters**:
+429: - `model_class`: Model class
+430: - `data`: Field values as dictionary
+431: 
+432: **Returns**: Created model instance
+433: 
+434: ##### `list(model_class: Type[Any]) -> List[Any]`
+435: 
+436: Retrieves all records.
+437: 
+438: **Parameters**:
+439: - `model_class`: Model class
+440: 
+441: **Returns**: List of model instances
+442: 
+443: ##### `get(model_class: Type[Any], id_: int, as_dict: bool = False, **kwargs) -> Any`
+444: 
+445: Retrieves a single record.
+446: 
+447: **Parameters**:
+448: - `model_class`: Model class
+449: - `id_`: Primary key value
+450: - `as_dict`: Return as dictionary if True
+451: - `**kwargs`: Additional query parameters
+452: 
+453: **Returns**: Model instance, dictionary, or None
+454: 
+455: ##### `update(model_class: Type[Any], id_: int, data: Dict[str, Any])`
+456: 
+457: Updates an existing record.
+458: 
+459: **Parameters**:
+460: - `model_class`: Model class
+461: - `id_`: Primary key value
+462: - `data`: Fields to update
+463: 
+464: ##### `delete(model_class: Type[Any], id_: int)`
+465: 
+466: Deletes a record.
+467: 
+468: **Parameters**:
+469: - `model_class`: Model class
+470: - `id_`: Primary key value
+471: 
+472: ---
+473: 
+474: ### SQLiteStorage
+475: 
+476: SQLite database storage backend with auto-migration support.
+477: 
+478: **Module**: `storage.sqlite_storage`
+479: 
+480: #### Constructor
+481: 
+482: ```python
+483: SQLiteStorage(database: str = 'database.db')
+484: ```
+485: 
+486: **Parameters**:
+487: - `database`: Path to SQLite database file
+488: 
+489: **Example**:
+490: ```python
+491: storage = SQLiteStorage('myapp.db')
+492: ```
+493: 
+494: #### Methods
+495: 
+496: ##### `create_table(model_class: Type[Any])`
+497: 
+498: Creates SQLite table with appropriate column types.
+499: 
+500: **Type Mapping**:
+501: - `int` -> `INTEGER`
+502: - `float` -> `REAL`
+503: - `str` -> `TEXT`
+504: - `BaseModel` -> `INTEGER` (foreign key)
+505: - `List[...]` -> `TEXT` (JSON serialized)
+506: 
+507: ##### `migrate_table(model_class: Type[Any])`
+508: 
+509: Automatically adds missing columns to existing tables.
+510: 
+511: **Features**:
+512: - Adds new columns with appropriate defaults
+513: - Initializes List fields to `[]`
+514: - Handles foreign keys
+515: - Logs all migration operations
+516: 
+517: **Note**: Column removal requires manual intervention.
+518: 
+519: ##### `create(model_class: Type[Any], data: Dict[str, Any]) -> Any`
+520: 
+
+### docs/API_REFERENCE.md (1136 total lines)
+521: Inserts a new row with auto-increment ID.
+522: 
+523: ##### `get(model_class: Type[Any], id: int, as_dict: bool = False) -> Any`
+524: 
+525: Fetches a row and hydrates foreign keys as shell objects (ID only).
+526: 
+527: **Optimization**: Foreign key objects contain only ID, not full data (lazy loading).
+528: 
+529: ##### `update(model_class: Type[Any], id: int, data: Dict[str, Any])`
+530: 
+531: Updates only the provided fields using parameterized query.
+532: 
+533: ##### `delete(model_class: Type[Any], id: int)`
+534: 
+535: Deletes the specified row.
+536: 
+537: ---
+538: 
+539: ### JSONStorage
+540: 
+541: File-based JSON storage backend.
+542: 
+543: **Module**: `storage.json_storage`
+544: 
+545: #### Constructor
+546: 
+547: ```python
+548: JSONStorage(directory: str = 'data')
+549: ```
+550: 
+551: **Parameters**:
+552: - `directory`: Directory path for JSON files
+553: 
+554: **Example**:
+555: ```python
+556: storage = JSONStorage('data')
+557: # Creates data/users.json, data/products.json, etc.
+558: ```
+559: 
+560: #### Methods
+561: 
+562: ##### `create_table(model_class: Type[Any])`
+563: 
+564: Creates empty JSON file if it doesn't exist.
+565: 
+566: ##### `create(model_class: Type[Any], data: Dict[str, Any]) -> Any`
+567: 
+568: Appends record to JSON array with auto-increment ID.
+569: 
+570: ##### `list(model_class: Type[Any]) -> List[Any]`
+571: 
+572: Reads entire JSON file and deserializes to model instances.
+573: 
+574: ##### `get(model_class: Type[Any], id: int) -> Any`
+575: 
+576: Searches JSON array for matching ID.
+577: 
+578: ##### `update(model_class: Type[Any], id: int, data: Dict[str, Any])`
+579: 
+580: Finds record by ID and updates fields.
+581: 
+582: ##### `delete(model_class: Type[Any], id: int)`
+583: 
+584: Removes record from JSON array.
+585: 
+586: ---
+587: 
+588: ## Types
+589: 
+590: ### Ref
+591: 
+592: Generic type-safe wrapper for foreign key relationships.
+593: 
+594: **Module**: `utils.typer`
+595: 
+596: #### Constructor
+597: 
+598: ```python
+599: Ref[T](value: Optional[Any] = None)
+600: ```
+601: 
+602: **Parameters**:
+603: - `value`: Can be:
+604:   - `BaseModel` instance: Extracts ID
+605:   - `int`: Stores directly
+606:   - `dict`: Extracts 'id' key
+607: 
+608: **Example**:
+609: ```python
+610: from utils.typer import Ref
+611: 
+612: class Comment(ProtoModel):
+613:     user: Ref[User]  # Type-safe foreign key
+614: ```
+615: 
+616: #### Methods
+617: 
+618: ##### `__int__() -> int`
+619: 
+620: Returns the foreign key ID.
+621: 
+622: **Example**:
+623: ```python
+624: comment = Comment(...)
+625: user_id = int(comment.user)  # Extracts ID
+626: ```
+627: 
+628: ##### `model_dump() -> int`
+629: 
+630: Serializes to integer for storage.
+631: 
+632: #### Schema Generation
+633: 
+634: `__get_pydantic_json_schema__` outputs `$schema` and `$id` (instead of the old `__url__` and `__type__` fields) when generating the JSON schema for foreign key references:
+635: 
+636: ```python
+637: # Model definition
+638: class Comment(ProtoModel):
+639:     user: Ref[User]
+640: 
+641: # Generated schema
+642: {
+643:   "type": "object",
+644:   "properties": {
+645:     "user": {
+646:       "type": "$ref",
+647:       "$ref": "#/$defs/User"
+648:     }
+649:   }
+650: }

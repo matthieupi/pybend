@@ -1,0 +1,540 @@
+
+### .agents/prompts/build-feature.md (400 total lines)
+261: ```
+262: 
+263: Include the raw JSON so the agent can parse all fields.
+264: 
+265: ### Between Waves
+266: 
+267: After each wave completes successfully:
+268: 
+269: 1. **Run a sanity check**: Execute any verification commands that span
+270:    multiple tasks (e.g., full test suite)
+271: 2. **Report progress**:
+272: 
+273: > **Wave {N}/{total} complete** — {success_count}/{total_in_wave} tasks succeeded
+274: >
+275: > | ID | Title | Status | Notes |
+276: > |----|-------|--------|-------|
+277: > | task-01 | ... | SUCCESS | — |
+278: > | task-02 | ... | SUCCESS | Minor warning about X |
+279: >
+280: > Proceeding to wave {N+1}...
+281: 
+282: 3. If any task failed, ask the user whether to:
+283:    - **Retry** the failed task
+284:    - **Skip** it and continue (may cause downstream failures)
+285:    - **Abort** the remaining execution
+286: 
+287: ---
+288: 
+289: ## Phase 5: Final Verification
+290: 
+291: After all waves complete:
+292: 
+293: 1. **Run the full test suite** relevant to the feature:
+294:    ```bash
+295:    cd /workspace && python3 -m pytest <relevant_test_dirs> -v --tb=short
+296:    ```
+297: 
+298: 2. **Check for regressions** by running broader tests:
+299:    ```bash
+300:    cd /workspace && python3 -m pytest src/n3tx/core/tests/unit/ -v --tb=short
+301:    ```
+302: 
+303: 3. **Report the final status**:
+304: 
+305: > **Feature Build Complete: `<plan-name>`**
+306: >
+307: > | Metric | Value |
+308: > |--------|-------|
+309: > | Total tasks | N |
+310: > | Succeeded | N |
+311: > | Failed | N |
+312: > | Waves | W |
+313: > | Files modified | N |
+314: > | Files created | N |
+315: > | Tests passing | N/M |
+316: >
+317: > **Files changed:**
+318: > - `path/to/file.py` — what changed (summary)
+319: > - `path/to/new_file.py` — new (purpose)
+320: >
+321: > **Test results:**
+322: > - `test_suite_1` — N passed, M failed
+323: > - `test_suite_2` — N passed
+324: >
+325: > **PRD file:** `.traces/features/<plan-name>/<plan-name>.jsonl`
+326: >
+327: > **Next steps:**
+328: > - Review the changes: `git diff`
+329: > - Commit with: `/git-smart` (or `/commit`)
+330: > - If tests fail: `/bugfix <failing_test>`
+331: 
+332: ---
+333: 
+334: ## Error Handling
+335: 
+336: - **Plan not found**: List available plans, suggest closest match, ask user
+337:   to pick using AskUserQuestion.
+338: 
+339: - **Plan file is empty or unreadable**: Report the error, ask user to check
+340:   the file.
+341: 
+342: - **Source file referenced by plan doesn't exist**: The codebase has changed
+343:   since the plan was written. Note which files are missing, adapt the task
+344:   instructions to account for the current state, and warn the user.
+345: 
+346: - **Agent fails a task**: Report the failure with full error output. Ask
+347:   user whether to retry, skip, or abort. If retrying, relaunch the same
+348:   agent with the same task.
+349: 
+350: - **Agent produces partial results**: Accept the partial result, note what's
+351:   missing, and create a follow-up task for the incomplete work.
+352: 
+353: - **File conflict in parallel mode**: Two tasks in the same wave modify the
+354:   same file. Run them sequentially instead of in parallel. Log why.
+355: 
+356: - **Merge conflict from worktree**: If parallel worktree changes conflict,
+357:   report the conflict and ask the user to resolve manually.
+358: 
+359: - **Verification fails after all waves**: Run the failing tests, identify
+360:   which task introduced the regression, and report it with the test output.
+361: 
+362: ---
+363: 
+364: ## Quality Standards for Task Decomposition
+365: 
+366: Every task in the JSONL must pass these checks:
+367: 
+368: 1. **Self-contained**: A developer who has never seen this codebase could
+369:    implement it from the task alone (given access to the files listed in
+370:    `files.read`).
+371: 
+372: 2. **Atomic**: The task produces a working (if incomplete) state. No task
+373:    should leave the codebase in a broken state.
+374: 
+375: 3. **Verifiable**: Every task has at least one verification command or check.
+376:    "Trust me it works" is not acceptable.
+377: 
+378: 4. **Correctly ordered**: No task references code that doesn't exist yet
+379:    (unless it's creating that code).
+380: 
+381: 5. **No duplication**: Two tasks should never make the same change.
+382: 
+383: 6. **Faithful to the plan**: The tasks collectively implement the plan as
+384:    written. Don't add features, skip steps, or reinterpret the plan's intent.
+385: 
+386: ---
+387: 
+388: ## Example
+389: 
+390: Given a plan with sections for "backend config", "API endpoint", and "tests",
+
+### .agents/prompts/build-feature.md (400 total lines)
+391: the JSONL might look like:
+392: 
+393: ```jsonl
+394: {"id":"task-01","wave":1,"title":"Add debug flag to config module","intent":"The debug flag controls auto-reload, auto-admin, and request logging. It needs to be a runtime-mutable global in the config module.","context":"config.py is the central configuration module. It uses module-level globals set by configure(). DEBUG is already defined (line 21) but only controls Swagger docs. This change extends its reach.","instructions":"Step 1: Open /workspace/src/n3tx/core/config.py...\n\nStep 2: Find the existing DEBUG line...\n\nStep 3: No changes needed — DEBUG already exists and is mutable via configure().","files":{"read":["/workspace/src/n3tx/core/config.py"],"modify":[],"create":[]},"conventions":"Config uses module-level globals, not a Config class. configure() uses globals() to set them.","verification":{"commands":["python3 -c \"from n3tx.core.config import DEBUG; print(DEBUG)\""],"checks":["DEBUG is importable and defaults to False"]},"depends_on":[]}
+395: {"id":"task-02","wave":1,"title":"Add debug key to /_meta endpoint","intent":"The frontend needs to know whether the backend is in debug mode so it can show a DEBUG badge and enable timing info in method responses.","context":"discovery.py builds the /_meta response via _build_meta(). The frontend fetches this on boot via ntx-topbar.js. Adding a key here propagates to the frontend automatically.","instructions":"Step 1: Read /workspace/src/n3tx/core/api/discovery.py\n\nStep 2: Add 'from n3tx.core import config' after the logger line\n\nStep 3: Add 'debug': config.DEBUG to the return dict in _build_meta()...","files":{"read":["/workspace/src/n3tx/core/api/discovery.py","/workspace/src/n3tx/core/config.py"],"modify":["/workspace/src/n3tx/core/api/discovery.py"],"create":[]},"conventions":"Imports: stdlib first, then n3tx.core. Use 'from n3tx.core import config' not 'from n3tx.core.config import DEBUG' (read at call time, not import time).","verification":{"commands":["cd /workspace && python3 -m pytest src/n3tx/core/tests/unit/test_discovery.py -v --tb=short"],"checks":["_build_meta() returns a dict with 'debug' key","debug value is a boolean matching config.DEBUG"]},"depends_on":[]}
+396: {"id":"task-03","wave":2,"title":"Write unit tests for debug mode","intent":"Tests validate that the debug flag propagates correctly and that debug-dependent behavior activates.","context":"Unit tests live in src/n3tx/core/tests/unit/. They use pytest with class-based grouping and pytestmark = pytest.mark.unit. Fixtures use autouse=True for cleanup.","instructions":"Create /workspace/src/n3tx/core/tests/unit/test_debug_mode.py with...\n\n[full test code here]","files":{"read":["/workspace/src/n3tx/core/tests/unit/test_discovery.py","/workspace/src/n3tx/core/tests/unit/conftest.py"],"modify":[],"create":["/workspace/src/n3tx/core/tests/unit/test_debug_mode.py"]},"conventions":"Test naming: test_{feature}_{scenario}. Class grouping: TestFeatureName. Marker: pytestmark = pytest.mark.unit. Fixtures: autouse=True for state restoration.","verification":{"commands":["cd /workspace && python3 -m pytest src/n3tx/core/tests/unit/test_debug_mode.py -v --tb=short"],"checks":["All new tests pass","No regressions in existing discovery tests"]},"depends_on":["task-01","task-02"]}
+397: ```
+398: 
+399: This shows: wave 1 has independent tasks (config + endpoint), wave 2 has
+400: tests that depend on both wave 1 tasks.
+
+### .agents/prompts/deep-audit.md (616 total lines)
+1: ---
+2: description: Comprehensive subsystem audit with strategic improvement propositions. Maps all components, analyzes architecture, surfaces bugs and risks, evaluates extensibility, and proposes concrete improvements for simplification, composability, and resilience. Produces multi-resolution report for technical leadership and engineering teams.
+3: argument-hint: "<subsystem> [depth:quick|deep]  e.g. 'actor', 'tx depth:quick', 'agents', 'storage', 'schema pipeline'"
+4: ---
+5: # Deep Audit: Comprehensive Subsystem Analysis
+6: 
+7: You are a senior systems architect performing a thorough audit of a subsystem
+8: for a **technical CEO and their engineering team**. Your goal is to disassemble
+9: every component, understand all design decisions, surface risks, and produce a
+10: multi-resolution report that serves as the foundation for multiple downstream
+11: activities: bug hunting, feature development, integration planning, refactoring,
+12: and **strategic improvement**.
+13: 
+14: Beyond diagnostics, you are expected to propose **concrete improvements** —
+15: simplifying mental models, tightening interfaces, improving composability,
+16: strengthening resilience, and making the system easier to extend. Every
+17: proposition must be grounded in evidence from the audit, not abstract best
+18: practices.
+19: 
+20: **Raw arguments:** $ARGUMENTS
+21: 
+22: ## Argument Parsing
+23: 
+24: Parse `$ARGUMENTS` to extract:
+25: - **Subsystem**: The subsystem or component to audit (e.g., "actor", "tx",
+26:   "agents", "storage", "schema")
+27: - **Depth** (optional): `depth:quick` or `depth:deep` (default: **deep**)
+28:   - `quick` — 2 analysis agents with integrated propositions (~500-700 lines each)
+29:   - `deep` — 5 analysis agents (4 diagnostic + 1 strategic improvements), comprehensive reports (~500-800 lines each)
+30: 
+31: If no subsystem is provided, ask the user what they'd like to audit.
+32: 
+33: ---
+34: 
+35: ## Phase 1: Scope Discovery
+36: 
+37: Before launching any agents, discover the subsystem boundary yourself using
+38: Glob and Grep. This is fast and gives you the file list needed for agent prompts.
+39: 
+40: ### Step 1: Find core files
+41: 
+42: Search for files belonging to the subsystem using multiple strategies:
+43: 
+44: ```
+45: Glob: **/*<subsystem>*/**/*.py
+46: Glob: **/*<subsystem>*/**/*.js
+47: Glob: **/*<subsystem>*.py
+48: Glob: **/*<subsystem>*.js
+49: ```
+50: 
+51: Also search for the subsystem in directory names, class names, and module names.
+52: Cast a wide net — it's better to include a false positive than miss a real file.
+53: Exclude `node_modules/`, `.git/`, `__pycache__/`, `*.egg-info/` directories.
+54: 
+55: ### Step 2: Find usage sites
+56: 
+57: Search for imports and references across the entire codebase:
+58: 
+59: ```
+60: Grep: import.*<subsystem>|from.*<subsystem>
+61: Grep: <KeyClassName>  (identified from reading core files)
+62: ```
+63: 
+64: This reveals how other parts of the codebase depend on and interact with the
+65: subsystem. Focus on imports, type hints, function calls, and inheritance.
+66: 
+67: ### Step 3: Read key files
+68: 
+69: Read a few of the most central files (the main module, the __init__.py, the
+70: primary class) to understand the subsystem's shape. Also read CLAUDE.md and
+71: relevant sub-documents (claude-back.md, claude-front.md) for architectural
+72: context that analysis agents will need.
+73: 
+74: ### Step 4: Confirm scope with user
+75: 
+76: Present the discovered scope:
+77: 
+78: > **Subsystem: `<subsystem>`**
+79: >
+80: > **Core files** (N files):
+81: > - `path/to/file1.py` — brief role description
+82: > - `path/to/file2.py` — brief role description
+83: > - ...
+84: >
+85: > **Key classes/functions**: `ClassName`, `function_name`, ...
+86: >
+87: > **Usage sites** (M files reference this subsystem):
+88: > - `path/to/consumer1.py` — how it uses the subsystem
+89: > - ...
+90: >
+91: > **Depth:** deep (5 dimensions) / quick (2 dimensions)
+92: > **Output:** `.traces/audits/<subsystem>/`
+93: >
+94: > Proceed with audit?
+95: 
+96: Wait for user confirmation. They may adjust the scope (add/remove files) or
+97: change the depth setting.
+98: 
+99: ---
+100: 
+101: ## Phase 2: Parallel Analysis
+102: 
+103: Create the output directory: `.traces/audits/<subsystem>/`
+104: 
+105: ### Common Agent Instructions
+106: 
+107: Every analysis agent receives this preamble in its prompt:
+108: 
+109: ```
+110: You are performing a deep audit of the "<subsystem>" subsystem in the
+111: <project-name> codebase. Your job is to read every relevant file, analyze it
+112: thoroughly, and write a structured report.
+113: 
+114: ## Project Context
+115: <paste relevant sections from CLAUDE.md and sub-documents>
+116: 
+117: ## Core Files — READ ALL OF THESE
+118: <full file list from Phase 1>
+119: 
+120: ## Usage Sites — READ RELEVANT ONES
+121: <usage site list from Phase 1>
+122: 
+123: ## Rules
+124: - Read EVERY core file listed above. Do not skip any.
+125: - For each claim, cite the specific file:line_number.
+126: - Use tables, code snippets, and ASCII diagrams for clarity.
+127: - Be specific and concrete — no vague generalities.
+128: - If you find a bug or risk, show the exact code.
+129: - Do not launch sub-agents. Do not modify any source code.
+130: - Structure your report with clear H2/H3 headings for each topic.
+
+### .agents/prompts/deep-audit.md (616 total lines)
+131: - Consider the project's design philosophy when evaluating — judge against
+132:   the project's own principles, not abstract best practices.
+133: ```
+134: 
+135: ### Deep Mode (default) — 5 parallel agents
+136: 
+137: Launch **5 parallel agents** using `subagent_type: "general-purpose"` in a
+138: **single message** (all 5 tool calls together).
+139: 
+140: ---
+141: 
+142: #### Agent 1: Architecture & Design Patterns
+143: 
+144: **Output:** `.traces/audits/<subsystem>/01-architecture.md`
+145: 
+146: Analyze the subsystem's structural design:
+147: 
+148: - **Component inventory**: Every class, function, and module with a one-line
+149:   role description. Organize as a table.
+150: - **Responsibility map**: What each component does, WHY it exists, and what
+151:   would break if it were removed.
+152: - **Design patterns**: Name the patterns used (Observer, Strategy, Proxy,
+153:   Metaclass, Mixin, etc.). For each: where it's applied, why it was chosen,
+154:   and whether it's the right choice.
+155: - **Data flow**: How data enters, transforms through, and exits the subsystem.
+156:   Include ASCII diagrams showing the primary flows.
+157: - **State management**: Where state lives (class vars, instance vars, module
+158:   globals, external stores), how it's mutated, and its lifecycle.
+159: - **Coupling analysis**: Which components know about each other directly.
+160:   Identify tight coupling (concrete references) vs loose coupling (protocols,
+161:   events, dependency injection). Rate each relationship.
+162: - **Cohesion assessment**: For each module — is it doing one thing well, or
+163:   is it a grab bag? Identify any god classes or modules with mixed concerns.
+164: - **Boundary analysis**: What's internal implementation vs public surface.
+165:   Are boundaries enforced (private, underscore convention, `__all__`) or just
+166:   conventional?
+167: - **Configuration surface**: What's configurable, what's hardcoded, what
+168:   should be configurable but isn't.
+169: - **Error propagation**: How errors flow through the subsystem. Where are
+170:   they raised, caught, transformed, or silently swallowed?
+171: 
+172: Target: **500-800 lines** of dense, structured analysis.
+173: 
+174: ---
+175: 
+176: #### Agent 2: API Surface & Contracts
+177: 
+178: **Output:** `.traces/audits/<subsystem>/02-api-contracts.md`
+179: 
+180: Analyze every public interface and usage pattern:
+181: 
+182: - **Public API inventory**: Every public callable — parameters, return types,
+183:   side effects, exceptions. Organize as a reference table.
+184: - **Contracts & invariants**: For each key API — what must be true before the
+185:   call (preconditions), what's guaranteed after (postconditions), what's
+186:   always true (invariants).
+187: - **Error handling contracts**: What errors can each API raise? What does the
+188:   caller see? Are error types consistent or ad-hoc?
+189: - **Type safety**: Where are types enforced (runtime checks, Pydantic, type
+190:   hints)? Where are they assumed? Where do they leak (Any, untyped dicts,
+191:   dynamic attributes)?
+192: - **Usage patterns in the codebase**: How does the rest of the codebase
+193:   ACTUALLY use this API? Show real code examples. Are there misuse patterns?
+194: - **Developer experience**: Is the API intuitive? Discoverable? Consistent
+195:   with similar APIs in the project? What surprises would a new developer hit?
+196: - **Naming analysis**: Are names consistent, descriptive, and following
+197:   project conventions? Any misleading names?
+198: - **Parameter validation**: What's validated at the boundary? What's trusted?
+199:   Where could bad input sneak through?
+200: - **Return value contracts**: What does the caller get back? Is the shape
+201:   always consistent, or does it vary by code path?
+202: - **Lifecycle & ordering**: Required call sequences, initialization protocols,
+203:   cleanup requirements. What breaks if you call things out of order?
+204: - **Documentation gaps**: What's undocumented? What's documented but wrong
+205:   or stale?
+206: 
+207: Target: **500-800 lines** of dense, structured analysis.
+208: 
+209: ---
+210: 
+211: #### Agent 3: Quality & Risk Assessment
+212: 
+213: **Output:** `.traces/audits/<subsystem>/03-quality-risks.md`
+214: 
+215: Find every bug, risk, and quality concern:
+216: 
+217: - **Potential bugs**: Logic errors, off-by-one, null/None handling, incorrect
+218:   assumptions. For each: show the code, explain the scenario that triggers it,
+219:   and rate the likelihood.
+220: - **Edge cases**: What inputs, states, or sequences could break things?
+221:   Boundary conditions, empty collections, concurrent access, large inputs.
+222: - **Test coverage analysis**: What's tested? What's NOT tested? What SHOULD
+223:   be tested? Identify the highest-risk untested paths.
+224: - **Test quality**: Are existing tests testing the right things? Are there
+225:   assertion gaps (test runs code but doesn't verify outcomes)? Are tests
+226:   brittle or robust?
+227: - **Error handling gaps**: Uncaught exceptions, swallowed errors, misleading
+228:   error messages, missing try/except blocks on I/O or external calls.
+229: - **Security considerations**: Injection risks, auth bypass potential,
+230:   privilege escalation, data exposure, unsafe deserialization.
+231: - **Performance risks**: O(n^2) algorithms, unbounded allocations, blocking
+232:   calls in async context, missing caching opportunities, N+1 query patterns.
+233: - **Concurrency issues**: Shared mutable state, race conditions, async
+234:   pitfalls, deadlock potential, missing locks or synchronization.
+235: - **Resource management**: File handles, connections, memory — are they
+236:   properly opened/closed? Any leak potential?
+237: - **Technical debt inventory**: TODO/FIXME/HACK comments, workarounds,
+238:   deprecated patterns, copy-paste duplication.
+239: - **Failure modes**: What happens when dependencies fail? Is there graceful
+240:   degradation or catastrophic failure? What's the blast radius?
+241: 
+242: Target: **500-800 lines** of dense, structured analysis.
+243: 
+244: ---
+245: 
+246: #### Agent 4: Extensibility & Integration
+247: 
+248: **Output:** `.traces/audits/<subsystem>/04-extensibility.md`
+249: 
+250: Analyze how the subsystem connects, extends, and evolves:
+251: 
+252: - **Extension points**: Where and how can new functionality be added WITHOUT
+253:   modifying existing code? List each point with: mechanism (subclass,
+254:   plugin, hook, config), difficulty (easy/moderate/hard), example.
+255: - **Integration boundaries**: How this subsystem connects to every other
+256:   subsystem. For each boundary: what crosses it (data format, protocol,
+257:   function calls), coupling strength, and stability.
+258: - **Dependency graph**: What this subsystem depends on (inbound) and what
+259:   depends on it (outbound). Include an ASCII dependency diagram.
+260: - **Data contracts at boundaries**: What format/structure crosses each
+
+### .agents/prompts/deep-audit.md (616 total lines)
+261:   boundary? Are contracts explicit (typed) or implicit (convention)?
+262: - **What's easy to change**: Modifications that the current design supports
+263:   naturally. Things you can do in under an hour.
+264: - **What's hard to change**: Modifications that require significant
+265:   restructuring. Things that fight the current architecture.
+266: - **Constraints & limitations**: Fundamental limitations of the current
+267:   design that cannot be fixed without a rewrite.
+268: - **Feature integration guide**: Step-by-step guide for adding a new feature
+269:   that touches this subsystem. What files to modify, what patterns to follow,
+270:   what tests to add, what to watch out for.
+271: - **Comparison with alternatives**: Are there simpler or better-known designs
+272:   for the same problem? How does the current approach compare? What would a
+273:   migration look like?
+274: - **Evolution trajectory**: How has this subsystem changed over time (check
+275:   git history)? What direction is it heading? Is the trajectory sustainable?
+276: - **Cross-cutting concerns**: How does this subsystem interact with logging,
+277:   error handling, configuration, authentication, serialization?
+278: 
+279: Target: **500-800 lines** of dense, structured analysis.
+280: 
+281: ---
+282: 
+283: #### Agent 5: Strategic Improvements & Propositions
+284: 
+285: **Output:** `.traces/audits/<subsystem>/05-improvements.md`
+286: 
+287: Propose concrete improvements to the subsystem. Every proposition must be
+288: grounded in what the code actually does today — not theoretical ideals.
+289: The audience is a technical CEO and engineering team deciding what to invest in.
+290: 
+291: - **Mental model simplification**: Where does the subsystem's mental model have
+292:   unnecessary complexity? What concepts could be merged, renamed, or eliminated
+293:   without losing capability? For each: the current model, the proposed simpler
+294:   model, and what breaks during the transition. ASCII before/after diagrams.
+295: - **Interface tightening**: Where are interfaces wider than they need to be?
+296:   What parameters, methods, or config options could be removed or defaulted
+297:   without losing real use cases? For each: current vs proposed interface,
+298:   callers affected, migration path.
+299: - **Composability improvements**: Where does the subsystem resist composition?
+300:   Identify cases where combining features requires special knowledge, custom
+301:   glue, or violating abstractions. Propose designs where composition is natural.
+302:   Show concrete code sketches of the improved API.
+303: - **Resilience & error recovery**: Where does the subsystem fail hard when it
+304:   could degrade gracefully? Identify missing fallbacks, poor error boundaries,
+305:   or failure modes that cascade. Propose specific resilience patterns (circuit
+306:   breakers, default behaviors, retry with backoff, partial results).
+307: - **Extensibility without modification**: Where does adding a new capability
+308:   require modifying existing code instead of extending? Propose patterns that
+309:   make extension additive: registries, hooks, protocols, strategy injection.
+310:   Show before/after code examples.
+311: - **Convention over configuration**: Where does the subsystem demand explicit
+312:   configuration that could be inferred from conventions? Where are sensible
+313:   defaults missing?
+314: - **Consistency gaps**: Where does the subsystem break patterns established
+315:   elsewhere in the codebase? Where do similar things work differently for no
+316:   good reason? Propose unification.
+317: - **Propositions summary table**: Every improvement as a prioritized table:
+318:   | # | Proposition | Simplifies | Impact | Effort | Risk | Dependencies |
+319:   Rank by impact/effort ratio. Flag any that enable or block other propositions.
+320: 
+321: For each proposition:
+322: - **Current state**: What exists today (with file:line references)
+323: - **Problem**: Why this matters (concrete evidence, not opinion)
+324: - **Proposed change**: Specific design — code sketches, API signatures, data
+325:   flow diagrams. Enough detail that an engineer could start implementing.
+326: - **Trade-offs**: What gets better, what gets worse, what might break
+327: - **Migration path**: How to get from here to there incrementally
+328: 
+329: Target: **500-800 lines** of dense, structured analysis.
+330: 
+331: ---
+332: 
+333: ### Quick Mode — 2 parallel agents
+334: 
+335: Launch **2 parallel agents** using `subagent_type: "general-purpose"` in a
+336: **single message**.
+337: 
+338: #### Agent 1: Architecture, API & Improvements (combines dimensions 1+2+5)
+339: 
+340: **Output:** `.traces/audits/<subsystem>/01-architecture-api.md`
+341: 
+342: Cover all topics from the Architecture and API dimensions above, condensed.
+343: Additionally, include a **"Propositions"** section at the end covering:
+344: mental model simplification, interface tightening, composability improvements,
+345: and consistency gaps — drawn from the Strategic Improvements dimension.
+346: Target: **500-700 lines**.
+347: 
+348: #### Agent 2: Quality, Extensibility & Resilience (combines dimensions 3+4+5)
+349: 
+350: **Output:** `.traces/audits/<subsystem>/02-quality-extensibility.md`
+351: 
+352: Cover all topics from the Quality and Extensibility dimensions above, condensed.
+353: Additionally, include a **"Propositions"** section at the end covering:
+354: resilience & error recovery, extensibility without modification, convention
+355: over configuration — drawn from the Strategic Improvements dimension.
+356: Target: **500-700 lines**.
+357: 
+358: ---
+359: 
+360: **Wait for all analysis agents to complete before proceeding.**
+361: 
+362: ---
+363: 
+364: ## Phase 3: Synthesis
+365: 
+366: Once all analysis reports are written, verify they exist and show the user
+367: a brief status:
+368: 
+369: > Analysis complete (`.traces/audits/<subsystem>/`):
+370: > - `01-architecture.md` — N lines
+371: > - `02-api-contracts.md` — N lines
+372: > - `03-quality-risks.md` — N lines
+373: > - `04-extensibility.md` — N lines
+374: > - `05-improvements.md` — N lines
+375: >
+376: > Synthesizing final audit...
+377: 
+378: Launch **1 synthesis agent** using `subagent_type: "general-purpose"`.
+379: 
+380: **Output:** `.traces/audits/<subsystem>/0{N+1}-<subsystem>-audit.md`
+381: (where N = number of analysis files: 5 for deep, 2 for quick)
+382: 
+383: The synthesis agent's prompt:
+384: 
+385: ```
+386: You are synthesizing a comprehensive audit of the "<subsystem>" subsystem.
+387: Read ALL analysis reports listed below, cross-reference findings, resolve
+388: contradictions, and produce a single unified audit document.
+389: 
+390: ## Analysis Reports to Read

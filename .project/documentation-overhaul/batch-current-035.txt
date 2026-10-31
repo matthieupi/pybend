@@ -1,0 +1,628 @@
+
+### docs/frontend/COMPONENTS.md (1008 total lines)
+781: - String routes serialize to `location.hash` (e.g., `#Product/3`).
+782: - Object routes are programmatic-only (no hash).
+783: - `null` route clears the hash.
+784: - Browser back/forward triggers `hashchange`, which updates Router state.
+785: 
+786: ### Registry
+787: 
+788: ```javascript
+789: import { getRouter } from './core/Router.js';
+790: 
+791: const router = getRouter('main');  // Retrieve by addr
+792: ```
+793: 
+794: ---
+795: 
+796: ## NTTRouter
+797: 
+798: **File:** `components/ntx-router.js`
+799: **Tag:** `<ntx-router>`
+800: **CSS:** `components/ntx-router.css`
+801: 
+802: Generic view container — a "mini browser" controlled via TX. Loads any component dynamically. Never needs editing to support new views.
+803: 
+804: ### Usage
+805: 
+806: ```html
+807: <ntx-router name="main" hash>
+808:     <ntx-list model="Product"></ntx-list>
+809: </ntx-router>
+810: ```
+811: 
+812: ### Attributes
+813: 
+814: | Attribute | Description |
+815: |-----------|-------------|
+816: | `name` | Router actor address. Auto-generated if omitted. |
+817: | `hash` | Presence enables hash sync on the Router actor. |
+818: 
+819: ### Behavior
+820: 
+821: 1. **Slot content = home page**: Declared children are the default view (shown when `route === null`).
+822: 2. **NAVIGATE pushes a view**: Hides slot, creates the requested component, mounts it in shadow DOM.
+823: 3. **BACK pops the view**: Destroys current view, restores slot (light DOM children stay alive — no re-fetch).
+824: 4. **Back button**: Shown when history stack has entries. Sends `BACK` TX to Router.
+825: 5. **Auto-configure**: Sets `router` attribute on child `[model]` elements in `connectedCallback`.
+826: 
+827: ### Slot Persistence
+828: 
+829: When ntx-router shows a dynamic view, the `<slot>` is removed from shadow DOM. But the light DOM children (`<ntx-list>`) stay alive — they keep their data, subscriptions, and state. Going back restores the `<slot>`, and the list re-projects instantly with no re-fetch or re-render.
+830: 
+831: ### Tag Resolution (String Routes)
+832: 
+833: For string routes like `"Product/3"`, ntx-router resolves the component tag:
+834: 
+835: ```
+836: 1. schema.ui.renderer.detail    (model-specific detail tag)
+837: 2. schema.ui.renderer.item      (model-specific item tag)
+838: 3. 'ntx-item'                   (framework default)
+839: ```
+840: 
+841: The resolved element receives a `ref` attribute with the full route string.
+842: 
+843: ### Chrome
+844: 
+845: The router chrome (back button + title) only appears when a dynamic view is active:
+846: 
+847: - **Back button**: Left arrow SVG, sends `BACK` TX.
+848: - **Title**: Model name (string route) or `routeData.title` (object route).
+849: 
+850: ---
+851: 
+852: ## Formidable
+853: 
+854: **File:** `generators/form.js`
+855: 
+856: Stateless schema-driven HTML generator. Produces HTML strings (not DOM elements) from a schema + value pair. Used by NTTItem for zero-config rendering, but also available to any custom component.
+857: 
+858: ### API
+859: 
+860: ```javascript
+861: import { Formidable } from '../generators/form.js';
+862: 
+863: // Full form with header + fields:
+864: Formidable.getForm({ schema: jsonSchema, value: entityData }, 'display');
+865: Formidable.getForm({ schema: jsonSchema, value: entityData }, 'edit');
+866: 
+867: // Single field:
+868: Formidable.getInput(ntt, 'fieldName', 'edit');
+869: 
+870: // List/relationship field:
+871: Formidable.getListInput(ntt, 'comments', 'display');
+872: 
+873: // Validation attributes string:
+874: Formidable.validationAttrs(fieldDef, isRequired);
+875: 
+876: // Grouped field rendering:
+877: Formidable.renderGroupedFields(ntt, fields, groups, 'display');
+878: ```
+879: 
+880: ### Field Ordering
+881: 
+882: If `schema.ui.field_order` exists, fields render in that order. Fields not in the list are appended at the end (safety net for schema additions).
+883: 
+884: ### Field Groups
+885: 
+886: When `schema.ui.groups` is defined:
+887: 
+888: ```json
+889: "ui": {
+890:   "groups": {
+891:     "main": ["name", "description"],
+892:     "pricing": ["price"]
+893:   }
+894: }
+895: ```
+896: 
+897: Fields are wrapped in `<fieldset class="ntx-group ntx-group-{name}">` with `<legend>` per group. Ungrouped fields render after all groups.
+898: 
+899: ### Widget Hints
+900: 
+901: `ui.widget` on a field definition takes priority over `type`:
+902: 
+903: | Widget | Edit Mode | Display Mode |
+904: |--------|-----------|--------------|
+905: | `textarea` | `<textarea>` | `<div class="text-block">` |
+906: | `currency` | `<input type="number" step="0.01">` + `$` prefix | `$X.XX` formatted |
+907: 
+908: ### Schema-Driven Validation
+909: 
+910: `validationAttrs(def, isRequired)` maps JSON Schema constraints to HTML5 validation attributes:
+
+### docs/frontend/COMPONENTS.md (1008 total lines)
+911: 
+912: | Schema | HTML Attribute |
+913: |--------|---------------|
+914: | `minLength` | `minlength` |
+915: | `maxLength` | `maxlength` |
+916: | `minimum` / `exclusiveMinimum` | `min` |
+917: | `maximum` / `exclusiveMaximum` | `max` |
+918: | `pattern` | `pattern` |
+919: | `schema.required` includes field | `required` |
+920: | `ui.placeholder` | `placeholder` |
+921: 
+922: ### Field Exclusion
+923: 
+924: Fields with `ui.display === false` are skipped. Applied automatically by backend conventions (`*_id`, `id`, timestamps) or explicitly via `json_schema_extra`.
+925: 
+926: ### Protected Fields
+927: 
+928: Fields with `ui.protected === true` are backend-owned and cannot be modified via the UI. In edit mode, protected fields are hidden from the form. In display mode, they render normally. This is set by the backend's `__protected_fields__` class variable (e.g., `user_owner` on Comment).
+929: 
+930: ### Relationship Rendering
+931: 
+932: `getListInput()` handles relationship array fields:
+933: 
+934: - Extracts referenced model name from `items.$ref`
+935: - Resolves child tag from `$defs[model].ui.renderer.item` (falls back to `ntx-item`)
+936: - Renders header with model label + count badge
+937: - Collapses items beyond the configured visible count (default 8) with a show-more button
+938: 
+939: ### Type Resolution
+940: 
+941: | Schema Type | Edit Mode | Display Mode |
+942: |-------------|-----------|--------------|
+943: | `string` | `<input type="text">` | `<div>value</div>` |
+944: | `number` | `<input type="number">` | `<div>value</div>` |
+945: | `boolean` | `<input type="checkbox">` | `<div>value</div>` |
+946: | `text` | `<textarea>` | `<div>value</div>` |
+947: | `selfref` | `<input type="number" placeholder="Parent ID">` | `[Parent: #id]` or `(top-level)` |
+948: | `$ref` | — | `[Reference: name or id]` |
+949: | `array` | `getListInput()` | `getListInput()` |
+950: 
+951: Handles `anyOf` schemas (Pydantic Optional fields) by stripping the null type via `resolveAnyOf()`.
+952: 
+953: ---
+954: 
+955: ## Scaffolding
+956: 
+957: **File:** `src/n3tx/core/utils/scaffold.py`
+958: 
+959: Generates starter component files from a model's schema, bridging the gap between zero-config Formidable rendering and fully custom components.
+960: 
+961: ### CLI
+962: 
+963: ```bash
+964: cd /workspace/src/n3tx/core
+965: python -m utils.scaffold Product
+966: # Generates:
+967: #   components/product-card.js    (extends NTTElement)
+968: #   components/product-card.css   (flat starter card)
+969: #   components/product-grid.js    (extends ListElement)
+970: #   components/product-grid.css   (grid layout starter)
+971: ```
+972: 
+973: ### API Endpoint
+974: 
+975: ```
+976: GET /Product?scaffold=item       → JS item component (text/plain)
+977: GET /Product?scaffold=list       → JS list component
+978: GET /Product?scaffold=css        → Item CSS
+979: GET /Product?scaffold=list-css   → List CSS
+980: ```
+981: 
+982: ### What Gets Generated
+983: 
+984: **Item component**: NTTElement subclass with:
+985: - Explicit `render()` with destructured fields from schema
+986: - Header fields (`name`, `description`) as `<h2>` / `<p>`
+987: - Widget-aware display (currency → `$X.XX`, textarea → `<p>`)
+988: - Relationship array fields → nested `<ntx-item>` components
+989: - `<ntx-method>` buttons for schema methods
+990: - `get styles()` pointing to companion CSS
+991: 
+992: **List component**: ListElement subclass with:
+993: - `get childTag()` returning the item tag
+994: - `get styles()` pointing to companion CSS
+995: 
+996: **CSS files**: Flat darker card starter, flatter field rows, stagger animation.
+997: 
+998: ### Programmatic Use
+999: 
+1000: ```python
+1001: from utils.scaffold import scaffold_item, scaffold_single, scaffold_model
+1002: 
+1003: # Generate source string
+1004: js = scaffold_single('Product', kind='item')
+1005: 
+1006: # Write all files
+1007: scaffold_model('Product', output_dir=Path('./my-components'))
+1008: ```
+
+### docs/frontend/MESSAGE_PROTOCOL.md (390 total lines)
+1: # Message Protocol Reference
+2: 
+3: All communication in N3TX happens via TX messages routed through the Actor hierarchy. This document describes every message type, who sends it, who handles it, and what happens.
+4: 
+5: ## Table of Contents
+6: 
+7: 1. [Message Format](#message-format)
+8: 2. [Routing Rules](#routing-rules)
+9: 3. [Protocol: Schema Discovery](#protocol-schema-discovery)
+10: 4. [Protocol: List Rendering](#protocol-list-rendering)
+11: 5. [Protocol: Item Rendering](#protocol-item-rendering)
+12: 6. [Protocol: Entity CRUD](#protocol-entity-crud)
+13: 7. [Message Reference Table](#message-reference-table)
+14: 
+15: ---
+16: 
+17: ## Message Format
+18: 
+19: Every message is a TX object (or plain object with the same fields):
+20: 
+21: ```javascript
+22: {
+23:   name:   "EVENT_NAME",       // Method to invoke on the target
+24:   source: "sender-address",   // Who sent this
+25:   target: "receiver-address", // Who should receive this
+26:   data:   { ... },            // Payload (any type)
+27:   meta:   { ... },            // Metadata (remote flag, inbox override, etc.)
+28:   tst:    1702000000000,      // Timestamp
+29:   hash:   "abc123"            // Deterministic content hash
+30: }
+31: ```
+32: 
+33: ### Key meta fields
+34: 
+35: | Field | Type | Description |
+36: |-------|------|-------------|
+37: | `remote` | `bool` | If true, NetworkAdapter originated this or should send it remotely. |
+38: | `inbox` | `string` | Override: when the response comes back, use this as the event name instead of the original. |
+39: | `req` | `string` | Correlation ID linking replies (and stream chunks) to the original request TX uuid. |
+40: | `stream` | `bool` | If true, this message is part of a streaming sequence (chunk or end). |
+41: | `stream_end` | `bool` | If true, this is the final message in a streaming sequence. |
+42: | `seq` | `number` | Sequence number for ordering stream chunks. |
+43: | `error` | `bool` | If true, this message is an error (terminates streams). |
+44: 
+45: ---
+46: 
+47: ## Routing Rules
+48: 
+49: Messages flow through a hierarchy. Each actor's `send()` tries to resolve the target locally, then bubbles up.
+50: 
+51: ### 1. Actor static routing (`Actor._send`)
+52: 
+53: ```
+54: Parse target into segments: [parent, child, ...]
+55: 
+56: IF parent is in this.children:
+57:   -> child.inbox(tx)
+58: 
+59: ELSE IF parent === this.addr:
+60:   -> Look up children[child].inbox(tx)
+61: 
+62: ELSE:
+63:   -> Prefix source with this.addr
+64:   -> ROOT_ACTOR.inbox(tx)   (bubble to Matrix)
+65: ```
+66: 
+67: ### 2. Matrix routing (`Matrix.inbox`)
+68: 
+69: ```
+70: IF name === CONNECT:
+71:   -> matrix.connect(source, target)
+72: 
+73: ELSE IF first segment of target is in matrix.children:
+74:   -> child.inbox(tx)       (child is usually a Class: N3TX, Component, DynClass, etc.)
+75: 
+76: ELSE:
+77:   -> matrix.remote.send(tx)  (forward to backend via NetworkAdapter)
+78: ```
+79: 
+80: ### 3. NetworkAdapter routing (`NetworkAdapter.send`)
+81: 
+82: Maps event names to HTTP methods:
+83: 
+84: | TX name | HTTP method | URL |
+85: |---------|-------------|-----|
+86: | SCHEMA | GET | `{target}` |
+87: | READ | GET | `{target}` |
+88: | CREATE | POST | `{target}` |
+89: | UPDATE | PUT | `{target}` |
+90: | DELETE | DELETE | `{target}` |
+91: | (other) | POST | `{target}/{name}` |
+92: 
+93: On response: swaps source/target, sets `name = meta.inbox || original name`, dispatches back through `matrix.dispatch()`.
+94: 
+95: ---
+96: 
+97: ## Protocol: Schema Discovery
+98: 
+99: Triggered when a component sets its `model` attribute or when `N3TX.attach(addr, callback)` is called for an unknown model.
+100: 
+101: ```
+102: Step 1: Component or code triggers N3TX lookup
+103:   TX { name: ATTACH, source: <requester>, target: N3TX, data: "Product" }
+104:   -> Matrix routes to N3TX (static class)
+105:   -> N3TX.ATTACH() checks #prototypes
+106: 
+107: Step 2: Model never seen (undefined) — null pointer bootstrap
+108:   N3TX.#prototypes.set("Product", null)     // Mark as "schema in flight"
+109:   N3TX.#waiting.set("Product", [tx])        // Queue the original TX
+110:   Dispatches:
+111:   TX { name: SCHEMA, source: N3TX, target: http://localhost:8000/Product, meta: {remote:true} }
+112:   -> Matrix can't resolve URL -> NetworkAdapter.send()
+113:   -> HTTP GET http://localhost:8000/Product
+114:   -> Backend returns JSON schema
+115: 
+116: Step 3: Response routed back
+117:   NetworkAdapter.httpCallback() creates:
+118:   TX { name: SCHEMA, source: http://localhost:8000/Product, target: N3TX, data: <schema> }
+119:   -> Matrix routes to N3TX (static)
+120: 
+121: Step 4: N3TX processes schema — DynClass created
+122:   N3TX.SCHEMA(data):
+123:     - Registers any $defs nested schemas as additional DynClasses
+124:     - Calls prototype(addr, schema, href) -> creates DynClass "Product"
+125:     - Stores DynClass in #prototypes["Product"]
+126:     - Replays all queued TXs and callbacks from #waiting["Product"]
+127:     - Calls DynClass.call('READ', {}) to trigger initial data fetch
+128: 
+129: Step 5: Requester receives the replayed ATTACH
+130:   The original ATTACH TX is replayed to DynClass.ATTACH()
+
+### docs/frontend/MESSAGE_PROTOCOL.md (390 total lines)
+131:   -> DynClass adds requester as a watcher
+132:   -> If using N3TX.attach() with callback, DynClass.signal(callback) fires
+133: ```
+134: 
+135: ---
+136: 
+137: ## Protocol: List Rendering
+138: 
+139: Triggered after schema discovery completes and a List component's watcher/callback kicks in.
+140: 
+141: ```
+142: Step 1: DynClass fetches data (paginated)
+143:   DynClass.call('READ', { limit: 20, offset: 0 }, { inbox: 'UPDATE' })
+144:   TX { name: READ, source: Product, target: http://localhost:8000/products,
+145:        data: { limit: 20, offset: 0 }, meta: { inbox: 'UPDATE' } }
+146: 
+147: Step 2: NetworkAdapter encodes data as query params for READ
+148:   HTTP GET /products?limit=20&offset=0
+149:   Backend returns: { data: [{id:1, ...}, ...], meta: { total, limit, offset, has_more } }
+150: 
+151: Step 3: httpCallback swaps source/target, uses meta.inbox as event name
+152:   TX { name: UPDATE, source: http://.../products, target: Product,
+153:        data: { data: [...], meta: {...} } }
+154: 
+155: Step 4: DynClass processes response
+156:   DynClass.READ(data):
+157:     Detects paginated shape: { data: Array, meta: Object }
+158:       -> Stores meta as DynClass._paginationMeta
+159:       -> Extracts data array for processing
+160:     For each item in array:
+161:       - Creates new DynClass(item) -> N3TX instance
+162:       - Stores in DynClass.instances
+163:     Replays any _pendingAttaches (instance ATTACHes that arrived before READ)
+164:     Notifies all watchers with instance addresses:
+165:     TX { name: UPDATE, source: Product, target: <list-addr>, data: ["Product/1","Product/2",...] }
+166: 
+167: Step 5: List renders
+168:   List.UPDATE(data):
+169:     this.value = data (array of address strings)
+170:     this.render():
+171:       Reads this.proto._paginationMeta for count/total display
+172:       For each address string:
+173:         const el = document.createElement('ntx-item')
+174:         el.ref = address
+175:         shadowRoot.appendChild(el)
+176:       If has_more: renders "Load More" button → loadMore() → READ with offset += pageSize
+177: ```
+178: 
+179: ---
+180: 
+181: ## Protocol: Item Rendering
+182: 
+183: Triggered when a List sets `el.ref` on an `<ntx-item>`.
+184: 
+185: ```
+186: Step 1: Item sends ATTACH
+187:   Item.ref setter:
+188:   TX { name: ATTACH, source: <item-addr>, target: N3TX, data: "Product/1" }
+189: 
+190: Step 2: Routes through N3TX to DynClass to instance
+191:   N3TX.ATTACH() -> "Product" exists in #prototypes -> forwards to DynClass
+192:   DynClass.ATTACH() -> addr contains "/" -> instance-level
+193:     -> Looks up instance "1" in DynClass.children
+194:     -> Forwards TX to instance inbox
+195: 
+196:   N3TX instance ATTACH(data, tx):
+197:     this.watch(tx.source, false)   // Register item as watcher, no immediate push
+198:     TX { name: DESCRIBE, source: this.addr, target: <item-addr>,
+199:          data: { proto: this.constructor._schema, data: this.value } }
+200: 
+201: Step 3: Item receives DESCRIBE
+202:   Item.DESCRIBE(data):
+203:     this.schema = data.proto    // JSON schema
+204:     this.value = data.data      // Entity data {id, name, price, ...}
+205:     // value setter auto-renders when schema is available
+206: ```
+207: 
+208: ---
+209: 
+210: ## Protocol: Entity CRUD
+211: 
+212: ### Create
+213: 
+214: ```
+215: DynClass.call('CREATE', entityData)
+216: TX { name: CREATE, source: Product, target: http://localhost:8000/products, data: {...} }
+217: -> NetworkAdapter -> HTTP POST /products
+218: -> Response routed back to DynClass
+219: 
+220: DynClass.CREATE(data):
+221:   If instance doesn't exist → creates new DynClass(data), adds to instances map
+222:   If instance exists → updates with new data
+223:   Re-notifies all watchers with updated address list
+224:   → Lists automatically show the new entity
+225: ```
+226: 
+227: ### Read (single)
+228: 
+229: ```
+230: ntt.pull()
+231: TX { name: READ, source: <ntx-addr>, target: http://localhost:8000/products/<id> }
+232: -> HTTP GET /products/<id>
+233: -> Response updates N3TX instance
+234: ```
+235: 
+236: **Note: FK Hydration.** Read responses may contain collection fields as href
+237: arrays instead of embedded objects. For example, a Product's `comments` field
+238: returns `["http://localhost:5000/products/1/comments/1", ...]` rather than
+239: inline Comment objects. Each href is independently resolvable via GET.
+240: 
+241: ### Update
+242: 
+243: ```
+244: ntt.call('UPDATE', updatedData)
+245: TX { name: UPDATE, source: <ntx-addr>, target: http://localhost:8000/products/<id>, data: {...} }
+246: -> HTTP PUT /products/<id>
+247: ```
+248: 
+249: Or via optimistic update flow (from UI save):
+250: ```
+251: Item sends: TX { UPDATE, target: "Product/1", data: {...} }
+252: -> Routes to N3TX instance
+253: -> N3TX.UPDATE(): updates local data, then forwards to backend
+254: -> TX { UPDATE, target: http://.../products/1, data: {...} }
+255: -> HTTP PUT
+256: ```
+257: 
+258: ### Delete
+259: 
+260: ```
+
+### docs/frontend/MESSAGE_PROTOCOL.md (390 total lines)
+261: Step 1: NTTItem sends DELETE TX (routed through DynClass)
+262:   Item.deleteItem():
+263:     Checks permissions.canAction(schema.access, 'delete', this.value)  ← resource-aware OWNER check
+264:     Shows confirm() dialog
+265:     Resolves target: uses ref (API endpoint URL) for nested entities, falls back to $id
+266:     Routes through DynClass (not directly to backend):
+267:     DC.send(TX { name: DELETE, target: <api-url>, meta: { inbox: 'DELETE' } })
+268: 
+269: Step 2: NetworkAdapter sends HTTP DELETE
+270:   HTTP DELETE /products/<id>  (no request body)
+271:   Backend returns: { message: "Deleted successfully" }
+272: 
+273: Step 3: httpCallback routes response back to DynClass
+274:   TX { name: DELETE, source: <api-url>, target: DynClass,
+275:        data: { message: "Deleted successfully" } }
+276: 
+277: Step 4: DynClass.DELETE handler cleans up
+278:   DynClass.DELETE(data, tx):
+279:     Parses entity ID from tx.source URL → removes from DynClass.instances
+280:     Re-notifies all watchers with updated address list:
+281:     TX { name: UPDATE, source: Product, target: <list-addr>, data: [remaining addresses] }
+282: 
+283: Step 5: ListElement re-renders
+284:   List.UPDATE() → render() — deleted item no longer in list
+285: ```
+286: 
+287: ### Custom Method (e.g., comment)
+288: 
+289: ```
+290: ntt.comment({name: "Great!", description: "..."})
+291: // DynClass prototype method calls:
+292: TX { name: comment, source: <ntx-addr>, target: http://localhost:8000/products/<id>,
+293:      meta: { inbox: '_response_' } }
+294: -> NetworkAdapter: unrecognized name -> HTTP POST /products/<id>/comment
+295: -> Response routed back to N3TX instance
+296: 
+297: Instance._response_(data):
+298:   if data has {action, _field, id}:
+299:     update that local collection field (e.g. favorites) without a GET
+300:   else if data is the same entity type:
+301:     update this instance directly
+302:   else:
+303:     this.pull()  → re-fetches entity from backend
+304:   → Entity signal fires when local state changes → watching NTTElement components auto-update
+305: ```
+306: 
+307: ---
+308: 
+309: ## Protocol: Navigation
+310: 
+311: Triggered when a user clicks an item in a list that has a `router` attribute.
+312: 
+313: ```
+314: Step 1: User clicks a product card
+315:   NTTItem.#bindEvents() click handler fires
+316:   Reads select-target attribute → list's addr
+317:   TX { name: SELECT, source: <item-addr>, target: <list-addr>, data: "Product/3" }
+318: 
+319: Step 2: List handles selection and forwards to Router
+320:   ListElement.SELECT("Product/3"):
+321:     this.toggle("Product/3") → adds to #selected Set
+322:     Reads router attribute → "main"
+323:   TX { name: NAVIGATE, source: <list-addr>, target: "main", data: "Product/3" }
+324: 
+325: Step 3: Matrix routes to Router actor
+326:   Router.NAVIGATE("Product/3"):
+327:     Push current (null) onto #stack
+328:     Set #current = "Product/3"
+329:     Update location.hash = "Product/3"
+330:     notify('route', "Product/3", null)
+331: 
+332: Step 4: NTTRouter observes route change
+333:   NTTRouter.render():
+334:     #mountView("Product/3"):
+335:       Resolve tag from schema → 'ntx-item'
+336:       Build chrome (back button + title "Product")
+337:       Create <ntx-item ref="Product/3">
+338:       Mount in shadow DOM .router-content
+339: 
+340: Step 5: Mounted item resolves data
+341:   NTTItem ref="Product/3" → ATTACH → DESCRIBE → render()
+342: ```
+343: 
+344: ### Going Back
+345: 
+346: ```
+347: Step 1: User clicks back button (or browser back)
+348:   TX { name: BACK, source: <router-component-addr>, target: "main" }
+349: 
+350: Step 2: Router pops stack
+351:   Router.BACK():
+352:     Pop #stack → null
+353:     Set #current = null
+354:     Clear location.hash
+355:     notify('route', null, "Product/3")
+356: 
+357: Step 3: NTTRouter restores slot
+358:   NTTRouter.render():
+359:     #showSlot():
+360:       Remove dynamic view element
+361:       Restore <slot></slot>
+362:       Light DOM <ntx-list> re-projects instantly (no re-fetch)
+363: ```
+364: 
+365: ---
+366: 
+367: ## Message Reference Table
+368: 
+369: | Name | Direction | Source | Target | Data | Handler |
+370: |------|-----------|--------|--------|------|---------|
+371: | `ATTACH` | Component -> N3TX (static) | component addr | `"N3TX"` | model name string (e.g., `"Product"`) or instance addr (e.g., `"Product/1"`) | `N3TX.ATTACH()` -> forwards to DynClass |
+372: | `ATTACH` | N3TX -> DynClass | (forwarded) | DynClass addr | model or instance addr | `DynClass.ATTACH()` |
+373: | `ATTACH` | DynClass -> N3TX instance | (forwarded) | instance addr | - | `N3TX.ATTACH()` (instance method) |
+374: | `SCHEMA` | N3TX -> Backend | `"N3TX"` | backend URL | `{}` | NetworkAdapter (HTTP GET) |
+375: | `SCHEMA` | Backend -> N3TX | backend URL | `"N3TX"` | JSON schema | `N3TX.SCHEMA()` |
+376: | `READ` | DynClass -> Backend | DynClass addr | backend URL | `{}` | NetworkAdapter (HTTP GET) |
+377: | `READ` | Backend -> DynClass | backend URL | DynClass addr | array of entities | `DynClass.READ()` |
+378: | `UPDATE` | DynClass -> watchers | DynClass addr | watcher addr | array of child addresses | `List.UPDATE()` / `Item.UPDATE()` |
+379: | `DESCRIBE` | N3TX instance -> Component | N3TX addr | component addr | `{proto: schema, data: values}` | `Item.DESCRIBE()` |
+380: | `CONNECT` | Component -> Matrix | component addr | type name | - | `Matrix.connect()` |
+381: | `CREATE` | DynClass -> Backend | DynClass addr | backend URL | entity data | NetworkAdapter (HTTP POST) |
+382: | `CREATE` | Backend -> DynClass | backend URL | DynClass addr | created entity | `DynClass.CREATE()` — registers instance, notifies watchers |
+383: | `UPDATE` | N3TX instance -> Backend | N3TX addr | backend URL | entity data | NetworkAdapter (HTTP PUT) |
+384: | `DELETE` | NTTItem -> DynClass | DynClass addr | entity API URL (via `ref`) | - | Routed through DynClass to NetworkAdapter (HTTP DELETE, no body) |
+385: | `DELETE` | Backend -> DynClass | entity URL | DynClass addr | `{message}` | `DynClass.DELETE()` — removes instance, re-notifies watchers |
+386: | `_response_` | Backend -> N3TX instance | backend URL | instance addr | method result | `instance._response_()` — locally applies structured action results, updates same-entity payloads, otherwise triggers `pull()` |
+387: | `SELECT` | NTTItem -> ListElement | item addr | list addr (via `select-target` attribute) | entity ref string (e.g., `"Product/3"`) | `ListElement.SELECT()` |
+388: | `NAVIGATE` | ListElement -> Router | list addr | router addr (via `router` attribute) | route data (string or object) | `Router.NAVIGATE()` |
+389: | `BACK` | NTTRouter -> Router | router component addr | router actor addr | (ignored) | `Router.BACK()` |
+390: | `ERROR` | NetworkAdapter -> source | backend URL | original source | error details | `TT._error_()` |

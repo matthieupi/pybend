@@ -1,0 +1,528 @@
+
+### docs/frontend/COMPONENTS.md (1008 total lines)
+261:   }
+262: }
+263: customElements.define('product-card', ProductCard);
+264: ```
+265: 
+266: ---
+267: 
+268: ## ListElement
+269: 
+270: **File:** `components/ListElement.js`
+271: **Tag:** Not registered (abstract base — use `NTTList` or extend directly)
+272: 
+273: Collection base class. Handles the data lifecycle for a list of entities.
+274: Concrete subclasses such as `NTTList` own the DOM/rendering policy.
+275: 
+276: ### Constructor
+277: 
+278: ```javascript
+279: constructor() {
+280:   super([]);  // Default value: array
+281: }
+282: ```
+283: 
+284: ### Lifecycle
+285: 
+286: ```
+287: 1. model="Product" → Component.attributeChangedCallback → ATTACH TX
+288: 2. N3TX resolves DynamicClass → Component.define(DC) → definedCallback()
+289: 3. definedCallback():
+290:    - subscribe(this.proto, 'UPDATE', this.update)
+291:    - this.proto.call('READ', { limit: 20, offset: 0 }, {inbox: 'UPDATE'})
+292: 4. Backend responds with paginated data → DynClass.READ detects {data, meta} shape
+293:    → stores _paginationMeta → creates instances → notifies watchers
+294: 5. ListElement.UPDATE(["Product/1", "Product/2", ...])
+295: 6. The concrete renderer (for example `NTTList.render()`) decides how to stamp the collection UI
+296: ```
+297: 
+298: ### Pagination
+299: 
+300: ListElement requests paginated data automatically. The initial `definedCallback()` sends `READ` with `{limit: 20, offset: 0}`. Concrete renderers can then read `this.proto._paginationMeta` to display count/total and a "Load More" affordance when `has_more` is true or when the rendered item count is lower than `meta.total`.
+301: 
+302: | Property | Type | Description |
+303: |----------|------|-------------|
+304: | `#pageSize` | `number` | Items per page (default: 20). |
+305: | `#offset` | `number` | Current offset into the collection. |
+306: 
+307: | Method | Description |
+308: |--------|-------------|
+309: | `loadMore()` | Increments offset by pageSize, sends another paginated READ. |
+310: 
+311: ### Message Handlers
+312: 
+313: | Handler | Trigger | Behavior |
+314: |---------|---------|----------|
+315: | `UPDATE(data)` | DynamicClass watcher notification | Expects array of addresses. Sets value, then uses `update()` or render fallback. |
+316: 
+317: ### Child Resolution Chain
+318: 
+319: When rendering children, `createChild(addr)` resolves the child element to stamp:
+320: 
+321: ```
+322: 1. <template item-template> in light DOM     (most explicit)
+323: 2. item-tag="..." HTML attribute              (attribute shorthand)
+324: 3. get childTag() JS property                 (subclass override)
+325: 4. schema.ui.renderer.item                    (schema hint from backend)
+326: 5. 'ntx-item'                                 (framework default)
+327: ```
+328: 
+329: ### Size Cascade
+330: 
+331: Children automatically receive a display size based on their parent's current size. This prevents cards-within-cards — a list at `md` renders its children as compact `sm` rows instead of nested cards.
+332: 
+333: | Parent Size | Child Size |
+334: |-------------|------------|
+335: | `xl` | `md` |
+336: | `lg` | `sm` |
+337: | `md` | `sm` |
+338: | `sm` | `xs` |
+339: | `xs` | `xs` |
+340: 
+341: Override with the `item-display` attribute:
+342: 
+343: ```html
+344: <!-- Auto cascade (parent md → children sm) -->
+345: <ntx-list model="Product"></ntx-list>
+346: 
+347: <!-- Force children to sm regardless of parent size -->
+348: <ntx-list model="Product" item-display="sm"></ntx-list>
+349: 
+350: <!-- Semantic alias works too -->
+351: <ntx-list model="Product" item-display="card"></ntx-list>
+352: ```
+353: 
+354: The `childDisplay` getter resolves: `item-display` attribute > `SIZE_CASCADE[this.displayMode]`.
+355: 
+356: When `childDisplay` resolves to `md`, `NTTList` also enables a packed card
+357: grid: it keeps CSS grid source ordering, but measures each child host and sets
+358: `grid-row-end: span N` against a small `grid-auto-rows` unit. That lets later
+359: cards rise into open space below shorter siblings without switching to
+360: column-major masonry. Compact/sidebar lists keep the normal one-row-per-track
+361: flow.
+362: 
+363: ### Selection API
+364: 
+365: ListElement includes a Set-based multi-select primitive. Selection state is local to the list and can be read/mutated programmatically.
+366: 
+367: | Method | Description |
+368: |--------|-------------|
+369: | `selected` | `Set` of selected addresses (read-only getter). |
+370: | `select(addr)` | Add an address to the selection. |
+371: | `deselect(addr)` | Remove an address from the selection. |
+372: | `toggle(addr)` | Toggle an address in/out of the selection. |
+373: | `clearSelection()` | Clear all selections. |
+374: 
+375: ### SELECT TX Handler
+376: 
+377: When a child item sends a `SELECT` TX to the list:
+378: 
+379: 1. The list calls `toggle(data)` to update selection state.
+380: 2. If the list has a `router` attribute, it forwards as a `NAVIGATE` TX to the Router actor.
+381: 
+382: ```html
+383: <!-- router attribute auto-set by ntx-router, or set manually -->
+384: <ntx-list model="Product" router="main"></ntx-list>
+385: ```
+386: 
+387: Children receive a `select-target` attribute (set automatically by `createChild()`) pointing back to the list's address.
+388: 
+389: ## NTTList
+390: 
+
+### docs/frontend/COMPONENTS.md (1008 total lines)
+391: **File:** `components/ntx-list.js`
+392: **Tag:** `ntx-list`
+393: 
+394: Default grid renderer built on top of `ListElement`. It owns the standard list
+395: header/count UI, create modal flow, load-more button wiring, and packed card
+396: layout for wide card lists.
+397: 
+398: ### Default Render
+399: 
+400: ```javascript
+401: render() {
+402:   const meta = this.proto?._paginationMeta;
+403:   const total = meta?.total ?? this.value.length;
+404:   const hasMore = meta?.has_more ?? false;
+405: 
+406:   this.shadowRoot.innerHTML = `
+407:     <div class="list-header">
+408:       <h1>${this.model}s</h1>
+409:       <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span>
+410:     </div>
+411:     <div class="list-grid"></div>
+412:     ${hasMore ? '<button class="load-more-btn">Load More</button>' : ''}
+413:   `;
+414:   const grid = this.shadowRoot.querySelector('.list-grid');
+415:   this.value.forEach((addr, i) => {
+416:     const child = this.createChild(addr);
+417:     child.style.setProperty('--stagger-delay', `${i * 50}ms`);
+418:     grid.appendChild(child);
+419:   });
+420:   this.shadowRoot.querySelector('.load-more-btn')
+421:     ?.addEventListener('click', () => this.loadMore());
+422: }
+423: ```
+424: 
+425: The count badge shows `"5 / 47"` when paginated (current / total) or just `"5"` when unpaginated.
+426: 
+427: ### Developer Pattern
+428: 
+429: ```javascript
+430: import { ListElement } from './ListElement.js';
+431: import './product-card.js';
+432: 
+433: class ProductGrid extends ListElement {
+434:   get styles() { return new URL('./product-grid.css', import.meta.url).href; }
+435:   get childTag() { return 'product-card'; }
+436:   render() {
+437:     // Custom collection renderer goes here.
+438:   }
+439: }
+440: customElements.define('product-grid', ProductGrid);
+441: ```
+442: 
+443: Or via HTML composition:
+444: 
+445: ```html
+446: <product-grid model="Product">
+447:   <template item-template>
+448:     <product-card mode="compact"></product-card>
+449:   </template>
+450: </product-grid>
+451: ```
+452: 
+453: ---
+454: 
+455: ## NTTItem
+456: 
+457: **File:** `components/ntx-item.js`
+458: **Tag:** `<ntx-item>`
+459: 
+460: Built-in zero-config single entity component. Extends NTTElement with adaptive size rendering, Formidable auto-rendering, edit/display toggle, and method buttons. The shared detail-card shell (`md`/`lg`/`xl`) is borderless; emphasis comes from spacing and shadow rather than an outer stroke.
+461: 
+462: ### Usage
+463: 
+464: ```html
+465: <!-- Default (auto-sized by ResizeObserver) -->
+466: <ntx-item ref="Product/1"></ntx-item>
+467: 
+468: <!-- Forced size -->
+469: <ntx-item ref="Product/1" display="xs"></ntx-item>
+470: <ntx-item ref="Product/1" display="pill"></ntx-item>
+471: ```
+472: 
+473: ### Features
+474: 
+475: - **Adaptive display**: Size methods (`xs`, `sm`, `md`, `lg`, `xl`) return HTML strings; `render()` dispatches and binds events.
+476: - **Schema-driven form**: Uses `Formidable.getForm()` for `md`/`lg`/`xl` — field ordering, groups, widgets, validation, field exclusion all automatic.
+477: - **Edit/display toggle**: Click edit button → inputs, click save → sends UPDATE TX (md+ sizes only).
+478: - **Delete button**: Trash icon button, gated by `permissions.canAction(schema.access, 'delete', this.value)`. Shows confirmation dialog, then routes DELETE through DynamicClass for proper registry cleanup. Uses `ref` (actual API endpoint URL) for nested entities where `$id` may point to the schema-derived URL.
+479: - **Method buttons**: Renders `<ntx-method>` for each method in schema (md+ sizes only).
+480: - **Show-more toggle**: Nested relationship arrays collapse after 2 items with expand button.
+481: 
+482: ### Size Methods
+483: 
+484: Each method returns an HTML string. `render()` dispatches to the current `displayMode` method, commits the HTML to shadow DOM, then binds events via `#bindEvents()`.
+485: 
+486: | Method | Rendering |
+487: |--------|-----------|
+488: | `xs()` | Pill — entity name as a compact badge (`<span class="pill-label">`). |
+489: | `sm()` | Compact row — name + 2–3 key fields + hover-reveal action buttons (edit/delete, ABAC-gated with resource-aware OWNER check). Renders button-layout methods (like/favorite) and reply button inline. Reply button toggles inline input box with submit (Enter key or click). In edit mode, delegates to `md()` for full form. Comments with `parent_id` (selfref) get `reply-indent` CSS class (left border + margin indent). |
+490: | `md()` | Card — edit button + `Formidable.getForm()` + method buttons. The current default. |
+491: | `lg()` | Detail — delegates to `md()`. Future: show normally-hidden fields. |
+492: | `xl()` | Page — delegates to `md()`. Future: full metadata, expanded children. |
+493: 
+494: Override any size method in a subclass to customize just that size:
+495: 
+496: ```javascript
+497: class ProductCard extends NTTItem {
+498:   xs() {
+499:     return `<span class="pill-label">${this.value.name} — $${this.value.price}</span>`;
+500:   }
+501: }
+502: ```
+503: 
+504: ### Render Dispatch
+505: 
+506: ```javascript
+507: render() {
+508:   const size = this.displayMode;                    // e.g. 'md'
+509:   const html = (this[size] || this.md).call(this);  // call size method
+510:   this.shadowRoot.innerHTML = `<div class="card" data-display="${size}">${html}</div>`;
+511:   this.#bindEvents();                               // generic event wiring
+512:   this[`${size}_mounted`]?.call(this);              // optional post-render hook
+513: }
+514: ```
+515: 
+516: The `data-display` attribute on `.card` drives CSS scoping (e.g. `.card[data-display="xs"]`).
+517: 
+518: ### Methods
+519: 
+520: | Method | Description |
+
+### docs/frontend/COMPONENTS.md (1008 total lines)
+521: |--------|-------------|
+522: | `deleteItem()` | Checks delete permission (resource-aware OWNER), shows `confirm()` dialog, routes `DELETE` TX through DynamicClass using `ref` URL. |
+523: 
+524: ### Private Helpers
+525: 
+526: | Helper | Description |
+527: |--------|-------------|
+528: | `#bindEvents()` | Binds edit button click, delete button click, input/textarea change, show-more toggle. Selector-based — tolerant of missing elements. |
+529: | `#smFields()` | Returns visible fields for sm rendering. Respects `ui.field_order`, renders `$ref` fields as leading avatars. |
+530: | `#methodsHtml()` | Generates `<ntx-method>` HTML for all schema methods. |
+531: 
+532: ### Input Handling
+533: 
+534: `handleInputChange(e)` reads `data-key`, `data-type`, `data-index` from the input element and updates `this.value`. Supports strings, numbers, booleans (checkbox), and array items.
+535: 
+536: ---
+537: 
+538: ## NTTList
+539: 
+540: **File:** `components/ntx-list.js`
+541: **Tag:** `<ntx-list>`
+542: 
+543: Built-in zero-config collection component. Extends ListElement with a stylesheet.
+544: 
+545: ### Usage
+546: 
+547: ```html
+548: <ntx-list model="Product"></ntx-list>
+549: ```
+550: 
+551: ### Implementation
+552: 
+553: ```javascript
+554: class NTTList extends ListElement {
+555:   get styles() { return new URL('./ntx-list.css', import.meta.url).href; }
+556: }
+557: customElements.define('ntx-list', NTTList);
+558: ```
+559: 
+560: All logic (fetch, render, child stamping) is inherited from ListElement. This is 19 lines — the thinnest possible shell.
+561: 
+562: ---
+563: 
+564: ## NTTMethod
+565: 
+566: **File:** `components/ntx-method.js`
+567: **Tag:** `<ntx-method>`
+568: 
+569: Renders a form for invoking a custom method on a model or instance.
+570: 
+571: ### Usage
+572: 
+573: ```html
+574: <ntx-method model="Product" uuid="1" method="comment" label="Add Comment"></ntx-method>
+575: ```
+576: 
+577: ### Attributes
+578: 
+579: | Attribute | Description |
+580: |-----------|-------------|
+581: | `model` | Model name for N3TX lookup. |
+582: | `method` | Method name from `schema.methods`. |
+583: | `uuid` | Instance ID (for instance methods). |
+584: | `mode` | `"manual"` (button submit) or `"auto"` (submit on input). |
+585: | `label` | Display label for the fieldset. |
+586: | `forward` | Optional DynamicClass address to forward results to. |
+587: 
+588: ### Additional Attributes (Button Layout)
+589: 
+590: | Attribute | Description |
+591: |-----------|-------------|
+592: | `icon` | Shared icon token (`heart`, `star`, `reply`, URL/path, emoji, or custom lookup key). |
+593: | `count-field` | Entity field name whose collection length is shown as a count pill. |
+594: | `layout` | Rendering layout: `fieldset` (default), `inline`, or `button`. |
+595: 
+596: ### Layouts
+597: 
+598: | Layout | Rendering | Use Case |
+599: |--------|-----------|----------|
+600: | `fieldset` | Full form with submit button | Methods with parameters |
+601: | `inline` | Compact input or textarea, depending on widget/schema | Quick input (comment, reply, ask) |
+602: | `button` | Icon + count pill, compact | Toggle actions (like, favorite) |
+603: 
+604: Button layout uses the shared icon resolver, which maps built-in lookup tokens like `heart`, `star`, and `reply` to inline SVG and still accepts direct URL/path and emoji values. The clickable control is rendered as `.method-btn`, while manual fieldset/inline submits use `button[type="submit"]`. The `count-field` attribute reads the collection length from entity data, handling both populated wrappers (`{data, meta}`) and plain arrays.
+605: 
+606: ### Behavior
+607: 
+608: 1. `load()`: Resolves DynamicClass via `N3TX.get(this.model)`, optionally resolves N3TX instance, reads method schema.
+609: 2. `render()`: Dispatches to `renderFieldset()`, `renderInline()`, or `renderButton()` based on layout attribute.
+610: 3. `callMethod()`: Calls `target.call(method, payload)` on the N3TX instance or DynamicClass.
+611: 4. `#postCall()`: Shared post-invoke logic across all layouts — renders optimistic sent state. Backend replies route to the entity `_response_` handler, which locally applies structured action results, updates same-entity payloads, or pulls for ambiguous/child-entity responses.
+612: 
+613: ---
+614: 
+615: ## NTTStream
+616: 
+617: **File:** `components/ntx-stream.js`
+618: **Tag:** `<ntx-stream>`
+619: 
+620: Extends NTTMethod for streaming methods. Overrides `callMethod()` to use `HTTP.stream()` for SSE consumption, rendering progressive output with a blinking cursor.
+621: 
+622: ### Usage
+623: 
+624: ```html
+625: <ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
+626: ```
+627: 
+628: ### Attributes
+629: 
+630: Inherits all attributes from NTTMethod (`model`, `method`, `uuid`, `mode`, `label`, `forward`).
+631: 
+632: ### Behavior
+633: 
+634: 1. `callMethod()`: Cancels any in-progress stream, then calls `HTTP.stream()` with the method URL.
+635: 2. `_onChunk(data)`: Appends chunk to internal buffer, re-renders output.
+636: 3. `_onDone(data)`: Stops streaming state, removes cursor, triggers entity re-fetch via `pull()`.
+637: 4. `_onError(data)`: Stops streaming, displays error message.
+638: 5. `disconnectedCallback()`: Cancels in-flight stream via `AbortController` (prevents orphaned connections).
+639: 
+640: ### Output Rendering
+641: 
+642: Progressive output is rendered in a `.stream-output` container appended to the shadow root. Text is extracted from chunks using `chunk.chunk || chunk.text || chunk.content || JSON.stringify(chunk)`. A blinking cursor (`|`) indicates active streaming.
+643: 
+644: ### When to Use
+645: 
+646: Use `<ntx-stream>` instead of `<ntx-method>` when the backend method is marked with `@expose_route(stream=True)`. The schema entry will have `"stream": true` in the method definition.
+647: 
+648: ---
+649: 
+650: ## Agent Components
+
+### docs/frontend/COMPONENTS.md (1008 total lines)
+651: 
+652: Agent-specific entity and streaming components live in `n3tx-agents` and layer
+653: on top of the core `NTTItem` / `NTTStream` abstractions:
+654: 
+655: - **`<ntx-agent>`** — Purpose-built `AgentActor` renderer. Extends `NTTItem`,
+656:   keeps Formidable edit mode, and adds prompt/tool/activity sections for list
+657:   and detail views. `AgentActor.__ui__.renderer.item` and `.detail` point here.
+658: - **`<ntx-agents>`** — Hybrid agents collection surface. Extends `NTTList`,
+659:   keeps the normal stored `AgentActor` list flow, and can also render app-
+660:   supplied built-in workflow entries from `window.NTX_AGENT_CATALOGS[catalog]`.
+661: - **`<ntx-agent-live>`** — Real-time agent activity monitor. Extends
+662:   `NTTStream` with structured agent event rendering.
+663: - **`<ntx-chat>`** — Floating conversational agent panel.
+664: 
+665: ## NTTUser
+666: 
+667: **File:** `components/ntx-user.js`
+668: **Tag:** `<ntx-user>`
+669: 
+670: Custom NTTItem subclass with circular avatar rendering for User entities. Wired automatically via `User.__ui__.renderer` config.
+671: 
+672: ### Rendering
+673: 
+674: | Size | Display |
+675: |------|---------|
+676: | `xs` | Circular avatar image (fallback to ui-avatars.com) |
+677: | `sm` | Circular avatar + name |
+678: | `md+` | Delegates to NTTItem default |
+679: 
+680: ---
+681: 
+682: ## NTTFavorites
+683: 
+684: **File:** `examples/core/static/components/ntx-favorites.js` and `examples/actors/static/components/ntx-favorites.js`
+685: **Tag:** `<ntx-favorites>`
+686: 
+687: Example-local page wrapper that mounts `<ntx-list model="ProductLike">` at the `#@favorites` route. It is not currently a packaged `n3tx-ui` component.
+688: 
+689: ---
+690: 
+691: ## NTTLogs
+692: 
+693: **File:** `examples/core/static/components/ntx-logs.js` and `examples/actors/static/components/ntx-logs.js`
+694: **Tag:** `<ntx-logs>`
+695: 
+696: Example-local developer log viewer backed by the shared `Logging` utility. It is not currently a packaged `n3tx-ui` component. The panel keeps DOM entries lazy while closed: the badge updates from the shared log buffer, and existing entries render when the panel opens. When the panel is already open, clear resets the visible list and future log events append live. `Logging` stores entries and listeners on a browser-global singleton so duplicate module imports still notify the mounted panel.
+697: 
+698: ---
+699: 
+700: ## NTTTopbar
+701: 
+702: **File:** `components/ntx-topbar.js`
+703: **Tag:** `<ntx-topbar>`
+704: 
+705: Navigation bar component with auth status display, login/logout, and slotted navigation links. App-specific routes such as `#@favorites` are supplied by the shell through the `nav` slot rather than hardcoded by the packaged component. Icon controls and the authenticated user menu now use borderless surface chrome.
+706: 
+707: Theme controls are no longer hardcoded into the component. `ntx-topbar` exposes a manual `slot="user-menu"` insertion point inside the authenticated dropdown so pages can place `<ntx-theme-button slot="user-menu"></ntx-theme-button>` explicitly.
+708: 
+709: ## NTTSidebar
+710: 
+711: **File:** `components/ntx-sidebar.js`
+712: **Tag:** `<ntx-sidebar>`
+713: 
+714: Model navigation shell with route templates, collapsible model groups, and a manual footer insertion point. Shell pages can place `<ntx-theme-button slot="footer"></ntx-theme-button>` at the bottom of the sidebar; the component does not auto-render theme UI from config. Sidebar labels render in uppercase, footer actions stretch to the full slot width by default, and the shell now applies a distinct selected treatment for the route that matches the active page. That selected treatment is driven by a full-height left accent rail rather than an accent border around the whole row. Expanded model groups now mount the declared route-template tag for that model when it is a list-style custom surface, while `ntx-table` still falls back to the compact headless `ntx-list` dropdown shell. Plain dropdown lists still force `item-display="sm"` and stamp the sidebar-only `ntx-sidebar-link-item` child renderer so dropdown records are real internal anchors (`#Model/id`) instead of pill-style compact items. Those anchors expose truncated labels through a lightweight custom tooltip after a roughly `220ms` hover/focus delay, with a slightly enlarged trigger hitbox. Dropdown record labels render slightly smaller than top-level model rows, use the full available row width before truncating, and model counts are styled as plain inline metadata rather than badge chips.
+715: The sidebar-specific fallback list also removes inter-item gaps for those dropdown rows and gives them a bit more vertical breathing room while keeping them aligned to the parent model name text rather than the avatar/icon column. Custom list tags such as `ntx-agents` receive `headless`, `sidebar-dropdown`, `model`, and `router` attrs so they can implement their own compact dropdown rendering without rewriting the sidebar.
+716: Route-template children can set `sidebar-label="..."` when the nav copy should differ from the raw model/schema name, such as showing `Agents` for `AgentActor`.
+717: 
+718: ## NTTThemeButton
+719: 
+720: **File:** `components/ntx-theme-button.js`
+721: **Tag:** `<ntx-theme-button>`
+722: 
+723: Reusable theme switcher that reads `window.NTX_THEME_CONFIG.themes`, shows the current theme, cycles to the next configured theme, and re-renders on the global `theme-change` event so multiple button instances stay synchronized.
+724: 
+725: ---
+726: 
+727: ## Router
+728: 
+729: **File:** `core/Router.js`
+730: **Type:** Actor (not a web component)
+731: 
+732: Pure navigation state Actor. Manages route state, a history stack, and optional hash sync. No DOM — view management is the ntx-router's responsibility.
+733: 
+734: ### Constructor
+735: 
+736: ```javascript
+737: import { Router, getRouter } from './core/Router.js';
+738: 
+739: const router = new Router('main', { hash: true });
+740: ```
+741: 
+742: | Parameter | Type | Default | Description |
+743: |-----------|------|---------|-------------|
+744: | `addr` | `string` | required | Actor address (also the key in the router registry). |
+745: | `hash` | `boolean` | `false` | Enable `location.hash` sync for string routes. |
+746: 
+747: ### Properties
+748: 
+749: | Property | Type | Description |
+750: |----------|------|-------------|
+751: | `current` | `string\|object\|null` | Current route data. `null` = home (slot). |
+752: | `canGoBack` | `boolean` | Whether the history stack has entries. |
+753: 
+754: ### TX Handlers
+755: 
+756: | Handler | Data | Behavior |
+757: |---------|------|----------|
+758: | `NAVIGATE(data)` | `string` or `object` | Push current to stack by default; if `data.reset` or `tx.meta.reset` is true, clear history first, then set the new route. |
+759: | `BACK(data)` | (ignored) | Pop stack, update hash, notify observers. |
+760: 
+761: ### Observable
+762: 
+763: ```javascript
+764: router.observe('route', (newRoute, oldRoute) => {
+765:   console.log('Navigated from', oldRoute, 'to', newRoute);
+766: });
+767: ```
+768: 
+769: ### NAVIGATE Data Formats
+770: 
+771: | Form | Example | Description |
+772: |------|---------|-------------|
+773: | **String** (entity ref) | `"Product/3"` | ntx-router resolves tag from schema. Serialized to `location.hash`. |
+774: | **Object** (explicit spec) | `{ tag: 'ntx-list', attrs: { model: 'Comment' }, title: 'Comments' }` | ntx-router creates the exact element. No hash representation. |
+775: 
+776: Sidebar and other base-page navigation can also send `tx.meta.reset = true` (or `{ route, reset: true }`) so the router treats the destination as a fresh root view. This clears the back stack, which also hides `ntx-router` chrome because `canGoBack` becomes false.
+777: 
+778: ### Hash Sync
+779: 
+780: When `hash: true`:

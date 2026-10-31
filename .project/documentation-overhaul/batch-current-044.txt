@@ -1,0 +1,447 @@
+
+### packages/n3tx-ui/README.md (233 total lines)
+131: 
+132: ---
+133: 
+134: ## 📖 API Reference
+135: 
+136: Here's the full surface area. Everything you can import, mount, and use.
+137: 
+138: ### Python API
+139: 
+140: | Export | Type | Purpose |
+141: |--------|------|---------|
+142: | `get_static_dir()` | function | Returns `Path` to the static directory |
+143: 
+144: ### 🧩 Web Components (Custom Elements)
+145: 
+146: These are your building blocks. Drop them in HTML and they just work:
+147: 
+148: | Tag | JS Class | Base | Purpose |
+149: |-----|----------|------|---------|
+150: | `ntx-item` | `NTTItem` | `NTTElement` | Adaptive entity card (xs-xl sizes) |
+151: | `ntx-list` | `NTTList` | `ListElement` | Grid collection with pagination |
+152: | `ntx-table` | `NTTTable` | `ListElement` | Table collection with sort + inline create |
+153: | `ntx-row` | `NTTRow` | `NTTItem` | Table row with inline edit |
+154: | `ntx-user` | `NTTUser` | `NTTItem` | User entity with avatar |
+155: | `ntx-method` | `NTTMethod` | `Component` | Method invocation button/form |
+156: | `ntx-stream` | `NTTStream` | `NTTMethod` | Streaming method with progressive output |
+157: | `ntx-router` | `NTTRouter` | `Component` | View container with navigation stack |
+158: | `ntx-modal` | `NTTModal` | `HTMLElement` | Overlay dialog (programmatic API) |
+159: | `ntx-ref-picker` | `NTTRefPicker` | `HTMLElement` | Reference field picker + inline create |
+160: | `ntx-topbar` | `NTTTopbar` | `HTMLElement` | Sticky navigation bar with user menu |
+161: | `ntx-sidebar` | `NTTSidebar` | `HTMLElement` | Model navigation sidebar |
+162: | `ntx-profile` | `NTTProfile` | `HTMLElement` | User profile page |
+163: 
+164: ### 🏭 Generators
+165: 
+166: | Export | Type | Purpose |
+167: |--------|------|---------|
+168: | `Formidable.getForm(ntt, mode, attached)` | function | Generate form HTML from schema |
+169: | `Formidable.getInput(ntt, key, mode)` | function | Generate single field input |
+170: | `Formidable.validateForm(ntt)` | function | Client-side validation against schema |
+171: | `Formidable.formatDisplayValue(def, key, val)` | function | Format value for display |
+172: | `Formidable.clearCache()` | function | Clear layout cache (call on login/logout) |
+173: 
+174: ### 🎛️ Widget System
+175: 
+176: | Export | Type | Purpose |
+177: |--------|------|---------|
+178: | `Widget` | class | Base class for custom widgets |
+179: | `registerWidget(name, instance)` | function | Register a widget by name |
+180: | `getWidgetForField(fieldSchema)` | function | Look up widget for a field schema |
+181: | `hasWidget(name)` | function | Check if widget is registered |
+182: 
+183: Built-in widgets: `url`, `email`, `date`, `datetime`, `markdown`, `console`, `reference`, `currency`, `textarea`.
+184: 
+185: ---
+186: 
+187: ## 💡 Patterns and Conventions
+188: 
+189: A few things that'll save you time as you build with n3tx-ui:
+190: 
+191: 1. **Components never import models.** All rendering is schema-driven. Components read `schema.properties`, `schema.ui`, `schema.access`, and `schema.methods` -- never specific field names (except `name`, `title`, `id` for headers).
+192: 
+193: 2. **Display vs edit mode.** NTTItem has a `mode` property (`'display'` or `'edit'`). In edit mode, `sm` delegates to `md` for the full form. Protected fields (`ui.protected`) are always display-only. Permission checks gate the edit button.
+194: 
+195: 3. **Widget dispatch priority.** `getWidgetForField()` checks `fieldSchema.ui.widget` against the registry. If found, the widget handles all three contexts (display/edit/list). If not found, Formidable falls through to type-based rendering. Fields without `ui.widget` render identically to pre-widget behavior.
+196: 
+197: 4. **Surgical DOM updates.** Both NTTItem and ListElement implement `update(prev, next)` which patches the DOM in-place without full re-render. Returns `true` if patched, `false` to trigger full `render()`. Always check if `update()` handles your case before adding render logic.
+198: 
+199: 5. **Layout cache in Formidable.** Field ordering, permission filtering, and group computation are cached per `schema+mode+role` key. Call `Formidable.clearCache()` on login/logout to refresh permission-dependent layouts.
+200: 
+201: ---
+202: 
+203: ## 🗺️ Package Ecosystem
+204: 
+205: Here's how n3tx-ui fits into the bigger picture:
+206: 
+207: ```
+208: n3tx-core  <---  n3tx-ui  (this package)
+209:   |                |
+210:   |  JS core:      |  JS UI:
+211:   |  NTT, Actor,   |  ntx-item, ntx-list, ntx-table,
+212:   |  Matrix, TX,   |  Formidable, Widget system,
+213:   |  Component,    |  themes, ntx-router, ntx-modal
+214:   |  Router        |
+215: ```
+216: 
+217: `n3tx-ui` depends on `n3tx-core` for the core JS runtime (NTT.js, Component.js, Actor.js, Matrix.js, TX.js, Router.js). All UI imports reference `../core/` which resolves to n3tx-core's static directory at runtime (served by the framework's static mount).
+218: 
+219: ---
+220: 
+221: ## 🔬 Deep Dives
+222: 
+223: Want to go deeper? These docs have you covered:
+224: 
+225: | Topic | File | When to read |
+226: |-------|------|--------------|
+227: | Components | [docs/components.md](docs/components.md) | Building custom components, understanding NTTElement/ListElement lifecycle |
+228: | Formidable & Forms | [docs/formidable.md](docs/formidable.md) | Customizing form generation, field rendering, validation |
+229: | Widget System | [docs/widgets.md](docs/widgets.md) | Creating custom widgets, understanding the registry and rendering contexts |
+230: 
+231: ---
+232: 
+233: Now go build something your users will love. Your schema's already doing the heavy lifting. 🛠️
+
+### packages/n3tx-ui/docs/components.md (336 total lines)
+1: # Components
+2: 
+3: > Part of [n3tx-ui](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The component class hierarchy, message handlers, lifecycle hooks, and extension points. Covers `NTTElement`, `ListElement`, and their concrete subclasses. Does not cover the form generator (see [formidable.md](formidable.md)) or the widget system (see [widgets.md](widgets.md)).
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRender())
+13:   |
+14:   +-- NTTElement (NTTElement.js)          -- Single entity base
+15:   |     Message handlers: UPDATE, DESCRIBE, READ, ERROR
+16:   |     Methods: save(), update(prev, next), onValidationError(errors)
+17:   |     Auto-renders on value change when schema is set
+18:   |     |
+19:   |     +-- NTTItem (ntx-item.js)         -- <ntx-item>
+20:   |     |     Size methods: xs(), sm(), md(), lg(), xl(), row()
+21:   |     |     Modes: display / edit (toggleMode, cancelEdit)
+22:   |     |     Validation: showFieldErrors(), client-side via Formidable
+23:   |     |     Event binding: edit, delete, input change, card click -> SELECT
+24:   |     |     |
+25:   |     |     +-- NTTRow (ntx-row.js)     -- <ntx-row>
+26:   |     |     |     Forces display="row", inline edit with collectInputValues
+27:   |     |     |
+28:   |     |     +-- NTTUser (ntx-user.js)   -- <ntx-user>
+29:   |     |           Overrides xs/sm with avatar rendering
+30:   |     |
+31:   |     +-- (custom subclasses extend NTTElement directly for full control)
+32:   |
+33:   +-- ListElement (ListElement.js)        -- Collection base
+34:   |     Message handlers: UPDATE, SELECT
+35:   |     Methods: loadMore(), createChild(addr)
+36:   |     Selection API: select/deselect/toggle/clearSelection
+37:   |     Pagination: #pageSize=20, #offset tracking
+38:   |     |
+39:   |     +-- NTTList (ntx-list.js)         -- <ntx-list>
+40:   |     |     Default grid renderer, modal create flow, packed card layout
+41:   |     |
+42:   |     +-- NTTTable (ntx-table.js)       -- <ntx-table>
+43:   |           Table with header sort, inline create row, stamps ntx-row
+44:   |
+45:   +-- NTTMethod (ntx-method.js)           -- <ntx-method>
+46: |     Layouts: fieldset (default), inline, button
+47: |     Loads method schema, renders input form, calls entity method
+48: |     Required params render by default; optional/defaulted params hide behind
+49: |     a local disclosure, and zero-visible-param methods collapse to a labeled
+50: |     primary action button with expandable options
+51: |     Retains a small static style contract (`baseStyles`) for source-level overflow assertions
+52: |     Button layout renders `.method-btn`; add `show-label` when a button-layout method should expose visible label text instead of icon-only chrome. Inline layout may render `textarea` when the schema/widget requests it
+53:   |     Icons: shared `ui.icon` tokens rendered through <ntx-icon>
+54:   |     |
+55:   |     +-- NTTStream (ntx-stream.js)     -- <ntx-stream>
+56:   |           Overrides callMethod() for streaming via TX meta.stream
+57:   |           Progressive output rendering with cursor animation
+58:   |
+59:   +-- NTTRouter (ntx-router.js)           -- <ntx-router>
+60:         View container. Slot = home. NAVIGATE pushes views by default, BACK pops,
+61:         and reset navigation clears history so base pages render without router chrome.
+62:         Resolves component tags from schema ui.renderer hints.
+63: ```
+64: 
+65: Standalone (no Component base): `NTTModal`, `NTTRefPicker`, `NTTTopbar`, `NTTSidebar`, `NTTProfile`.
+66: `ntx-favorites` and `ntx-logs` are example-local components under `examples/*/static/components`, not packaged `n3tx-ui` components.
+67: 
+68: When an app shell uses `ntx-topbar`'s built-in `#@profile` menu entry, the page
+69: must import `./components/ntx-profile.js` during bootstrap so the router can
+70: mount a registered `<ntx-profile>` element instead of an empty unknown tag.
+71: 
+72: `NTTListField` (`ntx-list-field.js`) is the dedicated array-field surface used by Formidable. It owns scalar-array edit rows, staged `$ref` link add/remove behavior, and `field-change` events back to the parent item.
+73: 
+74: `NTTSidebar` supports `brand`, `subtitle`, and optional `brand-logo` attributes so app shells can place a custom mark in the sidebar brand section without forking the component.
+75: Template children can also declare `sidebar-label="..."` to override the nav
+76: label shown in the sidebar without changing the mounted view or route params.
+77: Plain `<a>` sidebar children can declare `icon="..."` to render a per-link
+78: `<ntx-icon>` token while links without `icon` keep the generic link icon.
+79: Sidebar model navigation emits explicit frontend view routes (`#Model/@` or
+80: `#Model/@table` for table templates), and compact dropdown record links use
+81: member default view routes such as `#Model/5/@`. Legacy `#Model` and
+82: `#Model/5` routes remain selected-state compatible during the migration window.
+83: 
+84: `NTTIcon` (`ntx-icon.js`) is the shared icon surface used by method buttons,
+85: sidebar avatars, and collection headers. It resolves icon tokens through
+86: `static/utils/icon-resolver.js` and supports inline SVG lookup entries,
+87: emoji, image URLs/paths, and custom lookup keys registered at runtime with
+88: `registerIcons({...})`. Built-in lookup keys include common app navigation
+89: tokens such as `dashboard`, `upload`, and `user`.
+90: 
+91: **Agent components** (n3tx-agents):
+92: 
+93: ```
+94: NTTList (ntx-list.js)
+95:   |
+96:   +-- NtxAgents (ntx-agents.js)            -- <ntx-agents> hybrid AgentActor list
+97:         Renders stored AgentActor rows plus app-provided built-in workflow
+98:         launchers from window.NTX_AGENT_CATALOGS[catalog].
+99: ```
+100: 
+101: ```
+102: NTTItem (ntx-item.js)
+103:   |
+104:   +-- NtxAgent (ntx-agent.js)              -- <ntx-agent> rich AgentActor entity card
+105:         Uses AgentActor schema renderer hints for list/detail routes and embeds
+106:         <ntx-agent-live> for activity in display mode.
+107: ```
+108: 
+109: ```
+110: NTTStream (ntx-stream.js)                -- TX-based streaming with cancel()
+111:   |
+112:   +-- NTTStreamAgent (ntx-stream-agent.js)  -- Rich agent output (entries, markdown, tool cards)
+113:   |     Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
+114:   |
+115:   +-- NTTAgentLive (ntx-agent-live.js)      -- <ntx-agent-live> standalone monitor
+116:   |     prerender(): textarea + log + footer
+117:   |     Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
+118:   |
+119:   +-- NTTChat (ntx-chat.js)                 -- <ntx-chat> floating chat panel
+120:         prerender(): floating tab + slide-up panel
+121:         Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
+122: ```
+123: 
+124: **UPPERCASE convention**: All methods that handle TX messages are UPPERCASE — this mirrors the backend actor handler pattern and visually separates inbox handlers from internal component logic (lowercase/camelCase).
+125: 
+126: ## Interface
+127: 
+128: ### NTTElement (single entity base)
+129: 
+130: ```javascript
+
+### packages/n3tx-ui/docs/components.md (336 total lines)
+131: class NTTElement extends Component {
+132:     // State
+133:     $schema;          // Schema name for CONNECT flow
+134:     error;            // Persistent error message (string|null)
+135: 
+136:     // Value setter triggers auto-render when schema is available.
+137:     // deepEqual guard prevents infinite loops from signal re-fires.
+138:     set value(data);
+139: 
+140:     // Message handlers (called by Actor inbox dispatch)
+141:     UPDATE(data);     // Receives entity data push. Requires data.$schema.
+142:     DESCRIBE(data);   // Receives {proto, data}. Subscribes to entity signal.
+143:     READ(data);       // Receives data from URL fetch or hydrated relationship rendering.
+144:     ERROR(event);     // Handles errors. Extracts validation errors from 422.
+145: 
+146:     // Override points
+147:     update(prev, next);              // Surgical DOM patch. Return false -> full render().
+148:     onValidationError(errors);       // Hook for structured validation errors.
+149:     render();                        // Override for custom rendering.
+150: 
+151:     // Actions
+152:     save();           // Sends UPDATE TX to entity ref.
+153: }
+154: ```
+155: 
+156: ### ListElement (collection base)
+157: 
+158: ```javascript
+159: class ListElement extends Component {
+160:     // Selection
+161:     get selected();               // Set of selected addresses
+162:     select(addr); deselect(addr); toggle(addr); clearSelection();
+163: 
+164:     // Data
+165:     definedCallback();            // Called when proto arrives. Triggers READ.
+166:     loadMore();                   // Paginated fetch: offset += pageSize.
+167: 
+168:     // Message handlers
+169:     UPDATE(data);                 // Receives entity address array.
+170:     SELECT(data, tx);             // Toggle selection, forward NAVIGATE to router.
+171: 
+172:     // Override points
+173:     get childTag();               // Tag for stamped children. Default: 'ntx-item'.
+174:     get childDisplay();           // Display mode for children. Cascades from parent.
+175:     createChild(addr);            // Create child element. Checks <template item-template>.
+176:     update(prev, next);           // Returns false by default → full render fallback.
+177:     render();                     // Override for custom collection rendering.
+178: }
+179: ```
+180: 
+181: `ListElement` is the collection lifecycle base. The default list UI now lives in
+182: `NTTList`, mirroring the `NTTElement` → `NTTItem` split on the single-entity side.
+183: 
+184: ### NTTItem key attributes
+185: 
+186: | Attribute | Effect |
+187: |-----------|--------|
+188: | `display` | Size mode: xs, sm, md, lg, xl, row |
+189: | `ref` | Entity address (href URL) |
+190: | `model` | Model class name |
+191: | `select-target` | Actor address to send SELECT TX to |
+192: | `create-mode` | Present = create mode (no existing data) |
+193: 
+194: `NTTItem` subclasses now inherit the default Formidable edit form automatically. If a custom component overrides `md()`/`lg()`/`xl()` only for display, edit mode still falls back to the base `NTTItem` form. Components that own a true custom editor must opt out with `get usesCustomEditLayout() { return true; }` and render their own edit UI.
+195: 
+196: ### ListElement/NTTList key attributes
+197: 
+198: | Attribute | Effect |
+199: |-----------|--------|
+200: | `model` | Model class name to list |
+201: | `display` | List display size (cascades to children) |
+202: | `router` | Router actor address for SELECT navigation |
+203: | `item-tag` | Override child tag (default from schema) |
+204: | `item-display` | Override child display mode |
+205: | `headless` | Hide the `ntx-list` header (title + count) |
+206: | `allow-create` | Show the `ntx-list` create button (permission-gated) |
+207: 
+208: List and table headers render `schema.ui.icon` beside the collection title when
+209: present. `schema.ui.description` adds intro copy under that title, and
+210: `schema.ui.create_label` switches the default `+` create affordance to a labeled
+211: header button. Sidebar model avatars do the same and fall back to initials when
+212: no icon is declared.
+213: 
+214: Wide `ntx-list` instances whose children resolve to `display="md"` now use a
+215: packed grid: the DOM order stays unchanged, but card hosts get measured and
+216: assigned `grid-row-end` spans so shorter cards no longer reserve the tallest
+217: row height. Compact/sidebar lists (`sm`/`xs` children or `sidebar-dropdown`)
+218: stay on the old single-row flow.
+219: 
+220: ## Usage Patterns
+221: 
+222: ### Custom entity component
+223: 
+224: Extend NTTElement for full control over rendering:
+225: 
+226: ```javascript
+227: import { NTTElement } from '../components/NTTElement.js';
+228: 
+229: class ProductCard extends NTTElement {
+230:     get styles() { return new URL('./product-card.css', import.meta.url).href; }
+231: 
+232:     render() {
+233:         if (!this.schema || !this.value) return;
+234:         this.shadowRoot.innerHTML = `
+235:             <h2>${this.value.name}</h2>
+236:             <p>$${this.value.price}</p>
+237:         `;
+238:         this._rendered = true;
+239:     }
+240: }
+241: customElements.define('product-card', ProductCard);
+242: ```
+243: 
+244: ### Templated list children
+245: 
+246: Use a `<template>` to customize what ListElement stamps per item:
+247: 
+248: ```html
+249: <ntx-list model="Product">
+250:     <template item-template>
+251:         <product-card></product-card>
+252:     </template>
+253: </ntx-list>
+254: ```
+255: 
+256: ### Sidebar with route templates
+257: 
+258: Declarative route templates control what the sidebar navigates to:
+259: 
+260: ```html
+
+### packages/n3tx-ui/docs/components.md (336 total lines)
+261: <ntx-sidebar router="main">
+262:     <ntx-table model="Grant" allow-create></ntx-table>
+263:     <ntx-agents model="AgentActor" sidebar-label="Agents" catalog="veille"></ntx-agents>
+264:     <ntx-list model="Source"></ntx-list>
+265:     <ntx-theme-button slot="footer"></ntx-theme-button>
+266: </ntx-sidebar>
+267: ```
+268: 
+269: When a sidebar has both `brand` and `router`, clicking the rendered brand copy
+270: returns the bound router to its home slot by dispatching a reset navigation with
+271: the empty home route (`buildRoute({ type: 'home' })`).
+272: 
+273: Expanded model groups now mount the declared route-template tag for that model
+274: when it is a list-style custom surface. `ntx-table` route templates still fall
+275: back to a headless `ntx-list` for the compact dropdown shell. Plain dropdown
+276: lists still force `item-display="sm"` and use the
+277: sidebar-only `ntx-sidebar-link-item` renderer. That renderer outputs a real
+278: internal `<a href="#Model/id/@">...</a>` for each record so dropdown entries
+279: target member default view routes instead of compact pills. Legacy `#Model/id`
+280: routes remain supported by the router. The full label is also
+281: exposed through a lightweight delayed hover/focus tooltip when the row text is
+282: actually truncated. The trigger hitbox extends slightly beyond the label
+283: itself, the delay is tuned to about `220ms`, dropdown record labels
+284: intentionally render a step smaller than top-level model rows, the rows sit
+285: flush with no inter-item gap, use slightly roomier vertical padding, align to
+286: the model-name text column, and use the full remaining row width before
+287: ellipsis appears, and model counts now read as plain inline metadata rather
+288: than badge chrome. The renderer carries its own stylesheet so sidebar-only row
+289: chrome stays out of the shared `ntx-item.css` shell.
+290: 
+291: Custom list tags such as `<ntx-agents>` receive the model name, sidebar router,
+292: `headless`, and `sidebar-dropdown` attrs so they can implement compact hybrid
+293: dropdown views without rewriting the sidebar.
+294: 
+295: ### Manual shell theme controls
+296: 
+297: Shell pages place the reusable theme control explicitly:
+298: 
+299: ```html
+300: <ntx-topbar>
+301:     <ntx-theme-button slot="user-menu"></ntx-theme-button>
+302: </ntx-topbar>
+303: 
+304: <ntx-sidebar router="main">
+305:     <ntx-list model="Product"></ntx-list>
+306:     <ntx-theme-button slot="footer"></ntx-theme-button>
+307: </ntx-sidebar>
+308: ```
+309: 
+310: `ntx-topbar` exposes `slot="user-menu"` inside the authenticated dropdown, and `ntx-sidebar` exposes `slot="footer"` at the bottom of the shell. Neither component auto-renders theme UI. Sidebar labels now render in uppercase, footer actions stretch to the full available width by default, and route-matched entries receive a persistent selected state separate from hover and accordion expansion. The selected accent now reads as a full-height left rail, while expanded/selected rows no longer rely on an accent border around the rest of the card.
+311: 
+312: Additional theme-control rules:
+313: 
+314: - multiple `<ntx-theme-button>` instances stay synchronized through the global `theme-change` event
+315: - logged-out pages should not render the button; they only honor the persisted theme
+316: - the button cycles through `window.NTX_THEME_CONFIG.themes` order rather than hardcoded dark/light branching
+317: 
+318: ## Gotchas
+319: 
+320: - **NTTElement value setter has a deepEqual guard** that skips re-render if the new value is semantically identical to the previous one. This prevents infinite loops from signal subscriptions but means the initial set (from constructor default `{}`) must bypass the guard. The guard only activates after `_rendered` is true.
+321: 
+322: - **Custom `NTTItem` subclasses get edit fallback by default.** In edit mode, `NTTItem.render()` uses the base Formidable form unless the subclass opts into custom edit layout with `usesCustomEditLayout`. This prevents display-only custom cards from swallowing edit mode.
+323: - **Custom item visuals belong with the subclass, not the framework shell.** If an app defines `ntx-grant-item` or similar, add any model-specific CSS through the subclass `styles` getter so `ntx-item.css` stays generic.
+324: - **Detail title uppercasing is display-only.** Shared item and grant titles only uppercase in `lg`/`xl` detail views via CSS; `xs`/`sm`/`md` preserve the underlying `name` and `title` casing.
+325: - **Default detail cards are borderless and shadow-only on hover.** The shared `ntx-item.css` `md`/`lg`/`xl` shells use no visible outer border and do not translate upward on hover; visual emphasis comes from the shadow ramp.
+326: - **NTTItem.sm() delegates to md() in edit mode.** If you override sm() but not md(), editing in sm context will use the default md() form. Override md() only when you also intend to own edit rendering.
+327: 
+328: - **ListElement.definedCallback() deduplicates READ calls.** If another list instance for the same model already triggered a READ, `proto._listReadPending` is true and the second list skips the request. Both lists get notified when the READ completes via the UPDATE observable.
+329: 
+330: - **AbortController for event listeners.** NTTItem and NTTRow create a new AbortController per render and abort the previous one. This prevents listener accumulation. If you extend these classes and add custom listeners, use the same pattern with `{signal}`.
+331: 
+332: - **NTTStream binds a dynamic handler** named after the method (e.g., `this.GENERATE = (data, tx) => ...`). If the method name changes, the old handler is unbound. The handler dispatches based on `tx.meta`: stream_end -> onDone, error -> onError, else -> onChunk. For agent-style streaming with typed events (text, tool_call, done, etc.), extend `NTTStreamAgent` instead — it unwraps STREAM envelopes and dispatches to UPPERCASE handler methods (THINKING, TOOL_CALL, TEXT, DONE, etc.).
+333: 
+334: - **Router URL sync is opt-out, not opt-in.** `Router()` and `<ntx-router>` synchronize with `window.location.hash` by default so navigation updates the browser URL without extra configuration. Initial deep links do not create fake back history, returning to root through browser history clears the in-app back state, and `<ntx-router>` hides its chrome when there is no back history. Sidebar-driven base-page navigation now sends reset navigation so the target route becomes the new root instead of stacking on the prior page.
+335: 
+336: - **NTTModal locks body scroll** (`document.body.style.overflow = 'hidden'`) while open and restores on close via the `modal-close` event listener.

@@ -1,0 +1,176 @@
+
+### .project/archive/features/n3tx-trace/plan.md (418 total lines)
+1: # TX Inspector — Actor Transaction Visualization Tool
+2: 
+3: ## Context
+4: 
+5: N3TX's actor system routes all messages through Matrix as TX envelopes. Currently there's no way to visualize the transaction flow between actors at runtime — only scattered `logger.debug` calls and a leftover `print(tx)` in `actor.py:237`. This tool adds a debug-only visual inspector that shows the actor topology as an interactive node graph (LiteGraph.js — ComfyUI-style canvas) with TX messages as color-coded edges, plus a sidebar for browsing request chains.
+6: 
+7: ## Package: n3tx-trace
+8: 
+9: All code lives in a **new standalone package** `n3tx-trace`. This keeps the core actor system untouched — n3tx-trace monkey-patches Matrix.inbox() at runtime when enabled, requiring zero modifications to n3tx-actors source code.
+10: 
+416: 5. Click a request → full chain displayed with red→blue gradient, detail panel opens
+417: 6. Zoom/pan with scroll wheel and drag — LiteGraph built-in
+418: 7. Run tests: `python3 -m pytest packages/n3tx-trace/src/n3tx_trace/tests/`
+
+### .project/archive/features/sti/REAPPLY.md (219 total lines)
+1: # STI (Single Table Inheritance) — Re-Application Guide
+2: 
+3: **Archived from**: v0.9 branch, Wave 2
+4: **Date archived**: 2026-03-03
+5: **Reason**: No concrete use case on current roadmap justifies the complexity.
+6: **Research**: `.traces/research/polymorphic-system/` (6 documents)
+7: **Plan**: `.traces/plans/v0.9/WAVE-2-POLYMORPHIC-STI.md`
+8: 
+9: ## When To Re-Apply
+10: 
+217: 4. **Orphan protection** — `migrate_table()` collects ALL subtype fields before deciding what to drop, preventing sibling column deletion.
+218: 5. **Schema pipeline** — `polymorphic` stage generates `oneOf` + `discriminator` mapping for root, `const` discriminator for subtypes.
+219: 6. **Dump pipeline** — `sti_type` stage is a no-op hook for future dump logic.
+
+### .project/archive/features/sti/WAVE-2-POLYMORPHIC-STI.md (210 total lines)
+1: # v0.9 Wave 2: Polymorphic System (STI) — Phases 1 & 2
+2: 
+3: ## Context
+4: 
+5: N3TX's core principle is "the model is the app." Currently, every model maps to its own table. Wave 2 adds **Single Table Inheritance (STI)**: a developer declares `__discriminator__` on a base class, and the entire stack adapts — storage, schema, routes, and frontend.
+6: 
+7: This is a competitive differentiator: no other framework generates discriminated union JSON Schema from model definitions. The roadmap estimates 60-70% of the machinery already exists.
+8: 
+9: **Key design constraint:** `sqlite_storage.py` must NOT be modified. All STI logic lives in `DiscriminatorMixin` (auto-injected like `StorableMixin`) and schema extensions. This ensures any future storage backend gets STI for free.
+10: 
+208: 5. `feat(api): Add schema routes for STI subtypes and registration ordering [0.9.2]`
+209: 6. `feat(frontend): Add polymorphic READ dispatch for STI DynamicClasses [0.9.2]`
+210: 7. `test(models): Add comprehensive STI test suite [0.9.2]`
+
+### .project/archive/features/stream-actor/ntx-stream-agent.md (858 total lines)
+1: # Plan: Unified Streaming Architecture + `<ntx-stream-agent>` (Phase 1)
+2: 
+3: ## Context
+4: 
+5: `ntx-stream` renders streaming output as plain text. Agent methods yield structured events (thinking, tool_call, tool_result, text, done). The codebase has two competing streaming mechanisms: NTTStream (TX-based, extends NTTMethod) and StreamActor mixin (HTTP.stream-based, extends HTMLElement). This plan unifies them and adds rich agent streaming.
+6: 
+7: A separate Phase 2 plan exists at `.traces/plans/ntx-stream-phase2.md` for migrating NTTAgentLive/NTTChat.
+8: 
+9: ## Architecture Decision Record
+10: 
+856: 1. Fetch Grant schema: `GET /Grant`
+857: 2. Verify `schema.methods.analyze.ui.renderer === 'ntx-stream-agent'`
+858: 3. Verify ntx-item creates `<ntx-stream-agent>` tag for the analyze method
+
+### .project/archive/features/stream-actor/stream-actor-prd.md (86 total lines)
+1: # Stream Actor PRD — Task Breakdown
+2: 
+3: **Feature:** Schema-Declared Stream Events + StreamActor Mixin
+4: **Source plan:** `.traces/plans/stream-consumer-and-events.md`
+5: **Tasks:** 9 tasks in 4 waves
+6: 
+7: ---
+8: 
+9: ## Wave 1 — Foundation (no dependencies, parallel)
+10: 
+84: | 4 | `test_streaming_display.py` | None — single file |
+85: 
+86: All tasks within each wave touch different files — full parallel execution possible.
+
+### .project/archive/features/stream-actor/stream-actor.jsonl (9 total lines)
+1: {"id":"task-01","wave":1,"title":"Add events= parameter to @expose_route decorator","intent":"Stream event schemas need to be declarable on the route decorator so the schema pipeline can expose them to the frontend. This is the foundation for schema-declared stream events — without it, events= has nowhere to live.","context":"decorators.py defines @expose_route which marks methods as API endpoints. It stores metadata in wrapper.__endpoint__ dict (route, methods, access, stream). The schema pipeline reads this dict in proto_model.py's __n3tx_methods_json_signature__() to build the methods section of the JSON Schema. Adding events= here makes event schemas flow through the existing pipeline with zero new machinery.\n\nImport style: n3tx-core package. No N3TX imports needed beyond what's already there.\nThe decorator is in packages/n3tx-core/src/n3tx_core/utils/decorators.py.","instructions":"Step 1: Read /workspace/packages/n3tx-core/src/n3tx_core/utils/decorators.py\n\nStep 2: Add `events=None` parameter to the `expose_route` function signature.\n\nFind this line:\n```python\ndef expose_route(route, methods=[\"POST\"], access=None, stream=False):\n```\n\nChange it to:\n```python\ndef expose_route(route, methods=[\"POST\"], access=None, stream=False, events=None):\n```\n\nStep 3: Add `'events': events` to the `__endpoint__` dict.\n\nFind this block:\n```python\n        wrapper.__endpoint__ = {\n            'route': route,\n            'methods': methods,\n            'access': access,\n            'stream': stream,\n        }\n```\n\nChange it to:\n```python\n        wrapper.
+2: {"id":"task-02","wave":1,"title":"Inject stream events into schema pipeline","intent":"When a streaming method declares events= on @expose_route, those event schemas must appear in the JSON Schema returned by GET /ClassName. This lets the frontend know what event types to expect and their data shapes — enabling schema-driven validation and developer tooling.","context":"proto_model.py's __n3tx_methods_json_signature__() classmethod builds the 'methods' section of the JSON Schema. It iterates over all methods with __endpoint__, reads endpoint_info, and builds method_entry dicts. The stream flag is already injected at line 202-203:\n\n```python\nif endpoint_info.get('stream'):\n    method_entry['stream'] = True\n```\n\nWe add the events injection right after this, following the same pattern. Each event value is a ProtoModel subclass — we call model_json_schema() to get its JSON Schema representation.\n\nThe file is packages/n3tx-core/src/n3tx_core/models/proto_model.py.","instructions":"Step 1: Read /workspace/packages/n3tx-core/src/n3tx_core/models/proto_model.py (around lines 194-210)\n\nStep 2: After the stream flag injection block and before the access injection, add the events injection.\n\nFind this code block (lines ~202-206):\n```python\n            if endpoint_info.get('stream'):\n                method_entry['stream'] = True\n            if endpoint_info.get('access') and hasattr(endpoint_info['access'], 'to_dict'):\n                method_entry['access'] = endpoint_info['access'].to_dict()\n```\n\nChange it to:\n```python\n            if endpoint_info.get('stream')
+3: {"id":"task-03","wave":2,"title":"Add stream event ProtoModel subclasses and events= to AgentActor","intent":"Define non-storable ProtoModel subclasses for each stream event type (TextChunk, ToolCall, ToolResult, ThinkingChunk, DoneChunk) and wire them to agentic_stream via events=. This is the first concrete use of the events= infrastructure from tasks 1-2, and serves as the canonical example for developers.","context":"AgentActor in packages/n3tx-agents/src/n3tx_agents/actor.py is a concrete ActorModel whose instances ARE agents. It has two @expose_route methods: agentic (POST, returns JSON) and agentic_stream (POST, stream=True, yields TX-aligned dicts).\n\nThe stream event types match what run_stream() in mixin.py yields: text, tool_call, tool_result, thinking, done. Each has a specific data shape.\n\nProtoModel subclasses without __storable__ and __tablename__ are pure Pydantic models — no DB, no routes. They just provide validation and JSON Schema generation.\n\nImport style for n3tx-agents: from n3tx_core.models.proto_model import ProtoModel.\n\nCurrent imports in actor.py:\n```python\nimport json\nimport logging\nfrom pydantic import Field\nfrom n3tx_actors.models.actor_model import ActorModel\nfrom n3tx_core.models.ref import ListRef\nfrom n3tx_core.utils.decorators import expose_route\nfrom n3tx_agents.tool_model import AgentTool\n```","instructions":"Step 1: Read /workspace/packages/n3tx-agents/src/n3tx_agents/actor.py\n\nStep 2: Add the ProtoModel import. After the existing imports, add:\n```python\nfrom n3tx_core.models.proto_model import ProtoModel\n```\n\nSte
+4: {"id":"task-04","wave":2,"title":"Add done guard to HTTP.stream() in HTTP.js","intent":"When the SSE stream sends event: done, HTTP.js calls onDone(parsed). Then the ReadableStream body closes, triggering done=true in pump(), which calls onDone({}) a second time. This double callback causes components to run cleanup logic twice. The guard prevents this.","context":"HTTP.js is the frontend transport layer in packages/n3tx-core/src/n3tx_core/static/core/transport/HTTP.js. The stream() static method (lines ~353-399) does: POST with fetch, reads body as ReadableStream, parses SSE lines, dispatches to onChunk/onDone/onError callbacks.\n\nCurrent flow (lines 370-388):\n```javascript\nfunction pump() {\n    reader.read().then(({ done, value }) => {\n        if (done) { onDone({}); return; }\n        buffer += decoder.decode(value, { stream: true });\n        const lines = buffer.split('\\n');\n        buffer = lines.pop();\n        let eventType = 'chunk';\n        for (const line of lines) {\n            if (line.startsWith('event: ')) eventType = line.slice(7).trim();\n            else if (line.startsWith('data: ')) {\n                try {\n                    const parsed = JSON.parse(line.slice(6));\n                    if (eventType === 'error') onError(parsed);\n                    else if (eventType === 'done') onDone(parsed);\n                    else onChunk(parsed);\n                } catch (e) { /* partial JSON, wait for more data */ }\n            }\n        }\n        pump();\n    }).catch(e => {\n        if (e.name !== 'AbortError') onError(e);\n    });\n}\n```\n\nT
+5: {"id":"task-05","wave":2,"title":"Create StreamActor mixin in StreamActor.js","intent":"StreamActor is the frontend counterpart of the backend actor pattern applied to streaming. It provides stream(), streamClose(), and #dispatch() — handling the TX envelope unwrapping and dispatching to UPPERCASE handler methods. This is the core abstraction that makes streaming ergonomic for component developers: they write TEXT(data), TOOL_CALL(data), DONE(data) handlers and everything else is handled.","context":"This is a NEW file in packages/n3tx-agents/src/n3tx_agents/static/components/StreamActor.js.\n\nIt's a mixin function: StreamActor(Base) returns a class extending Base. This is composable — works with HTMLElement, NTTElement, or any future base class.\n\nThe mixin needs to handle two SSE wire formats:\n- Level 3 (actor routing): {name:'STREAM', source:'...', target:'...', data:{name:'text', data:{text:'hello'}, meta:{...}}, meta:{...}} — full TX envelope, needs unwrapping\n- Level 1/2 (direct routes): {name:'text', data:{text:'hello'}, meta:{...}} — TX-aligned dict, no unwrapping needed\n\nThe unwrap logic: if chunk.name === 'STREAM', use chunk.data as the inner event. Otherwise the chunk IS the inner event.\n\nUPPERCASE convention: handler methods are UPPERCASE (TEXT, TOOL_CALL, DONE, etc.). This creates a clear namespace — uppercase = TX inbox (called by framework), lowercase = internal logic.\n\nHTTP.stream() signature: HTTP.stream(url, data, onChunk, onDone, onError) returns {cancel: Function}.\n\nImport path: HTTP is at '../core/transport/HTTP.js' (relative from the compon
+6: {"id":"task-06","wave":3,"title":"Refactor ntx-agent-live.js to extend StreamActor","intent":"Replace the manual HTTP.stream() call and switch-based chunk dispatch with the StreamActor mixin pattern. The component becomes an actor with UPPERCASE inbox handlers, matching the framework's actor philosophy. Private fields use # syntax throughout.","context":"ntx-agent-live.js is in packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js. It's a real-time agent activity panel that shows structured events: thinking, tool calls, tool results, text generation.\n\nCurrent structure:\n- extends HTMLElement\n- imports HTTP from '../core/transport/HTTP.js'\n- connectedCallback sets up _model, _ref, _method, _streamHandle, _schema, _tablename, _toolCards, _els\n- _run() calls HTTP.stream(url, {task}, onChunk, onDone, onError)\n- _onChunk(chunk) has switch(chunk.name) with cases: thinking, tool_call, tool_result, text, done\n- _onDone() cleans up\n- _onError(err) shows error\n\nAfter refactor:\n- extends StreamActor(HTMLElement)\n- imports StreamActor from './StreamActor.js' (instead of HTTP)\n- All _ private fields become # private fields\n- _run() calls this.stream(url, {task}) instead of HTTP.stream()\n- switch cases become UPPERCASE handler methods: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE\n- _onDone/Error become STREAM_END/STREAM_ERROR\n- disconnectedCallback calls this.streamClose()\n- _loadSchema adds _validateStreamHandlers call\n\nThe component keeps NTT import for schema loading and config import for API_URL.","instructions":"Step 1: Read /workspace/package
+7: {"id":"task-07","wave":3,"title":"Refactor ntx-chat.js to extend StreamActor","intent":"Same StreamActor migration as ntx-agent-live: replace manual HTTP.stream() call and inline switch dispatch with UPPERCASE handler methods. The chat component has additional complexity (message history, instance selection, non-stream fallback) that must be preserved.","context":"ntx-chat.js is in packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js. It's a collapsible chat side-panel with: instance selector dropdown, message history, streaming and non-streaming send paths.\n\nCurrent structure:\n- extends HTMLElement\n- imports HTTP (used for stream, get, post)\n- _sendStream() creates HTTP.stream() with inline onChunk callback containing switch(chunk.name)\n- _sendPost() uses HTTP.post for non-streaming methods\n- Inline callbacks reference local variables (text, msgEl, textEl, toolCards)\n\nKey difference from ntx-agent-live: the chat component needs HTTP for non-streaming operations (HTTP.get for loading instances, HTTP.post for non-stream sends). So we keep the HTTP import alongside StreamActor.\n\nThe UPPERCASE handlers need access to per-message state (the current message element, text accumulator, tool cards). This state is set in _send() before calling this.stream(), and read by the handlers.\n\nAfter refactor:\n- extends StreamActor(HTMLElement)\n- imports both StreamActor AND HTTP (HTTP still needed for get/post)\n- All _ fields become # fields\n- _sendStream() body becomes: set per-message state, then this.stream(url, payload)\n- Inline switch becomes UPPERCASE ha
+8: {"id":"task-08","wave":3,"title":"Add StreamActor.js modulepreload to index.html","intent":"StreamActor.js is now a dependency of both ntx-agent-live.js and ntx-chat.js. Adding it to the modulepreload list ensures the browser fetches it early, avoiding a waterfall when the components load.","context":"examples/pygentic/static/index.html has a list of <link rel='modulepreload'> tags that hint the browser to prefetch ES modules. StreamActor.js should appear before ntx-agent-live.js and ntx-chat.js in the list since they import from it.\n\nThe current preload list has these agent-related entries at lines 50-51:\n```html\n    <link rel=\"modulepreload\" href=\"./components/ntx-agent-live.js\">\n    <link rel=\"modulepreload\" href=\"./components/ntx-agent.js\">\n```\n\nAnd ntx-chat.js at line 49:\n```html\n    <link rel=\"modulepreload\" href=\"./components/ntx-chat.js\">\n```","instructions":"Step 1: Read /workspace/examples/pygentic/static/index.html\n\nStep 2: Add the StreamActor.js modulepreload BEFORE ntx-chat.js.\n\nFind this line:\n```html\n    <link rel=\"modulepreload\" href=\"./components/ntx-chat.js\">\n```\n\nInsert before it:\n```html\n    <link rel=\"modulepreload\" href=\"./components/StreamActor.js\">\n```\n\nThat's it — one line addition.","files":{"read":["/workspace/examples/pygentic/static/index.html"],"modify":["/workspace/examples/pygentic/static/index.html"],"create":[]},"conventions":"HTML modulepreload order: dependencies before dependents. Keep consistent indentation (4 spaces).","verification":{"commands":[],"checks":["StreamActor.js modulepreload app
+9: {"id":"task-09","wave":4,"title":"Update SSE tests and add schema events test","intent":"Update the 3 existing failing tests to validate the correct STREAM envelope structure (since we're keeping the envelope, not stripping it). Add a new test class that validates stream event schemas appear in GET /AgentActor response.","context":"The test file is examples/pygentic/tests/test_streaming_display.py. It was created during the bugfix investigation phase.\n\nThe 3 existing tests check SSE wire format. Since we're NOT changing the wire format (the STREAM envelope stays), the tests need to validate:\n1. The STREAM envelope structure is correct (inner events accessible at chunk.data.name)\n2. Text data is accessible at the inner path (chunk.data.data.text)\n3. Done data carries answer at the inner path (chunk.data.data.answer)\n\nThe new schema events test validates that GET /AgentActor returns event schemas in the methods section.\n\nTest fixtures: client, seed_data, alice_token from conftest.py. The seed_data fixture creates a test agent with llm='test' (uses pydantic-ai TestModel). auth_header() helper from helpers.py.\n\nNote: The SSE response from the test client may have different chunk boundaries than production. The _parse_sse_events helper parses raw SSE text into (event_type, data) tuples.","instructions":"Step 1: Read /workspace/examples/pygentic/tests/test_streaming_display.py\nStep 2: Read /workspace/examples/pygentic/tests/conftest.py (for fixture understanding)\n\nStep 3: Rewrite the test file. The structure:\n\n```python\n\"\"\"Tests for agent streaming display.\n\
+
+### .project/archive/features/stream-actor/stream-consumer-and-events.md (318 total lines)
+1: # Plan: Schema-Declared Stream Events + StreamActor Mixin
+2: 
+3: ## Context
+4: 
+5: The agentic streaming stack has a display bug: Level 3 (actor routing) wraps every stream chunk in a `TX(name='STREAM', data={name:'text', ...})` envelope. `_sse_from_stream` serializes the full envelope to SSE. Frontend components do `switch(chunk.name)` — see `'STREAM'` — no matching case — nothing renders.
+6: 
+7: **TX nesting is correct.** The full envelope carries routing context for multi-hop actor systems. The backend is not broken — the frontend is. The fix is purely frontend: teach components to unwrap the STREAM envelope and dispatch by the inner event name.
+8: 
+9: Alongside the fix, we're introducing:
+10: - **Schema-declared stream events** via `events=` on `@expose_route`, using non-storable ProtoModel subclasses for type safety and schema visibility
+316: cd /workspace/examples/pygentic && python3 main.py
+317: # → Navigate to agent, send a task, verify streaming text appears in Activity panel
+318: ```
+
+### .project/archive/features/stream-method-sessions/plan.md (558 total lines)
+1: # Stream Method Sessions Plan
+2: 
+3: ## Goal
+4: 
+5: Add a generic, resumable session layer for all `ProtoModel` / `ActorModel`
+6: methods declared with `stream=True`, so users can navigate away from a live
+7: streaming view and come back to the same in-flight session without losing
+8: progress.
+9: 
+10: This plan replaces Veille-specific recovery logic with a framework-level
+556: - no Veille-only orchestration hacks
+557: 
+558: It also preserves a clean upgrade path later to a persisted `MethodSession` model if restart-safe history becomes necessary.
+
+### .project/archive/features/streaming-distill/design.md (286 total lines)
+1: # Streaming Distill Design
+2: 
+3: ## Summary
+4: 
+5: The streaming subsystem should become one public capability with one public event contract, regardless of whether the backend executes through direct SSE, actor/TX routing, or agent-specific tooling. The core recut is to keep TX as the private transport substrate, add a normalization layer that emits `{name, data, meta}` before UI dispatch, and treat agent streaming as a vocabulary on top of generic streaming instead of as a parallel system.
+6: 
+7: This keeps `stream=True` as the primary authoring affordance, reduces transport leakage into frontend components, and turns `NTTStream` / `NTTStreamAgent` into a clean generic/specialized pair rather than overlapping implementations.
+8: 
+9: ## Entropy Reduction
+10: 
+284: - `events=` should remain schema/UI enrichment only; if strict runtime validation per chunk is desired, the implementation plan needs an additional validation layer and performance review.
+285: - `done` should remain the canonical terminal semantic event name for public consumers; if the team wants transport-neutral completion without a named semantic event, UI dispatch rules would change slightly.
+286: - The normalization layer can live either server-side, client-side transport-side, or split across both as long as UI sees one contract; the design is strict about the contract boundary, not the exact code location.
+
+### .project/archive/features/streaming/PLAN.md (627 total lines)
+1: # Fix: STREAM TX — Route Streaming Through the Actor System
+2: 
+3: ## Context
+4: 
+5: When streaming methods (like `Product.ask()`) error, the frontend shows nothing — no inline display, no toast, no debug log. Investigation revealed a deeper architectural issue: `NTTStream.callMethod()` bypasses the actor system entirely via direct `HTTP.stream()`.
+6: 
+7: Digging further, we found that the backend **already creates proper TXs** for stream chunks (`tx.chunk()` in `tx.py`), but `_sse_from_stream()` strips the TX envelope at the SSE boundary, serializing only `chunk.data`. The chunks travel the entire backend actor system as proper transactions, then get demoted to raw data at the last step.
+8: 
+9: ### Decisions Made
+10: 
+625: # Frontend unit tests
+626: cd /workspace/src/n3tx/static && npx vitest run
+627: ```
+
+### .project/archive/features/streaming/streaming-sse-ws.md (737 total lines)
+1: # Streaming Infrastructure (SSE + WebSocket)
+2: 
+3: ## Context
+4: 
+5: N3TX has an agentic feature (`AgentMixin`, `AgentActor`) that executes LLM reasoning loops. Currently, `agent_run()` blocks until the full LLM loop completes, then returns the final result. There's no way to stream intermediate output (token deltas, tool calls, progress) to the client.
+6: 
+7: More broadly, **any** long-running interaction (not just agents) would benefit from streaming. The framework needs general-purpose streaming infrastructure so that any handler — agent runs, data exports, multi-step workflows — can stream progressive results to the client.
+8: 
+9: **The goal**: Build the transport-level streaming primitive into the TX/Actor/Transport architecture. The handler doesn't know whether it's streaming over SSE or WebSocket — the transport layer decides based on the app's configuration at startup.
+10: 
+735: # Integration tests
+736: cd /workspace && python3 -m pytest example_actor/tests/
+737: ```
+
+### .project/archive/features/styling-system/styling-system-prd.md (68 total lines)
+1: # Styling System PRD
+2: 
+3: ## Overview
+4: 
+5: Plan name: `styling-system`
+6: 
+7: Generated execution plan for a frontend-owned styling system that keeps schema semantic, introduces a stable public token contract, unifies stylesheet loading, exposes CSS parts and host/state attributes, and preserves dark/light compatibility.
+8: 
+9: ## Wave 1
+10: 
+66: - Favor additive compatibility over cleanup in early waves.
+67: - Keep schema semantic; do not add theme palette data to Python model definitions.
+68: - Run targeted frontend tests after each wave, then run the broader frontend suite at the end.

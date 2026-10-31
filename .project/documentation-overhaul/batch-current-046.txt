@@ -1,0 +1,608 @@
+
+### packages/n3tx-ui/docs/viewable-mixin.md (296 total lines)
+131: ```text
+132: ui.renderer.page → ui.renderer.list → ntx-list
+133: ```
+134: 
+135: Named collection views resolve as:
+136: 
+137: ```text
+138: ui.renderer[view] → known framework fallback → 400 for unknown views
+139: ```
+140: 
+141: Known framework fallbacks currently include:
+142: 
+143: ```text
+144: list  → ntx-list
+145: table → ntx-table
+146: ```
+147: 
+148: Default member views resolve as:
+149: 
+150: ```text
+151: ui.renderer.detail → ui.renderer.item → ntx-item
+152: ```
+153: 
+154: Named member views resolve as:
+155: 
+156: ```text
+157: ui.renderer[view] → known member fallback → 400 for unknown views
+158: ```
+159: 
+160: Known member fallbacks currently include:
+161: 
+162: ```text
+163: item   → ui.renderer.item → ntx-item
+164: detail → ui.renderer.detail → ui.renderer.item → ntx-item
+165: chat   → ntx-chat
+166: ```
+167: 
+168: Custom view names are schema-only: a route such as `/Product/@custom-card` or
+169: `/Product/1/@custom-card` is accepted only when the model declares a matching
+170: `__ui__['renderer']['custom-card']` entry. Unsafe view tokens are rejected before
+171: HTML is generated. Valid view tokens must match:
+172: 
+173: ```text
+174: ^[A-Za-z0-9][A-Za-z0-9_-]*$
+175: ```
+176: 
+177: Renderer tags inserted into HTML must be safe custom-element names:
+178: 
+179: ```text
+180: ^[a-z][a-z0-9]*(-[a-z0-9]+)+$
+181: ```
+182: 
+183: For example:
+184: 
+185: ```python
+186: class Product(ProtoModel):
+187:     __tablename__ = 'products'
+188:     __ui__ = {'renderer': {'page': 'ntx-products-page', 'list': 'ntx-products'}}
+189: ```
+190: 
+191: registers:
+192: 
+193: ```text
+194: GET /Product/@  -> HTML containing <ntx-products-page model="Product">
+195: GET /Product/@table -> HTML containing <ntx-table model="Product"> unless renderer.table is declared
+196: GET /Product/1/@ -> HTML containing <ntx-item ref="Product/1" display="lg"> unless detail/item is declared
+197: GET /Product/1/@chat -> HTML containing <ntx-chat ref="Product/1" display="lg"> unless renderer.chat is declared
+198: ```
+199: 
+200: `n3tx-core` delegates to this method when present; it does not hard-import
+201: `n3tx_ui`, preserving the package boundary.
+202: 
+203: Standalone HTML shells import the resolved renderer module using the conventional
+204: static component path `/components/{tag}.js`. For example, if a model declares
+205: `__ui__ = {'renderer': {'item': 'ntx-grant-item'}}`, then
+206: `GET /Grant/1/@` mounts `<ntx-grant-item ref="Grant/1">` and includes:
+207: 
+208: ```html
+209: <script type="module" src="/components/ntx-item.js"></script>
+210: <script type="module" src="/components/ntx-grant-item.js"></script>
+211: ```
+212: 
+213: The base renderer import (`ntx-item` for member routes, `ntx-list` for
+214: collection routes) is kept so custom renderers that extend first-party
+215: components can resolve their dependencies in standalone pages. Duplicate imports
+216: are removed when the resolved tag is the same as the base renderer.
+217: 
+218: `ui.icon` is a universal contract shared by model shells and method actions.
+219: Accepted values are direct emoji (`'📚'`), direct asset URLs/paths
+220: (`'/static/icons/books.svg'`), or lookup keys (`'books'`). The frontend
+221: resolves lookup keys through a shared registry, typically to inline SVG,
+222: renders URLs as image icons, and otherwise falls back to the raw text token.
+223: Emoji rendering uses a best-effort monochrome filter so icons stay theme-aware
+224: without changing the schema shape.
+225: 
+226: ## Schema Output
+227: 
+228: ```json
+229: {
+230:     "ui": {
+231:         "field_order": ["name", "price"],
+232:         "groups": {"main": ["name", "price"]},
+233:         "renderer": {"item": "ntx-item", "list": "ntx-list"}
+234:     },
+235:     "methods": {
+236:         "comment": {
+237:             "route": "/comment",
+238:             "ui": {"layout": "inline", "attach_to": "comments"}
+239:         }
+240:     }
+241: }
+242: ```
+243: 
+244: For `$defs` models (referenced by relationship fields), `__ui__` is also emitted
+245: into `schema['$defs'][ModelName]['ui']`.
+246: 
+247: ## Usage Patterns
+248: 
+249: ### Standard model with UI config
+250: 
+251: ```python
+252: import n3tx_ui  # in main.py, before model imports
+253: 
+254: class Product(ProtoModel):
+255:     __tablename__ = 'products'
+256:     __storable__ = True
+257:     __ui__ = {
+258:         'field_order': ['name', 'price', 'description'],
+259:         'groups': {
+260:             'main': ['name', 'price'],
+
+### packages/n3tx-ui/docs/viewable-mixin.md (296 total lines)
+261:             'details': ['description'],
+262:         },
+263:         'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
+264:     }
+265:     name: str = Field(...)
+266:     price: float = Field(...)
+267:     description: str = Field(default='')
+268: ```
+269: 
+270: ### In an application entry point
+271: 
+272: ```python
+273: # main.py — import n3tx_ui BEFORE model files
+274: import n3tx_ui  # registers ViewableMixin + viewable schema stage
+275: from models import Product, User, Comment  # __ui__ injection fires here
+276: ```
+277: 
+278: ## Gotchas
+279: 
+280: - **Import ordering is mandatory.** `n3tx_ui` must be imported before any
+281:   model with `__ui__` or `__viewable__` is defined. If a model is defined
+282:   first, `register_mixin()` hasn't run yet and the mixin is never injected.
+283:   The model will lack `ViewableMixin` in its MRO and `schema['ui']` will
+284:   be absent. No error is raised — the flag is silently ignored.
+285: 
+286: - **`__ui__` without `n3tx_ui` import = no schema `ui` key.** If you define
+287:   `__ui__` but forget to import `n3tx_ui`, the class attribute exists but
+288:   ViewableMixin is never injected and the `viewable` stage is never registered.
+289:   `Product.schema()` will not contain a `'ui'` key.
+290: 
+291: - **Schema cache.** `schema['ui']` is only generated on the first `schema()`
+292:   call. If `n3tx_ui` is imported after the first call, call
+293:   `cls.invalidate_schema_cache()` to regenerate.
+294: 
+295: - **`__ui__` on a non-model class.** Only `ProtoModel` subclasses go through
+296:   `__init_subclass__`. Plain Python classes with `__ui__` are unaffected.
+
+### packages/n3tx-ui/docs/widgets.md (170 total lines)
+1: # Widget System
+2: 
+3: > Part of [n3tx-ui](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The widget base class, registry, built-in widgets, and extension API. Covers how `ui.widget` schema hints flow from Python model definitions to specialized frontend renderers.
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: Python model field
+13:   Field(json_schema_extra={'ui': {'widget': 'currency', 'config': {'symbol': '$'}}})
+14:       |
+15:       v
+16: Backend schema pipeline (widget stage)
+17:   Injects ui.widget + ui.config into JSON Schema properties
+18:       |
+19:       v
+20: Frontend: form.js getInput() / ntx-item.js sm()
+21:   Calls getWidgetForField(fieldSchema)
+22:       |
+23:       v
+24: registry.js: _widgets[name] lookup
+25:   Returns { widget: WidgetInstance, config: ui.config }
+26:       |
+27:       v
+28: Widget method call (context-dependent):
+29:   display(value, config, schema) -> DOM Node     (detail views)
+30:   edit(value, config, schema, onChange) -> DOM Node (form inputs)
+31:   list(value, config, schema) -> string           (table cells, sm fields)
+32:   validate(value, config, schema) -> string|null  (form validation)
+33: ```
+34: 
+35: If no widget is registered for the field's `ui.widget` name, `getWidgetForField()` returns `{widget: null, config: {}}` and Formidable falls through to type-based rendering.
+36: 
+37: ## Interface
+38: 
+39: ### Widget base class
+40: 
+41: ```javascript
+42: class Widget {
+43:     // Render for detail/display context. Returns DOM Node.
+44:     display(value, config, schema) { return document.createTextNode(value ?? ''); }
+45: 
+46:     // Render for edit context. Returns DOM Node (input element).
+47:     edit(value, config, schema, onChange) { /* returns <input> */ }
+48: 
+49:     // Render for list/table cell. Returns plain text or HTML string.
+50:     list(value, config, schema) { return String(value ?? ''); }
+51: 
+52:     // Validate value. Returns error message string or null.
+53:     validate(value, config, schema) { return null; }
+54: 
+55:     // Utilities (inherited by all widgets)
+56:     truncate(str, maxLen = 80)           // Ellipsis truncation
+57:     escape(html)                         // HTML entity escaping
+58:     el(tag, attrs = {}, children = [])   // DOM element builder
+59: }
+60: ```
+61: 
+62: ### Registry API
+63: 
+64: ```javascript
+65: registerWidget(name, widgetInstance)    // Register by name (matches ui.widget)
+66: getWidgetForField(fieldSchema)         // Returns { widget: Widget|null, config: Object }
+67: hasWidget(name)                        // Check if registered
+68: ```
+69: 
+70: ### Built-in widgets
+71: 
+72: | Name | Class | Display | Edit | Validates |
+73: |------|-------|---------|------|-----------|
+74: | `url` | UrlWidget | Clickable `<a>` link | `input[url]` | URL parse check |
+75: | `email` | EmailWidget | `mailto:` link | `input[email]` | Email regex |
+76: | `date` | DateWidget | Localized date string | `input[date]` | Date parse check |
+77: | `datetime` | DateWidget | Localized date string | `input[datetime-local]` | Date parse check |
+78: | `markdown` | MarkdownWidget | Parsed HTML (marked.js) | `<textarea>` + live preview | No |
+79: | `console` | ConsoleWidget | `<pre>` with ANSI colors (ansi_up.js) | Readonly `<textarea>` | No |
+80: | `reference` | ReferenceWidget | Clickable entity link | `input[text]` | No |
+81: | `currency` | CurrencyWidget | `$X,XXX.XX` formatted | `input[number]` with symbol prefix | Number + bounds |
+82: | `textarea` | TextareaWidget | Block text `<div>` | `<textarea>` | No |
+83: | `bool` | BoolWidget | Disabled checkbox | Checkbox | No |
+84: 
+85: Boolean fields automatically use the built-in `bool` widget even when the schema
+86: does not explicitly set `ui.widget`. That keeps booleans visually consistent
+87: between display and edit modes.
+88: 
+89: ## Usage Patterns
+90: 
+91: ### Creating a custom widget
+92: 
+93: ```javascript
+94: import { Widget, registerWidget } from '../widgets/index.js';
+95: 
+96: class ColorWidget extends Widget {
+97:     display(value, config, schema) {
+98:         if (!value) return document.createTextNode('');
+99:         const swatch = this.el('span', {
+100:             class: 'color-swatch',
+101:             style: `background: ${this.escape(value)}; width: 20px; height: 20px; display: inline-block; border-radius: 4px;`
+102:         });
+103:         return this.el('span', {}, [swatch, ` ${value}`]);
+104:     }
+105: 
+106:     edit(value, config, schema, onChange) {
+107:         const input = document.createElement('input');
+108:         input.type = 'color';
+109:         input.setAttribute('value', value ?? '#000000');
+110:         if (onChange) input.addEventListener('input', () => onChange(input.value));
+111:         return input;
+112:     }
+113: 
+114:     list(value) {
+115:         return value ?? '';
+116:     }
+117: }
+118: 
+119: registerWidget('color', new ColorWidget());
+120: ```
+121: 
+122: Then on the backend:
+123: 
+124: ```python
+125: color: str = Field(default='#000000', json_schema_extra={'ui': {'widget': 'color'}})
+126: ```
+127: 
+128: ### Widget with config
+129: 
+130: Config is passed from `schema.ui.config`:
+
+### packages/n3tx-ui/docs/widgets.md (170 total lines)
+131: 
+132: ```python
+133: price: float = Field(json_schema_extra={'ui': {'widget': 'currency', 'config': {'symbol': 'EUR'}}})
+134: ```
+135: 
+136: ```javascript
+137: // In CurrencyWidget.display():
+138: display(value, config, schema) {
+139:     const symbol = config?.symbol || '$';  // 'EUR' from schema
+140:     // ...
+141: }
+142: ```
+143: 
+144: ### Widget with validation
+145: 
+146: ```javascript
+147: class PercentWidget extends Widget {
+148:     validate(value, config, schema) {
+149:         if (value == null) return null;
+150:         const num = parseFloat(value);
+151:         if (isNaN(num)) return 'Must be a number';
+152:         if (num < 0 || num > 100) return 'Must be between 0 and 100';
+153:         return null;
+154:     }
+155: }
+156: ```
+157: 
+158: Formidable calls `widget.validate()` during `validateForm()` after standard schema constraint checks.
+159: 
+160: ## Gotchas
+161: 
+162: - **display() and edit() return DOM Nodes, list() returns a string.** This asymmetry exists because display/edit results are wrapped in container divs by Formidable (via `.outerHTML`), while list() output is inserted directly into HTML template strings by NTTItem's sm() method.
+163: 
+164: - **Widget dispatch requires both conditions.** `getWidgetForField()` returns a widget only if the name exists in the registry. But the callers in form.js and ntx-item.js additionally check `def.ui?.widget` before using the widget. This means registering a widget alone does not activate it -- the schema must also carry the `ui.widget` hint.
+165: 
+166: - **edit() must produce an element with data-key.** Formidable stamps `data-key` and `data-type` on the editable element (or the first input/textarea/select inside the returned node). This is required for `handleInputChange()` in NTTItem to process the value correctly. If your widget returns a complex DOM tree, ensure the primary input has these attributes or Formidable will stamp them on the outermost element.
+167: 
+168: - **Vendor libraries are optional.** MarkdownWidget checks `typeof marked !== 'undefined'` and falls back to `<pre>`. ConsoleWidget checks `typeof AnsiUp !== 'undefined'` and falls back to plain text. Include `vendor/marked.min.js` and `vendor/ansi_up.min.js` via script tags if you need these features.
+169: 
+170: - **The `el()` helper handles `on*` attributes as event listeners.** `this.el('button', {onclick: handler})` calls `addEventListener('click', handler)`, not `setAttribute('onclick', ...)`. Use this for interactive widget elements.
+
+### packages/n3tx/README.md (646 total lines)
+1: # 🧬 N3TX: Define a Model, Get an App
+2: 
+3: > One install gets the full schema-driven stack: models, actors, agents, UI, and files.
+4: 
+5: Hey, you. Yeah, you -- the one tired of wiring up the same CRUD routes, forms, and permission checks for the 47th time. N3TX is a schema-driven Python framework where your model definition is the single source of truth for the entire stack -- data structure, validation, API endpoints, JSON Schema, access control, and UI rendering. The `n3tx` meta-package installs all N3TX sub-packages and re-exports their public APIs into a single namespace.
+6: 
+7: Write a Python model, get a working full-stack application. No routes to add, no forms to build, no permissions to wire. Seriously.
+8: 
+9: ---
+10: 
+11: ## 📚 Table of Contents
+12: 
+13: 1. [Features](#-features)
+14: 2. [Installation](#-installation)
+15: 3. [Quick Start](#-quick-start)
+16: 4. [Package Landscape](#-package-landscape)
+17: 5. [Schema-Driven Development](#-schema-driven-development)
+18: 6. [Schema Architecture](#-schema-architecture)
+19: 7. [Configuration](#%EF%B8%8F-configuration)
+20: 8. [Running the Application](#-running-the-application)
+21: 9. [Model Relationships](#-model-relationships)
+22: 10. [Usage Examples](#-usage-examples)
+23: 11. [Agents](#-agents)
+24: 12. [Re-export Map](#-re-export-map)
+25: 13. [Extending the Application](#-extending-the-application)
+26: 14. [Testing](#-testing)
+27: 15. [Key Patterns](#-key-patterns)
+28: 16. [Per-Package Documentation](#-per-package-documentation)
+29: 17. [License](#-license)
+30: 
+31: ---
+32: 
+33: ## ⚡ Features
+34: 
+35: Here's what you get out of the box -- no assembly required:
+36: 
+37: - FastAPI and Flask backend support with adapter architecture
+38: - Model auto-registration with dynamic CRUD + custom endpoint generation via `@expose_route`
+39: - Model-defined relationships with JSON-backed `list[T]` owned collections and hydrated responses
+40: - Integrated OpenAPI (Swagger) docs
+41: - Pluggable storage backends (SQLite, JSON) with auto-migration
+42: - Schema introspection at runtime via `GET /ModelName`
+43: - ABAC access control with composable rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`)
+44: - Toggle endpoints (like/favorite) implemented as model methods over first-class entities
+45: - Pagination with `?limit=N&offset=M` on list endpoints
+46: - Typed end-to-end using Pydantic v2
+47: - Actor/Matrix/TX messaging system with multi-protocol adapters (HTTP, WS, MCP, ActivityPub)
+48: - LLM-powered agents via Pydantic AI -- dynamic agents as data, any model method can be agentic
+49: - Streaming SSE endpoints with progressive frontend rendering
+50: - Schema-driven frontend Web Components (zero frontend code required)
+51: - Built-in tests via PyTest + Playwright frontend tests
+52: 
+53: ---
+54: 
+55: ## 📦 Installation
+56: 
+57: ### Prerequisites
+58: 
+59: - Python 3.10+
+60: - Docker (optional)
+61: 
+62: ### Install from PyPI
+63: 
+64: ```bash
+65: pip install n3tx
+66: ```
+67: 
+68: That's it. You're done. Go build something.
+69: 
+70: ### Install from Source (Development)
+71: 
+72: If you want to hack on N3TX itself:
+73: 
+74: ```bash
+75: # Automated
+76: ./install-dev.sh
+77: 
+78: # Or manually (editable installs)
+79: pip install -e packages/n3tx-core \
+80:             -e packages/n3tx-actors \
+81:             -e packages/n3tx-ui \
+82:             -e packages/n3tx-agents \
+83:             -e packages/n3tx-files \
+84:             -e packages/n3tx
+85: ```
+86: 
+87: ---
+88: 
+89: ## 🚀 Quick Start
+90: 
+91: Here's your first N3TX app. Notice how little code this is:
+92: 
+93: ```python
+94: from n3tx_core.app import create_app
+95: from n3tx_core.models.proto_model import ProtoModel
+96: from n3tx_core.models.base_user import BaseUser
+97: from n3tx_core.utils.decorators import expose_route
+98: from pydantic import Field
+99: 
+100: class User(BaseUser):
+101:     __tablename__ = 'users'
+102:     __abstract__ = False
+103: 
+104: class Product(ProtoModel):
+105:     __tablename__ = 'products'
+106:     __storable__ = True
+107:     name: str = Field(min_length=1, max_length=200)
+108:     price: float = Field(gt=0)
+109: 
+110:     @expose_route('/discount', methods=['POST'])
+111:     def discount(self, percent: float) -> str:
+112:         self.price *= (1 - percent / 100)
+113:         self.save()
+114:         return f"New price: {self.price}"
+115: 
+116: # One line: CRUD API + JSON Schema + auth + frontend
+117: app = create_app(models=[User, Product], storage="sqlite:///app.db")
+118: ```
+119: 
+120: Run with `uvicorn main:app --reload`. Visit `/Product` for the auto-generated JSON Schema, `/products` for data, or `/` for the schema-driven frontend. That model you just wrote? It's already a full-stack app.
+121: 
+122: ---
+123: 
+124: ## 🧩 Package Landscape
+125: 
+126: The N3TX ecosystem is split into focused packages with clear dependency boundaries. Pick what you need, or grab the meta-package and get everything:
+127: 
+128: ```
+129: n3tx (meta-package) <-- THIS PACKAGE
+130:   |
+
+### packages/n3tx/README.md (646 total lines)
+131:   +-- n3tx-core        Foundation: models, storage, auth, API routes,
+132:   |                    schema pipeline, JS runtime
+133:   |
+134:   +-- n3tx-actors      Actor/Matrix/TX messaging system, ActorModel
+135:   |   (depends on      bridge, NetworkAdapter (HTTP, WS, MCP, AP)
+136:   |    n3tx-core)
+137:   |
+138:   +-- n3tx-agents      AgentMixin, AgentActor, tool discovery,
+139:   |   (depends on      LLM integration via pydantic-ai
+140:   |    n3tx-core,
+141:   |    n3tx-actors)
+142:   |
+143:   +-- n3tx-ui          Frontend Web Components, form generators,
+144:   |   (depends on      widgets, themes (served as static assets)
+145:   |    n3tx-core)
+146:   |
+147:   +-- n3tx-files       File metadata model, byte stores, upload/download,
+148:       (depends on      typed File materialization
+149:        n3tx-core,
+150:        n3tx-actors)
+151: ```
+152: 
+153: ### When to use which package
+154: 
+155: | Goal | Package | Key exports |
+156: |------|---------|-------------|
+157: | Define models, storage, CRUD APIs | `n3tx-core` | `ProtoModel`, `BaseUser`, `SQLiteStorage`, `expose_route`, `create_app` |
+158: | Add actor messaging and routing | `n3tx-actors` | `Actor`, `Matrix`, `TX`, `ActorProxy`, `ActorModel` |
+159: | Add LLM-powered agent reasoning | `n3tx-agents` | `AgentMixin`, `AgentActor`, `AgentTool`, `discover_tools` |
+160: | Serve schema-driven frontend | `n3tx-ui` | Static assets (auto-discovered by the backend) |
+161: | Add file metadata and byte storage | `n3tx-files` | `File`, `FileStore`, `LocalFileStore`, `configure_file_store` |
+162: | Get everything at once | `n3tx` | Re-exports all of the above |
+163: 
+164: ### 🪜 Three bootstrapping levels
+165: 
+166: You choose how much control you want. All three produce the exact same API:
+167: 
+168: ```python
+169: # Level 1 -- One-liner (ProtoModel + direct routes)
+170: app = create_app(models=[Product, User], storage="sqlite:///app.db")
+171: 
+172: # Level 2 -- Builder (chainable configuration)
+173: from n3tx_core.app import N3TXApp
+174: pb = N3TXApp(storage="sqlite:///app.db")
+175: pb.model(Product).model(User).model(Comment)
+176: app = pb.build()
+177: 
+178: # Level 3 -- Actor routing (full messaging via Matrix)
+179: app = create_app(models=[Product], storage="sqlite:///app.db", routing='actor')
+180: ```
+181: 
+182: All three levels produce identical API endpoints. Level 3 adds TX-based messaging and two-tier authorization.
+183: 
+184: ---
+185: 
+186: ## 🔮 Schema-Driven Development
+187: 
+188: This is where N3TX gets fun. A single model class encodes your entire application concern -- structure, behavior, permissions, and UI:
+189: 
+190: ```python
+191: class Product(ProtoModel):
+192:     __tablename__ = 'products'
+193:     __storable__ = True
+194:     __ui__ = {
+195:         'field_order': ['name', 'price', 'description', 'comments', 'favorites'],
+196:         'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments', 'favorites']},
+197:         'methods': {
+198:             'comment': {'layout': 'inline', 'attach_to': 'comments'},
+199:             'favorite': {'layout': 'button', 'icon': 'star', 'count_field': 'favorites'},
+200:         },
+201:         'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
+202:     }
+203:     __access__ = {
+204:         'read': ANYONE, 'create': AUTHENTICATED,
+205:         'update': OWNER | ROLE('admin'), 'delete': ROLE('admin'),
+206:     }
+207: 
+208:     name: str = Field(min_length=1, max_length=200,
+209:                       json_schema_extra={'ui': {'placeholder': 'Product name...'}})
+210:     price: float = Field(gt=0,
+211:                          json_schema_extra={'ui': {'widget': 'currency'},
+212:                                             'access': {'view': 'anyone', 'edit': 'admin'}})
+213:     description: str = Field(default='',
+214:                              json_schema_extra={'ui': {'widget': 'textarea'}})
+215:     comments: list[Comment] = Field(default=[])
+216:     favorites: list[Like] = Field(default=[], description="Users who favorited this product")
+217: 
+218:     @expose_route('/comment', methods=['POST'])
+219:     def comment(self, comment: Comment, user: User = None) -> str: ...
+220: 
+221:     @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+222:     def favorite(self, user: User = None) -> str: ...
+223: ```
+224: 
+225: From this definition, `ProtoModel.schema()` generates a JSON Schema carrying everything the frontend needs. You didn't write a single line of frontend code, and yet you've got forms, permissions, action buttons, and field grouping.
+226: 
+227: ### What gets generated automatically
+228: 
+229: | Concern | Generated from | How |
+230: |---------|---------------|-----|
+231: | CRUD API endpoints | `__tablename__`, model fields | Routes auto-registered |
+232: | JSON Schema | Field types, validators, `json_schema_extra` | Pydantic generates it |
+233: | DB table + migrations | `__storable__`, field annotations | SQLite auto-migrates |
+234: | Relationship hydration | `list[T]` fields | Storage keeps local ids and hydrates objects on read |
+235: | Access control (backend) | `__access__`, `@expose_route(access=...)` | Middleware enforces |
+236: | Access control (frontend) | `access` in schema | UI hides/shows controls |
+237: | Frontend entity classes | Schema properties, methods | DynamicClass created at runtime |
+238: | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | Form generator reads schema |
+239: | Field ordering + grouping | `ui.field_order`, `ui.groups` | Fieldsets rendered automatically |
+240: | Edit/delete button visibility | `access.update`, `access.delete` | Permissions checked from schema |
+241: | Method action buttons | `schema.methods` | `<ntx-method>` renders them |
+242: | Toggle endpoints | `@expose_route` + model method logic | Like/favorite over first-class models |
+243: | Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | Router resolves on navigation |
+244: 
+245: ### The workflow
+246: 
+247: Your dev loop looks like this:
+248: 
+249: 1. Define or modify a Python model
+250: 2. Restart the server
+251: 3. Open the frontend -- it fetches the schema, creates entity classes, renders everything
+252: 4. No frontend code changed. No routes added. No forms built. No permissions wired.
+253: 
+254: That's it. Change the model, see it everywhere.
+255: 
+256: ---
+257: 
+258: ## 🏗️ Schema Architecture
+259: 
+260: The JSON Schema served at `GET /{ClassName}` is the universal contract between your backend and frontend. Here's what's in it:

@@ -1,0 +1,471 @@
+
+### FRONTEND.md (593 total lines)
+131: `dark-theme.css` and `light-theme.css` are token-only entrypoints; they no longer import shared structural selectors or expose legacy theme variable aliases.
+132: 
+133: Canonical theme state now lives in these runtime files:
+134: 
+135: - `packages/n3tx-core/src/n3tx_core/static/utils/theme.js` - persisted theme selection, configured theme order, `theme-change` dispatch
+136: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-theme-button.js` - reusable manual theme switcher
+137: 
+138: `ntx-topbar` and `ntx-sidebar` now expose manual shell placement points for theme controls:
+139: 
+140: - `<ntx-theme-button slot="user-menu"></ntx-theme-button>` renders inside the authenticated topbar dropdown.
+141: - `<ntx-theme-button slot="footer"></ntx-theme-button>` renders at the bottom of the sidebar.
+142: 
+143: Expanded sidebar model groups now mount the declared route-template tag when a
+144: model section expands, except `ntx-table`, which still falls back to the compact
+145: headless `ntx-list` dropdown shell. Model header navigation emits explicit
+146: frontend view routes (`#Model/@` for the default collection view and
+147: `#Model/@table` for table templates) while preserving template attributes as
+148: query parameters. Plain dropdown lists still force `item-display="sm"` plus the
+149: dedicated `ntx-sidebar-link-item` child renderer so record entries render as
+150: real internal anchors instead of pill-mode `ntx-item` badges; those record
+151: anchors target member default view routes such as `#Model/5/@` while legacy
+152: `#Model` and `#Model/5` routes remain supported by the router. That renderer
+153: also owns the truncated-label tooltip behavior: it uses a slightly enlarged
+154: hover target and a short custom delay instead of the browser-native `title`
+155: timing, and only shows when the label truly overflows the available row width.
+156: Its sidebar-specific row chrome lives in
+157: `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar-link-item.css` so
+158: `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.css` stays generic.
+159: Sidebar route-template children can set `sidebar-label="..."` to override the
+160: displayed nav copy without changing the routed model/view, which is the intended
+161: way to surface human-facing labels like `Agents` for `AgentActor`. Custom list
+162: tags such as `ntx-agents` receive the same `model`, `router`, `headless`, and
+163: `sidebar-dropdown` attrs so app-specific dropdown views can stay compact
+164: without forking the sidebar. Plain sidebar links follow router semantics too:
+165: `href="#"` navigates to the router home route (empty route, no hash), while
+166: `href="#profile"` maps to the app route `@profile`; already-explicit app links
+167: such as `href="#@settings"` stay `@settings` and are not double-prefixed. Those
+168: plain links can also set `icon="..."` to render a per-link `<ntx-icon>` token,
+169: for example `<a href="#@upload" icon="upload">UPLOAD</a>`; links without an
+170: `icon` attribute keep the generic link glyph. The framework ships built-in SVG
+171: tokens for the common `dashboard`, `upload`, and `user` sidebar entries, and
+172: apps can add more with `registerIcons({...})`.
+173: 
+174: Standard wide `ntx-list` card views now pack uneven card heights more tightly.
+175: `ListElement` keeps CSS grid source ordering, but when children resolve to
+176: `display="md"` it measures each child host with `ResizeObserver` and applies a
+177: small `grid-row-end` span so later cards can rise into gaps left by shorter
+178: neighbors. Sidebar dropdowns and compact lists stay on the existing strict
+179: single-track flow.
+180: 
+181: The shell components do not auto-render theme controls from config; pages place them explicitly.
+182: 
+183: Major first-party framework styles now read canonical theme tokens directly in `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.css`, and `packages/n3tx-ui/src/n3tx_ui/static/auth.css`. Status treatments in those surfaces use the canonical `--ntx-status-*` token family.
+184: 
+185: Veille and the shipped examples now follow the same canonical token contract too, including `apps/veille/static/veille.css`, `apps/veille/static/components/ntx-run-output.css`, `apps/veille/static/components/ntx-run-report.css`, the example login/register pages, and the first-party example shells under `examples/`.
+186: 
+187: Logged-out pages still honor the persisted theme but do not render `<ntx-theme-button>`.
+188: 
+189: ## Frontend Test Environment
+190: 
+191: Frontend verification now has two layers:
+192: 
+193: - `cd /workspace/tests/frontend && npx vitest run` - JS unit tests for runtime, components, and helpers
+194: - `cd /workspace/tests/frontend && npm run test:e2e:fast` - parallel browser smoke for read-only/default UI contracts
+195: - `cd /workspace/tests/frontend && npm run test:e2e` - default fully parallel core browser lane with worker-isolated app servers and SQLite DBs
+196: - `cd /workspace/tests/frontend && npm run test:e2e:serial` - legacy serial shared-server browser verification against seeded `examples/core`
+197: - `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/route-grammar-smoke.spec.js` - focused browser smoke for `#Model/@...` refresh/back/sidebar route grammar
+198: - `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/veille.playwright.config.js` - Veille browser verification, including Assistant chat with deterministic `N3TX_CHAT_LLM=test`
+199: - `cd /workspace && python3 scripts/test-frontend.py` - aggregate frontend runner; runs selected suites concurrently with 2 suite workers by default and writes overview JSON reporting
+200: - `cd /workspace && python3 scripts/test-frontend.py --suite e2e-core` - script runner for the worker-isolated parallel core browser lane
+201: 
+202: The Veille E2E harness seeds both the framework-provisioned `Assistant` and the
+203: sample `Veille Scout` agent. The dashboard contract is to render every configured
+204: entry from `APP_META.featured_agents`, so tests should assert the configured
+205: featured set rather than assuming only the Assistant card exists.
+206: 
+207: The Playwright harness boots `examples/core` as the default test app and uses
+208: `tests/e2e/start-e2e-app.js` as the `webServer.command`. That launcher creates
+209: and seeds an isolated SQLite database before starting the app, then writes the
+210: DB marker consumed by the teardown scripts. Seeding happens inside the server
+211: command because Playwright may start `webServer` before `globalSetup`. The
+212: harness also passes `PYTHONPATH` so package source trees resolve without
+213: installation.
+214: 
+215: The E2E harness derives the repository root from
+216: `tests/frontend/tests/e2e/paths.js`, so checkouts do not need to live at a fixed
+217: path such as `/workspace`. Set `N3TX_REPO_ROOT=/path/to/n3tx` only for unusual
+218: symlinked or wrapped layouts. The Playwright server uses the currently active
+219: Python virtualenv (`$VIRTUAL_ENV/bin/python`) when present, then falls back to
+220: the repo-local E2E env (`.venv-e2e/bin/python`), then `.venv/bin/python`, and
+221: finally system `python3`.
+222: 
+223: E2E specs should prefer deterministic UI readiness helpers from
+224: `tests/frontend/tests/e2e/fixtures/ui.js` over fixed sleeps and `networkidle`:
+225: use `gotoApp()` / `reloadApp()` for `domcontentloaded` navigation, then wait for
+226: the specific Shadow DOM state under test with helpers such as `waitForTopbar()`,
+227: `waitForAuthenticatedTopbar()`, `waitForProductList()`, or
+228: `waitForRouterItem()`. Fixed `page.waitForTimeout(...)` calls should be reserved
+229: for behavior that is explicitly time-based.
+230: Veille chat specs should use `loginAndOpenVeilleAssistant()` and
+231: `sendVeilleChatTurn()` so chat turns wait for the actual stream footer, message
+232: count, and send-button readiness instead of sleeping for a fixed interval.
+233: When a browser spec is primarily validating static component DOM, schema-to-DOM
+234: mapping, or renderer structure, prefer moving that coverage into Vitest under
+235: `tests/frontend/tests/components/`, `tests/frontend/tests/generators/`, or
+236: `tests/frontend/tests/integration/`. Keep Playwright coverage for behavior that
+237: needs a real browser, backend, auth/session state, routing history, computed CSS,
+238: viewport layout, screenshots, or DB/API mutation flows.
+239: 
+240: `tests/e2e/playwright.fast.config.js` is the parallel-safe frontend E2E lane. It
+241: inherits the normal core app harness but limits execution to read-only/default UI
+242: specs and runs with multiple workers (`4` locally, `2` in CI, or
+243: `N3TX_E2E_FAST_WORKERS=N`). Keep mutation-heavy suites on
+244: `playwright.config.js` until worker-isolated backend DBs/ports are available.
+245: 
+246: `tests/e2e/playwright.parallel.config.js` is the fully parallel core lane. Specs
+247: import `tests/e2e/fixtures/parallel.js`, which is inert for normal configs but,
+248: when `N3TX_E2E_PARALLEL=1`, starts one seeded `examples/core` app per worker on
+249: `N3TX_E2E_PARALLEL_BASE_PORT + workerIndex` with its own temp SQLite DB. It
+250: defaults to 2 workers to keep local process startup and SQLite pressure stable;
+251: use `N3TX_E2E_PARALLEL_WORKERS=N` to tune concurrency. Grants, Veille, and explicit
+252: performance specs stay on their app-specific configs because they need different
+253: app processes and environment contracts.
+254: 
+255: `scripts/test-frontend.py` runs selected top-level suites concurrently with
+256: 2 suite workers by default (`--workers N` or `N3TX_FRONTEND_SUITE_WORKERS`
+257: to override). This means `unit`, `e2e-core`, `e2e-grants`, `e2e-veille`, and
+258: `e2e-perf` can run at the same time; `e2e-core` also uses its own internal
+259: worker-isolated Playwright parallelism, defaulting to 2 workers.
+260: 
+
+### FRONTEND.md (593 total lines)
+261: ## Frontend Split Rationale
+262: 
+263: The backend split axis (core/actors/agents) doesn't map to the frontend. Analysis of the JS import graph:
+264: 
+265: - **Component.js** imports Actor, Matrix, AND TX — it's the base for every web component
+266: - **NTT.js** extends Actor and uses Matrix — it's the entity registry
+267: - Every `ntx-*` component transitively depends on all three "actor" files
+268: 
+269: The frontend split axis is **runtime vs. visual**:
+270: - **n3tx-core**: Non-visual runtime — messaging, entity system, abstract component bridge, transport, utils
+271: - **n3tx-ui**: Visual layer — registered custom elements, visual base classes, form generator, widgets, themes
+272: - **n3tx-agents**: Agent-specific UI — `ntx-chat.js` only
+273: 
+274: No circular dependencies:
+275: ```
+276: core ← ui      (ui imports from core, never reverse)
+277: core ← agents  (agents imports from core, never reverse)
+278: ui and agents are independent of each other
+279: ```
+280: 
+281: ## Static File Serving (Multi-Package)
+282: 
+283: Three packages bundle `static/` directories (n3tx-core, n3tx-ui, n3tx-agents). At runtime, `N3TXApp` discovers and merges them into a single URL namespace.
+284: 
+285: **Mount priority** (highest first):
+286: 1. App-specific static dirs (from `create_app(static_dir=...)`)
+287: 2. n3tx-agents static (if installed) — `ntx-chat.js`
+288: 3. n3tx-ui static (if installed) — all components, widgets, themes, default HTML
+289: 4. n3tx-core static (catch-all) — JS runtime, utils, config
+290: 
+291: `index.html` lives in n3tx-ui and imports from both core and ui directories. Since all static dirs merge into the same URL namespace, relative imports resolve correctly. Example apps override `index.html` with their own versions (existing pattern).
+292: 
+293: ## Schema as Universal Contract
+294: 
+295: The JSON Schema returned by `GET /{ClassName}` is the **single contract between backend and frontend**. It is not just a type description — it is the complete specification of how an entity behaves, renders, and is controlled.
+296: 
+297: For full schema anatomy details, see `/workspace/docs/CORE.md`.
+298: 
+299: ### How Each Schema Section Is Consumed
+300: 
+301: **Frontend reads schema once, adapts everything at runtime:**
+302: 
+303: | Schema section | Frontend consumer | What it controls |
+304: |---------------|------------------|-----------------|
+305: | `properties` | `prototype()` in NTT.js | Creates typed getters/setters on DynamicClass |
+306: | `properties[field].type` | `form.js` → `getInput()` | Chooses input type (text, number, checkbox, ...) |
+307: | `properties[field].x-ref` | widget registry → `ReferenceWidget` | Marks an HTTP(S) URL string as a typed model pointer without overloading JSON Schema `$ref` |
+308: | `properties[field].ui.widget` | `form.js` → `getInput()` | Specialized rendering (currency prefix, textarea) |
+309: | `properties[field].ui.display` | `form.js` → field filtering | Hides internal fields |
+310: | `properties[field].ui.protected` | `form.js` → field filtering | Hides backend-owned fields in edit mode |
+311: | `properties[field].ui.placeholder` | `form.js` → input attrs | Sets placeholder text on inputs |
+312: | `properties[field].access` | `Permissions.js` → `canView()` | Field-level visibility per user role |
+313: | `ui.field_order` | `form.js` → `getForm()` | Controls field rendering sequence |
+314: | `ui.groups` | `form.js` → `renderGroupedFields()` | Wraps fields in `<fieldset>` groups |
+315: | `ui.description` | `NTTList.render()` | Optional collection intro text under the header title |
+316: | `ui.create_label` | `NTTList.render()` | Optional labeled collection create button |
+317: | `ui.icon` | `ntx-icon` + icon resolver | Shared icon rendering for model shells and method actions |
+318: | `ui.renderer.*` | `ntx-router.js` → `#resolveTag()` | Chooses component tag for navigation views |
+319: | `access` | `Permissions.js` → `canAction(access, action, resource)` | Shows/hides edit/delete buttons with resource-aware OWNER evaluation |
+320: | `methods` | `prototype()` + `<ntx-method>` / `<ntx-stream>` | Creates callable methods + renders action buttons |
+321: | `$defs` | `NTT.SCHEMA()` | Registers nested DynamicClasses |
+322: | `$id` / `$schema` | DynamicClass value getter | Injected into every entity instance for self-description |
+323: 
+324: ### Shared Icons
+325: 
+326: `ui.icon` is resolved by `packages/n3tx-ui/src/n3tx_ui/static/utils/icon-resolver.js`
+327: and rendered by `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-icon.js`.
+328: Resolution order is: empty → nothing, registered lookup key → inline SVG or
+329: other registered token, URL/path-like string → image icon, emoji → emoji icon,
+330: otherwise raw text. Emoji tokens use a best-effort monochrome filter
+331: controlled with CSS variables such as `--icon-filter`, `--icon-opacity`, and
+332: `--icon-size`.
+333: 
+334: Apps can register their own icon packs at startup with `registerIcons({...})`.
+335: Veille does this in `apps/veille/static/utils/veille-icons.js` before importing
+336: its shell components, so model `__ui__.icon` tokens and app-shell `<ntx-icon>`
+337: usage both resolve through the shared registry.
+338: 
+339: `ntx-topbar`'s built-in chrome icons are separate from that registry. Profile,
+340: logout, chevron, and hamburger are inline SVG constants defined directly in
+341: `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js`.
+342: 
+343: ### Schema Propagation Lifecycle
+344: 
+345: ```
+346: 1. Model Definition (Python)
+347:    Product(ProtoModel) with fields, __ui__, __access__, @expose_route
+348:                     │
+349: 2. Schema Generation (Backend, on GET /Product)
+350:    ProtoModel.schema() → proto_schema pipeline (base → strip_hidden → methods → defs → access → widget → ui → metadata)
+351:                     │
+352: 3. Network Transport
+353:    HTTP GET /Product → JSON response
+354:                     │
+355: 4. Schema Bootstrap (Frontend)
+356:    NTT.SCHEMA(data) → prototype(addr, schema, href) → DynamicClass
+357:    │  Creates typed class with getters, setters, methods from schema
+358:    │  Registers nested $defs as additional DynamicClasses
+359:                     │
+360: 5. Component Rendering (Frontend)
+361:    NTTItem.DESCRIBE() receives { proto: schema, data: values }
+362:    │  form.js reads schema.properties → builds form HTML
+363:    │  Permissions.js reads schema.access → shows/hides controls
+364:    │  ntx-method reads schema.methods → renders action buttons
+365:    │  ntx-router reads schema.ui.renderer → resolves navigation targets
+366:                     │
+367: 6. Entity Responses (Backend, on GET /products)
+368:    model_response() runs dump pipeline → injects $schema + $id into each record
+369:    │  Frontend DynamicClass value getter preserves these for self-description
+370:     │  Owned T/list[T] fields retain hydrated child objects with flat $id values
+371: ```
+372: 
+373: ## Frontend Patterns
+374: 
+375: ### Partial updates
+376: 
+377: Generated direct and actor HTTP `PUT` routes accept partial objects. The backend
+378: merges supplied fields with the current entity and validates the complete result
+379: through the original model. The first-party entity flow may still send its
+380: current complete value on save:
+381: 
+382: ```javascript
+383: this.send(new TX({
+384:   name: 'UPDATE',
+385:   source: this.addr,
+386:   target: this.ref,
+387:   data: this.value,
+388: }));
+389: ```
+390: 
+
+### FRONTEND.md (593 total lines)
+391: Custom components and clients may instead send only changed fields. Omitted
+392: fields remain unchanged; explicitly supplied `list[T]`, `list[Ref[T]]`, plain
+393: list, and dictionary fields replace the complete stored field. Sending complete
+394: objects is not concurrency control.
+395: Updates replace supplied collections as a whole and are last-write-wins. Prefer
+396: schema-declared domain methods for append/remove/toggle actions when multiple
+397: writers may update the same relationship. See
+398: `docs/API_CRUD_ENDPOINTS.md#update-resource` for the canonical HTTP contract.
+399: 
+400: ### Hash Route Grammar and View Resolution
+401: 
+402: The frontend router uses an explicit `@` segment for model view routes. This
+403: keeps presentation separate from method/action routing while preserving legacy
+404: hash links.
+405: 
+406: | Route | Meaning | Mount attrs |
+407: |---|---|---|
+408: | `#Product` | Legacy/default collection route | `{ model: 'Product' }` |
+409: | `#Product?view=table` | Legacy query-selected collection view | `{ model: 'Product' }` plus query params except `view` |
+410: | `#Product/@` | Collection default view | `{ model: 'Product' }` |
+411: | `#Product/@table` | Collection named view | `{ model: 'Product' }` |
+412: | `#Product/1` | Legacy/default member detail route | `{ ref: 'Product/1', display: 'lg' }` |
+413: | `#Product/1/@` | Member default view | `{ ref: 'Product/1', display: 'lg' }` |
+414: | `#Product/1/@chat` | Member named view | `{ ref: 'Product/1', display: 'lg' }` |
+415: | `#Product/1/run` | Method/action route | `{ ref: 'Product/1', method: 'run', display: 'lg' }` |
+416: | `#Product/1/@run` | View named `run`, not a method | no `method` attr |
+417: | `#Product/1/Comment/2` | Legacy nested navigation alias | `{ data-model: 'Comment', ref: 'Comment/2', display: 'lg' }` |
+418: | `#Product/1/Comment/2/@item` | Legacy nested member-view alias | `{ data-model: 'Comment', ref: 'Comment/2', display: 'lg' }` |
+419: | `#Product/1/Comment/2/like` | Legacy nested action alias | `{ data-model: 'Comment', ref: 'Comment/2', method: 'like', display: 'lg' }` |
+420: | `#@profile` | App-level route | mounts `<ntx-profile>` |
+421: 
+422: `Router.parseRoute()` normalizes leading/trailing slashes and rejects invalid
+423: model view tokens instead of silently treating them as IDs or actions. Valid view
+424: tokens match `[A-Za-z0-9][A-Za-z0-9_-]*`. `Router.resolveRoute()` validates
+425: resolved component tags before returning a mount instruction.
+426: 
+427: Semantic view names resolve through the schema first:
+428: 
+429: ```text
+430: Collection default: renderer.page -> renderer.list -> ntx-list
+431: Collection named:   renderer[view] -> known fallback (list/table) -> invalid
+432: Member default:     renderer.detail -> renderer.item -> ntx-item
+433: Member named:       renderer[view] -> known fallback (item/detail/chat) -> invalid
+434: ```
+435: 
+436: Path-based `@view` selection takes precedence over query `view`. User-facing
+437: query parameters pass through to the mounted component, but internal route
+438: controls such as `view` are filtered from attrs.
+439: 
+440: Legacy nested class-name hash routes remain navigation aliases:
+441: 
+442: ```text
+443: #Product/1/Comment/2
+444: ```
+445: 
+446: They do not define entity or transport identity. Resolution discards the parent
+447: segments and mounts the child through its canonical `Comment/2` NTT address.
+448: Backend responses remain authoritative through the child's flat `$id`, such as
+449: `/Comment/2`; the frontend never synthesizes a parent-scoped child `$id`.
+450: 
+451: The parser shape for nested details is:
+452: 
+453: ```js
+454: {
+455:   type: 'nested-detail',
+456:   parentModel: 'Product',
+457:   parentId: '1',
+458:   model: 'Comment',
+459:   id: '2',
+460:   params: {}
+461: }
+462: ```
+463: 
+464: Resolution mounts the child under its semantic cache identity:
+465: 
+466: ```text
+467: mounted attrs:   data-model="Comment" ref="Comment/2"
+468: NTT cache key:   Comment/2
+469: transport href: <API_URL>/Comment/2
+470: ```
+471: 
+472: Nested view and action routes preserve the existing `@` boundary:
+473: 
+474: ```text
+475: Product/1/Comment/2/like   -> nested action, `method="like"`
+476: Product/1/Comment/2/@like  -> nested view, no `method` attr
+477: ```
+478: 
+479: ### Widget Extension (JS)
+480: On the frontend, `form.js` and `ntx-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. See `packages/n3tx-ui/docs/widgets.md` for the full widget system.
+481: 
+482: ```javascript
+483: class ColorWidget extends Widget { display(v) { ... } }
+484: registerWidget('color', new ColorWidget());
+485: ```
+486: 
+487: ### Streaming Transport
+488: 
+489: The frontend transport layer supports streaming for long-running operations. See `packages/n3tx-ui/docs/components.md` for the `<ntx-stream>` component.
+490: 
+491: #### HTTP.stream()
+492: 
+493: `HTTP.stream(url, data, onChunk, onDone, onError)` — SSE client using Fetch API with `ReadableStream`. Parses `event: chunk|done|error` and `data: {json}` lines. Returns `{ cancel: Function }` for AbortController cancellation.
+494: 
+495: A `_done` guard prevents double `onDone` callbacks when SSE `event: done` is followed by ReadableStream closure.
+496: 
+497: ```javascript
+498: const handle = HTTP.stream('/products/1/generate', { prompt: 'hello' },
+499:     (chunk) => console.log('Chunk:', chunk),
+500:     (data)  => console.log('Done:', data),
+501:     (err)   => console.error('Error:', err),
+502: );
+503: handle.cancel();  // Cancel mid-stream
+504: ```
+505: 
+506: #### Socket.registerStream()
+507: 
+508: `socket.registerStream(reqId, onChunk, onDone, onError)` — registers stream handlers for correlated WS messages. Messages with `meta.stream` and matching `meta.req` are dispatched to the registered handler.
+509: 
+510: #### NetworkAdapter.sendStream()
+511: 
+512: `adapter.sendStream(event, onChunk, onDone, onError)` — unified streaming API. Uses WebSocket if connected, falls back to HTTP SSE.
+513: 
+514: #### `<ntx-stream>` Component
+515: 
+516: Extends `NTTMethod`. For methods with `schema.methods[m].stream === true`. Renders progressive output with blinking cursor, cancels in-flight streams on disconnect.
+517: 
+518: ```html
+519: <ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
+520: ```
+
+### FRONTEND.md (593 total lines)
+521: 
+522: ### NTTStreamAgent (Agent Streaming)
+523: 
+524: **File**: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js`
+525: 
+526: Extends `NTTStream` with rich agent output rendering — typed entries (thinking, tool calls, text), markdown rendering, and tool result cards. All agent-style streaming components extend `NTTStreamAgent` (or `NTTStream` directly for simpler cases):
+527: 
+528: ```javascript
+529: import { NTTStreamAgent } from './ntx-stream-agent.js';
+530: 
+531: class MyComponent extends NTTStreamAgent {
+532:     // UPPERCASE = TX inbox handlers (actor convention)
+533:     TEXT(data, meta)       { /* data.text */ }
+534:     TOOL_CALL(data, meta)  { /* data.tool, data.args, data.call_id */ }
+535:     DONE(data, meta)       { /* data.answer, data.usage */ }
+536: 
+537:     // Lifecycle hooks
+538:     STREAM_END(data)       { /* stream completed */ }
+539:     STREAM_ERROR(err)      { /* error */ }
+540: }
+541: ```
+542: 
+543: **Component hierarchy:**
+544: 
+545: ```
+546: Component → NTTMethod → NTTStream → NTTStreamAgent → (app subclasses)
+547: ```
+548: 
+549: **Lifecycle hooks:**
+550: 
+551: | Method | When | Purpose |
+552: |--------|------|---------|
+553: | `prerender()` | `connectedCallback()`, before schema | Structural DOM (shell, layout). Never wiped by render(). |
+554: | `render()` | After schema arrives | Additive updates (title, etc.). Must not wipe prerender() output. |
+555: | `callMethod()` | User triggers execution | Starts stream. Generates `#streamReqId` correlation ID. |
+556: | `cancel()` | Cleanup / user action | Sets `#cancelled` flag, sends `STREAM_CANCEL` TX, calls `STREAM_END`. |
+557: | `disconnectedCallback()` | Element removed | Auto-calls `cancel()` for cleanup. |
+558: 
+559: **Dispatch flow:**
+560: 
+561: 1. `callMethod()` sends TX with `meta: {stream: true, req: reqId}` via Actor system
+562: 2. Backend sends stream chunks as TX messages
+563: 3. `NTTStream.STREAM()` handler receives chunks, skips if `#cancelled`
+564: 4. Dispatches to UPPERCASE handlers: `THINKING()`, `TOOL_CALL()`, `TEXT()`, `DONE()`, `STREAM_END()`, `STREAM_ERROR()`
+565: 
+566: **UPPERCASE convention**: All methods that handle TX messages are UPPERCASE. lowercase/camelCase = internal component logic. This mirrors the backend actor handler pattern.
+567: 
+568: **Concrete components extending NTTStream:**
+569: - `<ntx-agent-live>` — Real-time agent activity log with structured event rendering
+570: - `<ntx-chat>` — Floating chat panel for conversational agent interaction
+571: 
+572: Both extend `NTTStream` directly, use `prerender()` for structural UI, and auto-cancel streams in `disconnectedCallback()`.
+573: 
+574: ### Schema-Declared Stream Events
+575: 
+576: Streaming methods can declare their event vocabulary via `events=` on `@expose_route` (backend). The schema pipeline serializes these into `schema.methods[m].events`:
+577: 
+578: ```json
+579: {
+580:   "methods": {
+581:     "agentic_stream": {
+582:       "stream": true,
+583:       "events": {
+584:         "text": {"type": "object", "properties": {"text": {"type": "string"}}},
+585:         "tool_call": {"type": "object", "properties": {"tool": {...}, "args": {...}}},
+586:         "done": {"type": "object", "properties": {"answer": {...}, "usage": {...}}}
+587:       }
+588:     }
+589:   }
+590: }
+591: ```
+592: 
+593: Frontend components can read `events` to discover available chunk types and validate their handler coverage.

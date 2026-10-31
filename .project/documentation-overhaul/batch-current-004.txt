@@ -1,0 +1,308 @@
+
+### BACKEND.md (459 total lines)
+391: 1. `Annotated[str, <MarkdownField instance>]` — from `MarkdownField(rows=10)` call
+392: 2. Bare `MarkdownField` class — `issubclass(annotation, Widget)`
+393: 3. Auto-detect: bare `AnyHttpUrl` → check `AUTO_DETECT_MAP`
+394: 
+395: ### Streaming Infrastructure
+396: For the full streaming mechanism, see `packages/n3tx-actors/docs/network-adapters.md` (adapter streaming) and `packages/n3tx-core/docs/app-bootstrap.md` (route-level streaming).
+397: 
+398: #### Defining a Streaming Method
+399: ```python
+400: @expose_route('/generate', methods=['POST'], stream=True, access=AUTHENTICATED)
+401: async def generate(self, prompt: str = ''):
+402:     for i in range(10):
+403:         await asyncio.sleep(0.1)
+404:         yield {'chunk': f'Processing step {i}'}
+405: ```
+406: 
+407: #### Schema-Declared Stream Events (`events=`)
+408: 
+409: Streaming methods can declare their event vocabulary via the `events=` parameter. Event types are non-storable `ProtoModel` subclasses — pure Pydantic models for validation and JSON Schema generation:
+410: 
+411: ```python
+412: class TextChunk(ProtoModel):
+413:     text: str = Field(default='')
+414: 
+415: class DoneChunk(ProtoModel):
+416:     answer: str = Field(default='')
+417:     usage: dict = Field(default={})
+418: 
+419: @expose_route('/agentic_stream', methods=['POST'], stream=True,
+420:               events={'text': TextChunk, 'done': DoneChunk})
+421: async def agentic_stream(self, task: str, **kwargs):
+422:     yield {'name': 'text', 'data': {'text': 'hello'}, 'meta': {'stream': True, 'seq': 0}}
+423: ```
+424: 
+425: The `methods` stage in `proto_model.py` serializes `events` into the method schema:
+426: 
+427: ```json
+428: {
+429:   "methods": {
+430:     "agentic_stream": {
+431:       "stream": true,
+432:       "events": {
+433:         "text": {"type": "object", "properties": {"text": {"type": "string"}}},
+434:         "done": {"type": "object", "properties": {"answer": {...}, "usage": {...}}}
+435:       }
+436:     }
+437:   }
+438: }
+439: ```
+440: 
+441: The `n3tx-agents` package ships five built-in event models in `actor.py`: `TextChunk`, `ToolCallEvent`, `ToolResultEvent`, `ThinkingChunk`, `DoneChunk`. These are used by `AgentActor.agentic_stream()`. Custom streaming methods can define their own event models.
+442: 
+443: #### TX Stream Protocol
+444: TX uses `meta` fields for stream correlation:
+445: 
+446: | Message | `meta` fields |
+447: |---------|--------------|
+448: | Chunk | `req: uuid`, `stream: True`, `seq: N` |
+449: | End | `req: uuid`, `stream: True`, `stream_end: True`, `seq: N` |
+450: | Error | Existing `tx.error()` — `is_error` terminates the stream |
+451: 
+452: Helper methods: `tx.stream_chunk(data, seq)`, `tx.stream_end(data, seq)`.
+453: 
+454: #### SSE Wire Format
+455: ```
+456: event: chunk|done|error
+457: data: {json}\n\n
+458: ```
+459: Response headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `X-Accel-Buffering: no`.
+
+### CHANGELOG.md (233 total lines)
+1: # N3tx Change Log
+2: 
+3: # Unreleased
+4: 
+5: ## Backend / API
+6: - [x] **Class-name response identity** — response `$id` values are now class-name based (`/Product/1`) instead of table-name based (`/products/1`). Nested entities use parent-scoped class-name identity such as `/Product/1/Comment/2`.
+7:   - Legacy table-name routes remain available as compatibility transport paths.
+8:   - `$id` is the single response identity; N3TX does not emit `$href` or `links` metadata.
+9:   - Class-name JSON mirrors cover collection, create, read, update, delete, and literal custom methods while `GET /ClassName` remains the schema endpoint.
+10: 
+11: # 0.7.0 (2026-02)
+12: 
+13: ## Backend
+14: - [x] **[Performance Optimizations](src/n3tx/core/docs/changelogs/03_Performance_Backend.md)**
+15:   - Schema caching: `ProtoModel.schema()` caches per class, returns `deepcopy` — O(1) after first call
+16:   - Batch FK hydration: replaced N+1 per-row queries with single `WHERE fk IN (?, ...)` per ListRef field
+17:   - Connection pooling: `queue.Queue`-based pool with WAL mode and `busy_timeout` for concurrent reads
+18:   - Field introspection caching: `@lru_cache` on `get_list_fields()` and `get_ref_fields()`
+19:   - FK indexes: `CREATE INDEX` on all parent FK and self-ref columns in `create_table()` / `migrate_table()`
+20: - [x] **Social features — Like/Favorite toggle** — `Comment.like()` and `Product.favorite()` rewritten as toggle endpoints (create if not liked/favorited, delete if already exists)
+21:   - Uses `join_models` registry to query/delete via join tables (`CommentLike`, `ProductLike`)
+22:   - Empty body allowed (`Body(default={})`) — no payload needed for toggle actions
+23:   - Returns `{"action": "liked"}` / `{"action": "unliked"}` (or `favorited`/`unfavorited`)
+24: - [x] **Comment reply method** — `Comment.reply()` creates a child comment with `parent_id` set to the replied-to comment
+25:   - Resolves product parent for correct join table insertion
+26:   - Access restricted to `AUTHENTICATED` users
+27: - [x] **ProductLike join model** — `generate_join_model(Product, Like)` registered in `main.py` for product favorites
+28: - [x] **Collection routes for join models** — `GET /products/comments`, `GET /products/likes` return all records across parents
+29:   - `make_collection_list()` factory with auth, pagination, and populate support
+30:   - Registered in Pass 1 (before CRUD routes) to avoid `{id:int}` path conflict with static segments
+31: - [x] **Typed path parameters** — all route paths use `{id:int}` and `{parent_id:int}` for proper FastAPI type coercion
+32: - [x] **StorableMixin MRO walk** — `save()` walks `__mro__` to find matching join key, fixing nested saves for join model instances (e.g., ProductComment saving a child Comment)
+33: - [x] **Method UI hints in $defs** — `proto_model.schema()` injects `__ui__.methods` hints into `$defs` method entries for referenced models
+34: - [x] **Like model protected fields** — `user` field marked as `__protected_fields__` (server-injected, not client-editable)
+35: - [x] **Seed data expansion** — added likes on comments (5) and favorites on products (5) to seed script
+36: - [x] **Pagination** — list endpoints accept `?limit=N&offset=M` query params
+37:   - `sqlite_storage.list()` returns `{data: [...], meta: {total, limit, offset, has_more}}` when paginated
+38:   - `storable_mixin.list()` passes `limit`/`offset` through to storage
+39:   - Backward-compatible: unpaginated when no params provided
+40: - [x] **Authenticated user injection** — `@expose_route` methods can declare a `user: User` parameter
+41:   - `_resolve_user()` in `routes_fastapi.py` resolves the JWT user and injects the User instance
+42:   - `Product.comment()` and `Comment.like()` updated to use injected user instead of hardcoded IDs
+43: - [x] **User model UI hints** — added `__ui__` with `renderer` config pointing to `ntx-user` component
+44: - [x] **Protected fields** — `__protected_fields__` class variable prevents API mutation of backend-owned fields
+45:   - `user_owner` auto-injected from JWT on create for models declaring it as protected
+46:   - Protected fields stripped from update payloads in route layer
+47:   - Schema marks protected fields with `ui.protected = true` for frontend consumption
+48: - [x] **OWNER rule FK-hydrated href support** — `_Owner.evaluate()` extracts trailing ID from href strings
+49:   - Handles `user_owner` values like `http://.../users/3` after FK hydration
+50: - [x] **Comment model ABAC** — added `__access__` rules (ANYONE read, AUTHENTICATED create, OWNER|admin update/delete)
+51: - [x] **$defs access rule injection** — `proto_model.schema()` now injects access rules from referenced models into their `$defs` entries
+52: - [x] **[Authorization & Authentication](src/n3tx/docs/AUTHORIZATION.md)** — standalone `authorize/` package
+53:   - Added ABAC (Attribute-Based Access Control) with composable rule objects and operator overloading (`|`, `&`, `~`)
+54:   - Built-in rules: `ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE(*roles)`, `Where(**conditions)` with comparison operators (`__lt`, `__gt`, `__lte`, `__gte`, `__ne`, `__in`)
+55:   - SQL pushdown: rules produce `(WHERE_clause, params)` for efficient list-level filtering
+56:   - `AuthorizationResolver` Protocol for swappable resolution strategies; `DefaultResolver` reads `__access__` from models
+57:   - Schema exposure: access rules serialize to JSON in schema responses for frontend UI adaptation
+58:   - JWT authentication: bcrypt password hashing, token create/decode with `role` in payload
+59:   - `JWTAuthMiddleware` in `FastAPIBackend` — validates tokens, populates `request.state.user`
+60:   - `configure()` function for JWT settings — package has zero N3TX imports, reads env vars by default
+61:   - `access=` parameter on `@expose_route()` for per-method authorization
+62:   - `sql_filter` parameter threaded through `list()` in storage, mixin, and route layers
+63:   - `User.role` field with validator to coerce NULL/empty to `'user'`
+64:   - `Like` model and `CommentLike` join model; `Comment.parent_id` for self-referential nesting via `Ref['self']`
+65:   - Seed data: users, products, comments, nested replies
+66: - [x] **[ForeignKey Hydration](src/n3tx/core/docs/features/01_ForeignKey_Hydration.md)**
+67:   - Added SQLite migration system (`sqlite_migration.py`) with Rails-style run/rollback
+68:   - Added `ListRef[T]` type (`models/ref.py`) for FK hydration — collection fields return href arrays instead of embedded objects
+69:   - Added `__fk_models__` cache on parent models for join model resolution
+70:   - Added `collection_field_names` filter in `update()` to skip List[BaseModel] fields
+71:   - Moved type introspection utilities to `utils/introspection.py` (`get_list_fields`, `_unwrap_listref`)
+72:   - Added nested routes for child entity access (`/tablename/:id/field/:child_id`)
+73: 
+74: ## Frontend
+75: - [x] **[Performance Optimizations](src/n3tx/static/docs/changelogs/04_Performance_Frontend.md)**
+76:   - Batched DOM insertion: `ListElement.render()` and `update()` use `DocumentFragment` for single-reflow child stamping
+77:   - Event listener cleanup: `NTTItem.#bindEvents()` uses `AbortController` to prevent listener accumulation across re-renders
+78: - [x] **`<ntx-method>` button layout** — new compact icon + count pill rendering for social actions (like, favorite)
+79:   - SVG icon library (heart, star, reply, default) with hover/active states
+80:   - `count-field` attribute reads collection length from entity data (supports populated wrappers)
+81:   - `renderButton()` method alongside existing `renderFieldset()` and `renderInline()`
+82:   - Click handler routes through N3TX Actor with `_response_` inbox for auto-refresh
+83: - [x] **sm() social method buttons** — like/favorite/reply buttons rendered inline in sm card layout
+84:   - Button-layout methods detected from schema `methods[name].ui.layout === 'button'`
+85:   - Reply button shows inline input box with submit (Enter key or button click)
+86:   - Reply triggers parent entity re-fetch for immediate UI update
+87: - [x] **Reply indent** — comments with `parent_id` (selfref) get `reply-indent` CSS class with left border + margin
+88: - [x] **Populated wrapper normalization** — frontend handles both href strings and populated objects (`{$id, ...}`)
+89:   - `sm()` extracts `$id` from populated `$ref` fields for avatar rendering
+90:   - `form.js` `getListInput()` normalizes `{data: [...], meta: {...}}` wrappers to plain arrays
+91:   - `#patchListField()` extracts `$id` from items for diff comparison
+92:   - Instance `READ` handler runs `normalizePopulated()` on pull responses
+93: - [x] **Instance href from $id** — `DynamicClass` instances use entity `$id` for `href` (correct nested CRUD path like `/products/1/comments/3`)
+94:   - ATTACH handler updates `href` from `meta.href` when a more specific URL is known
+95: - [x] **`<ntx-favorites>` component** — simple page wrapper mounting `<ntx-list model="ProductLike">` at `#@favorites` route
+96: - [x] **Topbar Favorites link** — authenticated users see a "Favorites" nav link in `<ntx-topbar>`
+97:   - `topbar-nav` CSS block with hover transitions
+98: - [x] **JSON render depth guard** — `ntx-logs.js` caps recursion at depth 8 to prevent stack overflow on circular structures
+99: - [x] **Playwright tests** — `test_routing.py` (URL path correctness) and `test_social.py` (API + frontend rendering validation)
+100: - [x] **CLAUDE.md improvements** — reformatted long lines, added Development Workflow section (consistency, bug fix philosophy)
+101: - [x] **Resource-aware OWNER checks** — `Permissions.canAction()` now accepts entity data for real OWNER evaluation
+102:   - `#evaluateOwner()` compares resource's owner field to current user ID
+103:   - Handles FK-hydrated href strings (e.g., `http://.../users/3` → extract trailing ID)
+104:   - All `canAction()` call sites in `ntx-item.js` pass `this.value` for per-entity checks
+105:   - Edit/delete buttons now appear only for actual owners (not just any authenticated user)
+106: - [x] **Entity signal subscriptions** — `NTTElement.DESCRIBE()` subscribes to entity signal for live updates
+107:   - Components auto-update when entity data changes (e.g., after `pull()`)
+108:   - Subscription cleanup in `disconnectedCallback()`
+109:   - Instance `_response_` handler auto-pulls after method calls (replaces manual `setTimeout`)
+110:   - Instance `READ` handler for `pull()` responses
+111: - [x] **Protected fields** — backend-owned fields excluded from edit forms
+112:   - `__protected_fields__` class variable on models marks fields as server-managed
+113:   - Schema marks protected fields with `ui.protected = true`
+114:   - `form.js` hides protected fields in edit mode
+115:   - Route layer auto-injects `user_owner` from JWT on create, strips protected fields on update
+116: - [x] **CREATE handler** — `DynamicClass.CREATE` registers new instances and notifies list watchers
+117: - [x] **Delete flow improvements** — routes through DynamicClass for proper registry cleanup
+118:   - Uses `ref` (actual API endpoint URL) instead of `$id` for nested entities
+119:   - `NetworkAdapter.js` fixed: DELETE no longer sends request body
+120: - [x] **sm() action buttons** — edit/delete buttons on hover in sm size with CSS transitions
+121:   - sm edit mode delegates to md() for full form experience
+122:   - Layout size adjustment when editing in compact sizes
+123: - [x] **$defs access rules** — referenced model access rules now injected into `$defs` schema entries
+124: - [x] **Pagination UI** — `ListElement` tracks page size/offset, renders "Load More" button when `has_more`
+125:   - Count display shows "current / total" when paginated
+126:   - `NetworkAdapter` encodes `tx.data` objects as URL query params for READ transactions
+127: - [x] **Delete support** — delete button in `ntx-item` `md()` with confirmation dialog and ABAC check
+128:   - `N3TX.js` DynamicClass implements DELETE handler: removes instance, notifies watchers
+129: - [x] **`<ntx-user>` component** — custom NTTItem subclass with circular avatar rendering (xs/sm)
+130:   - Fallback to ui-avatars.com when no image is set
+
+### CHANGELOG.md (233 total lines)
+131:   - User model `__ui__.renderer` wires it automatically
+132: - [x] **ATTACH routing improvements** — `N3TX.js` fetches individual entities on ATTACH for non-existent instances
+133:   - Pending ATTACH queue replayed after READ completes
+134:   - `Component.ref` setter routes URL refs through ATTACH when `data-model` attribute is present
+135: - [x] **`ntx-item` sm display refinements** — respects `field_order`, renders `$ref` fields as leading avatars
+136:   - Replaced `#topFields()` with `#smFields()` for better field selection
+137:   - `#resolveChildTag()` looks up child component tags from schema
+138: - [x] **Kitchen sink page** — complete rewrite of `schema.html` into a full component showcase
+139:   - Adaptive display demo (xs pill, sm row, md card, lg detail)
+140:   - Live `ntx-list` + `ntx-router` with click-to-navigate
+141:   - User model at xs/sm, collapsible JSON schema inspector, ABAC permission panel
+142:   - Glass morphism sections, `ks-` prefixed CSS, responsive layout
+143: - [x] **[Refactor PTT into N3TX](src/n3tx/static/docs/PTT_N3TX_MERGE.md)**
+144:   - Merged PTT into N3TX — N3TX is now the universal type registry, schema proxy, and ATTACH router
+145:   - Added null-pointer bootstrap pattern with TX message queueing for async schema loading
+146:   - Added `N3TX.SCHEMA` static handler for bootstrap completion and DynamicClass generation
+147:   - Added `N3TX.ATTACH` universal router handling both type-level and instance-level ATTACHes
+148:   - Added optimistic update flow: `N3TX.UPDATE` updates locally then forwards to backend
+149: - Added `save()` method on `<ntx-item>` with N3TX-mediated update path
+150: - Added favicon (SVG)
+151: 
+152: ## Tests
+153: - [x] **test_routing.py** — Playwright test verifying like/reply/favorite POST to correct nested API paths
+154: - [x] **test_social.py** — Playwright test suite (15 checks): schema validation, toggle actions, reply creation, collection routes, frontend rendering (star/heart/reply buttons, reply indent, favorites navigation)
+155: 
+156: ## Documentation
+157: - Updated `CLAUDE.md` — reformatted long lines for readability, added Development Workflow section (consistency principles, bug fix philosophy)
+158: - Updated auto-generated docs: `products.md` (favorites field, favorite method), `products_comments.md` (like toggle, reply method), `products_likes.md` (new)
+159: - Updated `index.md` with `products_likes` entry
+160: - Updated `AUTHORIZATION.md` with protected fields section, OWNER href handling note
+161: - Updated `COMPONENTS.md` with entity signal subscriptions, protected fields, resource-aware OWNER checks, sm action buttons
+162: - Updated `MESSAGE_PROTOCOL.md` with CREATE handler, delete flow through DynClass, `_response_` handler, updated reference table
+163: - Updated `ARCHITECTURE.md` with protected field auto-injection in route factories
+164: - Updated `CLAUDE.md` with pagination lifecycle, user injection, and delete in generated capabilities table
+165: - Updated `API_CRUD_ENDPOINTS.md` with pagination query params, response format, and examples
+166: - Updated `API_CUSTOM_ENDPOINTS.md` with `user` parameter injection pattern
+167: - Updated `ARCHITECTURE.md` data flow to reflect pagination
+168: - Updated `COMPONENTS.md` with ntx-user, delete button, and ListElement pagination docs
+169: - Updated `MESSAGE_PROTOCOL.md` with DELETE handling and paginated READ format
+170: - Updated `TRANSPORT.md` with query parameter encoding for READ
+171: - Added `ROADMAP.md` with v0.8.0 plans
+172: - Added `docs/AUTHORIZATION.md` — full reference for the authorize package (quick start, rules, composition, architecture, extending, reference)
+173: - Created comprehensive README.md for N3TX 0.6 (quickstart, architecture, dataflow, CRUD, components)
+174: - Documented FK hydration across README.md, ARCHITECTURE.md, ACTORS.md, COMPONENTS.md, MESSAGE_PROTOCOL.md, TRANSPORT.md
+175: - Added PTT/N3TX merge report (`docs/PTT_N3TX_MERGE.md`)
+176: - Added FK hydration implementation report (`core/docs/features/FK_HYDRATION.md`)
+177: - Created TODOs.md for project task tracking
+178: 
+179: # 0.6.0 (2025-12)
+180: 
+181: ## Frontend — Actor Model Architecture (N3TXTX v0.6)
+182: - Rewrote entire frontend from event-bus architecture (N3TX 0.5) to actor-based model
+183: - Introduced `Actor` base class with hierarchical message routing (`_send` 3-case dispatch, `_inbox` dispatch-or-forward)
+184: - Introduced `Matrix` as root actor and central message router
+185: - Introduced `TX` (Transaction) as the universal message envelope (name, source, target, data, meta)
+186: - Introduced `TT` (Transfer Type) as base entity class with watcher pattern and Observable mixin
+187: - Introduced `PTT` (Proto Transfer Type) as schema proxy and dynamic class factory
+188: - Introduced `N3TX` (Named Transfer Type) as per-entity instance base class
+189: - Introduced `DynamicClass` — runtime-generated N3TX subclass per backend model with typed getters/setters
+190: - Introduced `Component` base class extending `HTMLElement` with actor registration
+191: - Added `Observable` mixin (`signal`, `observe`, `notify`) applied via `Actor.subclass()`
+192: - Added `NetworkAdapter` for HTTP transport (GET/POST/PUT/DELETE) with TX-based request/response
+193: 
+194: ## Infrastructure
+195: - Added `index.html` — main application entry point
+196: - Added `schema.html` — interactive schema explorer page
+197: - Added `config.js` for frontend configuration (API_URL, debug flags)
+198: 
+199: # 0.5.0 (2025-07)
+200: 
+201: ## Frontend — N3TXTX v0.5
+202: - Created N3TX 0.5 frontend with event-based architecture (`Event.js`, `Remote.js`, `HTTP.js`)
+203: - Created `<ntx-element>` web component — base component with data binding and render lifecycle
+204: - Created `<ntx-list>` — renders a collection of `<ntx-item>` elements from a model type
+205: - Created `<ntx-item>` — renders a single entity with auto-generated form fields from schema
+206: - Created `<ntx-method>` — invokes backend RPC methods on entities
+207: - Abstracted `<ntx-element>` base class, improved cross-system bindings
+208: - Created `Formidable` form generator — auto-generates input fields from JSON schema (text, number, select, textarea, ref)
+209: - Uncoupled form generation from `<ntx-item>` into standalone generator
+210: - Added `dark-theme.css` with design tokens
+211: - Removed legacy N3TX 0.0–0.4 frontend versions (~10,000 lines deleted)
+212: 
+213: ## Backend
+214: - Added methods signature to JSON schema endpoint (`schema.methods`)
+215: - Fixed routes registration closure bug — models were all binding to last registered model
+216: - Added `ProtoModel.__init__` by id for direct entity lookup
+217: - Added `List[RefProtoModel]` backend logic for one-to-many references
+218: - Added nested routes for references (`POST /products/:id/comments`)
+219: - Added join model architecture for managing entity relationships
+220: - Started foreign key implementation with schema view support
+221: - Added SQLite database file support
+222: 
+223: # 0.2.0 (2025-04)
+224: - Added interface for multiple backend (added FastAPI)
+225: - Updated README to reflect new features
+226: - Created Universal Context Protocol (UCP) specification document for
+227:   compute over meta models (COMM) first draft (very rough, WIP)
+228: 
+229: # 0.1.0 (2024-12)
+230: 
+231: ## Initial release
+232: - Created n3tx module with flask and swagger support
+233: - Support for multiple backend storages

@@ -1,0 +1,660 @@
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+391: ```python
+392: class Product(ProtoModel):
+393:     __tablename__: ClassVar[str] = 'products'
+394:     __storable__: ClassVar[bool] = True
+395:     __ui__: ClassVar[dict] = {
+396:         'groups': {
+397:             'main': ['name', 'description'],
+398:             'pricing': ['price'],
+399:             'relations': ['comments'],
+400:         },
+401:         'field_order': ['name', 'price', 'description', 'comments'],
+402:         'exclude_render': ['parent_id'],
+403:     }
+404: 
+405:     name: str = Field(json_schema_extra={'ui': {'widget': 'text', 'placeholder': 'Product name...'}})
+406:     price: float = Field(gt=0, json_schema_extra={'ui': {'widget': 'currency', 'currency': 'USD'}})
+407:     description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
+408: ```
+409: 
+410: **Per-field** via Pydantic's existing `json_schema_extra` mechanism (already supported — just needs a convention).
+411: 
+412: ### Schema Output
+413: 
+414: ```json
+415: {
+416:   "properties": {
+417:     "name": {
+418:       "type": "string",
+419:       "title": "Name",
+420:       "ui": {"widget": "text", "placeholder": "Product name..."}
+421:     },
+422:     "price": {
+423:       "type": "number",
+424:       "title": "Price",
+425:       "exclusiveMinimum": 0,
+426:       "ui": {"widget": "currency", "currency": "USD"}
+427:     }
+428:   },
+429:   "ui": {
+430:     "groups": {
+431:       "main": ["name", "description"],
+432:       "pricing": ["price"],
+433:       "relations": ["comments"]
+434:     },
+435:     "field_order": ["name", "price", "description", "comments"],
+436:     "exclude_render": ["parent_id"]
+437:   }
+438: }
+439: ```
+440: 
+441: ### Implementation
+442: 
+443: In `ProtoModel.schema()` (proto_model.py), after assembling the schema dict:
+444: 
+445: ```python
+446: # Inject __ui__ into schema
+447: ui_config = getattr(cls, '__ui__', None)
+448: if ui_config:
+449:     schema['ui'] = ui_config
+450: ```
+451: 
+452: Pydantic already passes `json_schema_extra` through to the schema output under each property — no backend work needed for per-field hints. The `ui` key in `json_schema_extra` just becomes a convention.
+453: 
+454: ### Frontend Consumption — DONE
+455: 
+456: Formidable (`generators/form.js`) now consumes all three model-level UI hints:
+457: 
+458: **`field_order`**: `getForm()` renders fields in `schema.ui.field_order` order instead of `Object.keys()` order. Fields not listed in `field_order` are appended at the end (safety net for schema additions).
+459: 
+460: **`groups`**: When `schema.ui.groups` is defined, fields are wrapped in `<fieldset class="ntx-group ntx-group-{name}">` with `<legend>` per group. Fields not belonging to any group render ungrouped at the end. New helper: `renderGroupedFields(ntt, renderableFields, groups, mode)`.
+461: 
+462: **`widget`** (per-field): The `ui.widget` hint takes priority over `type` for rendering decisions in `getInput()`:
+463: - `widget: 'textarea'` → `<textarea>` in edit mode, `<div class="text-block">` in display (regardless of `type: 'string'`)
+464: - `widget: 'currency'` → `<input type="number" step="0.01">` with `$` prefix in edit, `$X.XX` formatted in display
+465: 
+466: **`placeholder`** (per-field): `ui.placeholder` is already consumed via `validationAttrs()` and applied to inputs.
+467: 
+468: The existing `ui.display: false` check (§9) integrates with field ordering — excluded fields are filtered out before ordering/grouping runs.
+469: 
+470: ### Design Principle
+471: 
+472: **Hints, not mandates.** The `ui` key is always optional. Models without `__ui__` work exactly as they do today. Formidable falls back to current behavior (iterate properties, skip name/id/description for header).
+473: 
+474: ---
+475: 
+476: ## 5. Enhancement: Slot-Based Child Templates — DONE (in P0)
+477: 
+478: ### Goal
+479: 
+480: Let developers provide the child component for a list via HTML composition, not just via JS `get childTag()`.
+481: 
+482: ### API
+483: 
+484: ```html
+485: <!-- Option A: Template element (inert until cloned) -->
+486: <product-grid model="Product">
+487:   <template item-template>
+488:     <product-card mode="compact" theme="dark"></product-card>
+489:   </template>
+490: </product-grid>
+491: 
+492: <!-- Option B: Attribute shorthand -->
+493: <product-grid model="Product" item-tag="product-card"></product-grid>
+494: 
+495: <!-- Option C: No customization (built-in default) -->
+496: <ntx-list model="Product"></ntx-list>
+497: ```
+498: 
+499: ### Resolution Chain
+500: 
+501: When ListElement renders children, it resolves the child element in this priority:
+502: 
+503: ```
+504: 1. <template item-template> in light DOM     (most explicit)
+505: 2. item-tag="..." HTML attribute              (attribute shorthand)
+506: 3. get childTag() JS property                 (subclass override)
+507: 4. schema.ui.renderer.item                    (schema hint, see §6)
+508: 5. 'ntx-item'                                 (framework default)
+509: ```
+510: 
+511: ### Implementation in ListElement
+512: 
+513: ```js
+514: get #resolvedItemFactory() {
+515:   // 1. Template in light DOM
+516:   const template = this.querySelector('template[item-template]');
+517:   if (template) return () => template.content.firstElementChild.cloneNode(true);
+518: 
+519:   // 2. item-tag attribute
+520:   const itemTag = this.getAttribute('item-tag');
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+521:   if (itemTag) return () => document.createElement(itemTag);
+522: 
+523:   // 3. JS property (subclass override)
+524:   // 4. Schema hint (falls through to childTag getter which checks schema)
+525:   return () => document.createElement(this.childTag);
+526: }
+527: 
+528: get childTag() {
+529:   return this.schema?.ui?.renderer?.item || 'ntx-item';
+530: }
+531: 
+532: render() {
+533:   const factory = this.#resolvedItemFactory;
+534:   const grid = document.createElement('div');
+535:   grid.className = 'list-grid';
+536: 
+537:   this.value.forEach(addr => {
+538:     const el = factory();
+539:     el.setAttribute('ref', addr);
+540:     grid.appendChild(el);
+541:   });
+542: 
+543:   this.shadowRoot.innerHTML = '';
+544:   this.shadowRoot.appendChild(this.$styles);
+545:   this.shadowRoot.appendChild(grid);
+546: }
+547: ```
+548: 
+549: The `<template>` approach is preferred because the developer can pre-configure the child with attributes, classes, or nested content — and `<template>` stays inert until cloned.
+550: 
+551: ---
+552: 
+553: ## 6. Enhancement: Schema Renderer Hints — DONE
+554: 
+555: ### Goal
+556: 
+557: Backend specifies which component tag to use for rendering, so deploying a new model can include a full custom UI without modifying frontend HTML.
+558: 
+559: ### Backend API
+560: 
+561: ```python
+562: class Product(ProtoModel):
+563:     __ui__: ClassVar[dict] = {
+564:         'renderer': {
+565:             'item': 'product-card',
+566:             'list': 'product-grid',
+567:         }
+568:     }
+569: ```
+570: 
+571: ### Schema Output
+572: 
+573: ```json
+574: "ui": {
+575:   "renderer": {
+576:     "item": "product-card",
+577:     "list": "product-grid"
+578:   }
+579: }
+580: ```
+581: 
+582: ### Implementation — DONE
+583: 
+584: **Frontend**: `ListElement.childTag` checks `this.schema?.ui?.renderer?.item` at priority level 4 in the resolution chain. Formidable's `getListInput()` also resolves the child tag from `$defs[modelName].ui.renderer.item` when rendering inline relationship fields.
+585: 
+586: **Backend**: Product model includes `renderer` in `__ui__`:
+587: ```python
+588: __ui__: ClassVar[dict] = {
+589:     'renderer': {
+590:         'item': 'ntx-item',
+591:         'list': 'ntx-list',
+592:     },
+593:     ...
+594: }
+595: ```
+596: 
+597: Backend naming frontend component tags creates coupling. This is acceptable because:
+598: - It's completely optional (no `__ui__` = no coupling)
+599: - It's a hint — any explicit HTML attribute or JS property overrides it
+600: - It solves a real problem: deploying models with custom UI without touching HTML files
+601: 
+602: ---
+603: 
+604: ## 7. Enhancement: SSR Pre-Loading — DONE
+605: 
+606: ### Problem
+607: 
+608: Two sequential network round-trips before any pixel renders:
+609: 1. `GET /Product` (schema) → creates DynamicClass
+610: 2. `GET /products` (data) → creates instances, renders
+611: 
+612: ### Solution: Inline Pre-Loading
+613: 
+614: Server-rendered pages can inline both schema and data as JSON:
+615: 
+616: ```html
+617: <script type="application/json" data-ntx-schema="Product">
+618:   {{ product_schema_json }}
+619: </script>
+620: <script type="application/json" data-ntx-data="products">
+621:   {{ products_json }}
+622: </script>
+623: <ntx-list model="Product"></ntx-list>
+624: ```
+625: 
+626: ### Implementation (completed)
+627: 
+628: Two private static helper methods added to `N3TX` class in `core/N3TX.js`:
+629: 
+630: - **`#consumePreloadedSchema(model)`** — Checks `document.querySelector('script[data-ntx-schema="ModelName"]')`. If found, parses JSON, feeds to `N3TX.SCHEMA()` directly, removes the script tag (one-shot consumption). Returns `true` if pre-loaded schema was found.
+631: - **`#consumePreloadedData(tablename)`** — Checks `document.querySelector('script[data-ntx-data="tablename"]')`. If found, parses JSON, removes script tag, returns data array. Returns `null` if not found.
+632: 
+633: **Wired into three bootstrap paths:**
+634: 
+635: 1. `N3TX.attach()` — "Never seen" branch: tries `#consumePreloadedSchema(addr)` before sending SCHEMA TX
+636: 2. `N3TX.ATTACH()` — "Never seen" branch: same pre-load check before network fetch
+637: 3. `N3TX.SCHEMA()` — After creating DynamicClass: tries `#consumePreloadedData(tablename)` and calls `DC.READ(data)` directly instead of `DC.call('READ')` if found
+638: 
+639: **Queue-then-consume pattern**: Both `attach()` and `ATTACH()` set up the waiting queue *before* calling `#consumePreloadedSchema()`. This ensures that when `N3TX.SCHEMA()` runs synchronously and replays the queue, all pending callbacks/TXs are already queued.
+640: 
+641: ### Backend Support
+642: 
+643: A FastAPI route that renders an HTML page with pre-loaded data:
+644: 
+645: ```python
+646: @app.get("/app/{model_name}", response_class=HTMLResponse)
+647: async def model_page(model_name: str):
+648:     model_cls = registered_models.get(model_name)
+649:     schema = model_cls.schema()
+650:     records = model_cls.list()
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+651:     data = [r.model_response() for r in records]
+652:     return templates.TemplateResponse("page.html", {
+653:         "model_name": model_name,
+654:         "schema_json": json.dumps(schema),
+655:         "data_json": json.dumps(data),
+656:     })
+657: ```
+658: 
+659: ### Impact
+660: 
+661: Eliminates both network round-trips for server-rendered pages. For SPA-style navigation (no server page render), the existing fetch flow works unchanged. Only `core/N3TX.js` was modified — no changes to the component layer.
+662: 
+663: ---
+664: 
+665: ## 8. Enhancement: Adaptive Display Modes — DONE (Phase 2 + Phase 2.5)
+666: 
+667: ### Goal
+668: 
+669: A single component renders differently based on the space its parent allocates, not the screen size. This makes components truly context-aware — the same `<ntx-item>` works in a dashboard grid, a detail page, a sidebar, or an inline mention.
+670: 
+671: ### Size System
+672: 
+673: Abstract sizes (`xs`–`xl`) with semantic aliases for readability:
+674: 
+675: | Size | Alias | Breakpoint | NTTItem Default |
+676: |------|-------|-----------|-----------------|
+677: | `xs` | `pill` | 0px+ | Name badge only |
+678: | `sm` | `list-item` | 200px+ | Compact row: name + 2–3 key fields |
+679: | `md` | `card` | 400px+ | Full card: edit + form + methods |
+680: | `lg` | `detail` | 600px+ | Detail (delegates to `md`; future: hidden fields) |
+681: | `xl` | `page` | 800px+ | Page (delegates to `md`; future: metadata) |
+682: 
+683: ### Two Modes of Operation
+684: 
+685: **Auto mode (default):** ResizeObserver measures the component's content width and resolves to the largest matching breakpoint. No attribute needed.
+686: 
+687: **Forced mode:** Set the `display` attribute (or property) to lock a specific size:
+688: 
+689: ```html
+690: <ntx-item display="xs"></ntx-item>    <!-- abstract name -->
+691: <ntx-item display="pill"></ntx-item>  <!-- semantic alias -->
+692: <ntx-item display="auto"></ntx-item>  <!-- back to auto -->
+693: ```
+694: 
+695: When forced, the ResizeObserver still runs but its updates are ignored.
+696: 
+697: ### Implementation — Component.js (Phase 2)
+698: 
+699: Added to `core/Component.js` base class. Every component gets space-awareness for free.
+700: 
+701: **Static members:**
+702: - `Component.SIZES = ['xs', 'sm', 'md', 'lg', 'xl']`
+703: - `Component.ALIASES = {pill: 'xs', 'list-item': 'sm', card: 'md', detail: 'lg', page: 'xl'}`
+704: - `Component.normalizeDisplay(value)` — resolves abstract or semantic name to abstract size, returns `null` for `'auto'` or unrecognized values
+705: 
+706: **Private state:**
+707: - `#displayMode = 'md'` — current mode, initialized to `'md'`
+708: - `#resizeObserver = null` — ResizeObserver instance
+709: 
+710: **Public API:**
+711: 
+712: - **`get displayBreakpoints()`** — Override in subclass to customize. Returns `{xl: 800, lg: 600, md: 400, sm: 200, xs: 0}`. Evaluated largest-first.
+713: - **`get displayMode()`** — Returns the current abstract size string.
+714: - **`get display()` / `set display(value)`** — Gets/sets the `display` attribute. Accepts abstract or semantic names.
+715: - **`displayModeChanged(oldMode, newMode)`** — Hook called when mode changes. Default: re-renders if schema available.
+716: 
+717: **Lifecycle wiring:**
+718: - `connectedCallback()` applies forced mode if `display` attribute is set, then starts ResizeObserver.
+719: - `disconnectedCallback()` stops ResizeObserver, cleans up subscriptions.
+720: - `attributeChangedCallback` for `'display'` normalizes value and updates `#displayMode`.
+721: 
+722: **ResizeObserver guard:**
+723: ```js
+724: // Skip if display mode is forced via attribute
+725: if (Component.normalizeDisplay(this.getAttribute('display'))) return;
+726: ```
+727: 
+728: ### Implementation — NTTItem Size Methods (Phase 2.5)
+729: 
+730: Size methods return HTML strings; `render()` dispatches and handles DOM + events.
+731: 
+732: ```js
+733: xs() { return `<span class="pill-label">${name}</span>`; }
+734: sm() { return `<span class="sm-name">${name}</span><span class="sm-fields">...</span>`; }
+735: md() { return editButton + Formidable.getForm(...) + methodButtons; }
+736: lg() { return this.md(); }  // future: more fields
+737: xl() { return this.md(); }  // future: metadata
+738: 
+739: render() {
+740:   const size = this.displayMode;
+741:   const html = (this[size] || this.md).call(this);
+742:   this.shadowRoot.innerHTML = `<div class="card" data-display="${size}">${html}</div>`;
+743:   this.#bindEvents();
+744:   this[`${size}_mounted`]?.call(this);  // optional post-render hook
+745: }
+746: ```
+747: 
+748: **Heuristic field selection** (`#topFields(count)`): For `sm`, picks the top N visible, non-header, non-array fields using `ui.field_order` if available, otherwise schema property order. Respects `ui.display` and permissions.
+749: 
+750: **CSS scoping**: `.card[data-display="xs"]`, `.card[data-display="sm"]`, etc. Each size has distinct layout rules in `ntx-item.css`. Host-level: `:host([display="xs"]) { display: inline-block; }`.
+751: 
+752: ### Implementation — ListElement Size Cascade (Phase 2.5)
+753: 
+754: Children receive a display size from their parent to prevent cards-within-cards:
+755: 
+756: ```js
+757: static SIZE_CASCADE = { xl: 'md', lg: 'sm', md: 'xs', sm: 'xs', xs: 'xs' };
+758: 
+759: get childDisplay() {
+760:   return this.getAttribute('item-display') || SIZE_CASCADE[this.displayMode] || 'xs';
+761: }
+762: ```
+763: 
+764: `createChild()` stamps `display` on each child element. Nested items in Formidable's `getListInput()` also get `display="xs"`.
+765: 
+766: Override with `item-display` attribute:
+767: ```html
+768: <ntx-list model="Product" item-display="sm"></ntx-list>
+769: ```
+770: 
+771: ### Schema Integration (future — Phase 3)
+772: 
+773: Pairs with §4 (Schema UI Extensions). Schema can define which fields to show per mode:
+774: 
+775: ```python
+776: __ui__: ClassVar[dict] = {
+777:     'display_modes': {
+778:         'xl': {'fields': '*', 'layout': 'full'},
+779:         'md': {'fields': ['name', 'price', 'description'], 'layout': 'card'},
+780:         'sm': {'fields': ['name', 'price'], 'layout': 'inline'},
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+781:         'xs': {'fields': ['name'], 'layout': 'chip'},
+782:     }
+783: }
+784: ```
+785: 
+786: When present, `display_modes` overrides the heuristic field selection. This allows Formidable to auto-generate the right HTML for each mode from schema alone. Not yet implemented — the frontend heuristic (`#topFields`) handles field selection for now.
+787: 
+788: ### Developer Experience
+789: 
+790: ```js
+791: // Option A: Override a single size method
+792: class ProductCard extends NTTItem {
+793:   xs() {
+794:     return `<span class="pill-label">${this.value.name} — $${this.value.price}</span>`;
+795:   }
+796:   // sm, md, lg, xl inherited from NTTItem
+797: }
+798: 
+799: // Option B: Custom breakpoints
+800: class CompactProduct extends NTTElement {
+801:   get displayBreakpoints() {
+802:     return { xl: 600, lg: 400, md: 250, sm: 120, xs: 0 };
+803:   }
+804: }
+805: 
+806: // Option C: CSS-only mode switch (no re-render)
+807: class StyledProduct extends NTTElement {
+808:   displayModeChanged(oldMode, newMode) {
+809:     this.shadowRoot.host.setAttribute('data-mode', newMode);
+810:   }
+811: }
+812: ```
+813: 
+814: ### Decision: Component base (implemented)
+815: 
+816: **Component base**, not opt-in mixin. The ResizeObserver is cheap. `this.displayMode` is available to every component at zero cost if unused. Components that don't check `displayMode` in `render()` simply ignore it.
+817: 
+818: ---
+819: 
+820: ## 9. Enhancement: Field Exclusion Conventions — DONE
+821: 
+822: ### Problem
+823: 
+824: Fields like `parent_id`, `id`, internal timestamps exist in the schema (needed for data operations and relationships) but shouldn't render in default views. Currently Formidable hardcodes skipping `name`, `id`, `description` (they go in the header), but other internal fields still render.
+825: 
+826: ### Three Levels of Field Visibility
+827: 
+828: | Level | Meaning | Mechanism |
+829: |---|---|---|
+830: | **Hidden** | Never leaves backend | `__hidden_fields__` class-level set (exists today) |
+831: | **Data-only** | In schema + API responses, not rendered by default | `ui.display: false` (new) |
+832: | **Visible** | Rendered in default views | Default behavior |
+833: 
+834: ### Automatic Conventions
+835: 
+836: Applied by `ProtoModel.schema()` unless explicitly overridden:
+837: 
+838: - Fields ending in `_id` → `ui.display: false`
+839: - The `id` field → `ui.display: false`
+840: - `created_at`, `updated_at` → `ui.display: false`
+841: 
+842: ### Explicit Override
+843: 
+844: ```python
+845: # Force a _id field to render
+846: product_id: int = Field(json_schema_extra={'ui': {'display': True}})
+847: 
+848: # Force a normal field to not render
+849: internal_notes: str = Field(json_schema_extra={'ui': {'display': False}})
+850: ```
+851: 
+852: ### Frontend Consumption
+853: 
+854: Formidable checks `field.ui?.display !== false` before rendering:
+855: 
+856: ```js
+857: // In form.js getForm()
+858: Object.keys(fields).map(key => {
+859:   if (['name', 'id', 'description'].includes(key)) return '';
+860:   const def = fields[key];
+861:   if (def.ui?.display === false) return '';  // NEW: respect ui.display hint
+862:   return getInput(ntt, key, mode);
+863: })
+864: ```
+865: 
+866: ### Implementation Cost
+867: 
+868: ~10 lines in `ProtoModel.schema()` for conventions, ~3 lines in `form.js` for the check. Quickest win on this list.
+869: 
+870: ---
+871: 
+872: ## 10. Enhancement: Scaffolding / Template Generation — DONE
+873: 
+874: ### Problem
+875: 
+876: Today: you either use Formidable's auto-render (zero customization) or write a component from scratch (full effort). There's no middle ground.
+877: 
+878: ### Solution: Generate Starting Templates — Implemented
+879: 
+880: **Mechanism A — CLI scaffolding**:
+881: 
+882: ```bash
+883: $ cd /workspace/src/n3tx/core
+884: $ python -m utils.scaffold Product
+885:   WRITE .../components/product-card.js
+886:   WRITE .../components/product-card.css
+887:   WRITE .../components/product-grid.js
+888:   WRITE .../components/product-grid.css
+889: ```
+890: 
+891: Generates four files: item component (extends NTTElement), list component (extends ListElement), and starter CSS for both. All immediately functional.
+892: 
+893: **Mechanism B — Dev-mode API endpoint**:
+894: 
+895: ```
+896: GET /Product?scaffold=item       → JS item component source (text/plain)
+897: GET /Product?scaffold=list       → JS list component source
+898: GET /Product?scaffold=css        → Item starter CSS
+899: GET /Product?scaffold=list-css   → List starter CSS
+900: ```
+901: 
+902: Works from the browser or curl — no CLI install needed.
+903: 
+904: ### Implementation Details
+905: 
+906: **File**: `src/n3tx/core/utils/scaffold.py`
+907: 
+908: The scaffolding reads the model's `schema()` output and generates code:
+909: - Respects `ui.field_order` for field rendering order
+910: - Applies `ui.widget` hints: `currency` → `$X.XX` formatting, `textarea` → `<p>` blocks
+
+### docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md (1158 total lines)
+911: - Applies `ui.display: false` → skips hidden fields
+912: - Detects relationship array fields via `items.$ref` → renders as nested `<ntx-item>` (or custom tag from renderer hints)
+913: - Generates `<ntx-method>` buttons for schema methods
+914: - Header fields (`name`, `description`) rendered as `<h2>` / `<p>`, body fields with `<label>` + display element
+915: - CSS includes glass morphism base card, field-specific selectors, and stagger animation
+916: 
+917: **API integration**: `make_get_schema()` in `routes_fastapi.py` checks for `?scaffold=` query parameter. When present, returns `PlainTextResponse` from `scaffold_single()` instead of JSON schema.
+918: 
+919: **Programmatic use**: `scaffold_single(model_name, kind, schema)` for inline use, `scaffold_model(model_name)` for writing files.
+920: 
+921: ---
+922: 
+923: ## 11. Enhancement: Schema-Driven Validation — DONE
+924: 
+925: ### Goal
+926: 
+927: Auto-apply HTML5 validation attributes from schema constraints. Zero developer effort.
+928: 
+929: ### How It Works
+930: 
+931: Pydantic validators already emit JSON Schema constraints:
+932: 
+933: ```python
+934: name: str = Field(min_length=3, max_length=100)
+935: price: float = Field(gt=0, le=10000)
+936: email: str = Field(pattern=r'^[\w.-]+@[\w.-]+\.\w+$')
+937: ```
+938: 
+939: Schema output:
+940: ```json
+941: "name": {"type": "string", "minLength": 3, "maxLength": 100},
+942: "price": {"type": "number", "exclusiveMinimum": 0, "maximum": 10000},
+943: "email": {"type": "string", "pattern": "^[\\w.-]+@[\\w.-]+\\.\\w+$"}
+944: ```
+945: 
+946: ### Formidable Change
+947: 
+948: When generating `<input>` elements in edit mode, map schema constraints to HTML5 attributes:
+949: 
+950: ```js
+951: function getInput(ntt, key, mode) {
+952:   const def = schema.properties[key];
+953:   // ... existing type logic ...
+954: 
+955:   if (mode === 'edit') {
+956:     const attrs = [];
+957:     if (def.minLength) attrs.push(`minlength="${def.minLength}"`);
+958:     if (def.maxLength) attrs.push(`maxlength="${def.maxLength}"`);
+959:     if (def.minimum != null) attrs.push(`min="${def.minimum}"`);
+960:     if (def.exclusiveMinimum != null) attrs.push(`min="${def.exclusiveMinimum + 0.01}"`);
+961:     if (def.maximum != null) attrs.push(`max="${def.maximum}"`);
+962:     if (def.pattern) attrs.push(`pattern="${def.pattern}"`);
+963:     if (schema.required?.includes(key)) attrs.push('required');
+964: 
+965:     html.push(`<input type="${inputType}" ${attrs.join(' ')} data-key="${key}" data-type="${type}" value="${value}">`);
+966:   }
+967: }
+968: ```
+969: 
+970: The browser handles validation natively. No custom validation code needed for standard constraints.
+971: 
+972: ---
+973: 
+974: ## 12. Enhancement: Schema-Driven Permissions — DONE
+975: 
+976: ### Goal
+977: 
+978: Show/hide/disable fields and actions based on user role, driven by the schema.
+979: 
+980: ### Backend Implementation
+981: 
+982: **Per-field access** via `json_schema_extra`:
+983: 
+984: ```python
+985: price: float = Field(gt=0, json_schema_extra={
+986:     'ui': {'widget': 'currency'},
+987:     'access': {'view': 'anyone', 'edit': 'admin'}
+988: })
+989: 
+990: user_owner: User = Field(json_schema_extra={
+991:     'access': {'view': 'authenticated', 'edit': 'owner'}
+992: })
+993: ```
+994: 
+995: **User identity endpoint**: `GET /auth/me` returns `{ user_id, email, role }` from the JWT token. The middleware already decodes the token into `request.state.user`.
+996: 
+997: **Model-level access** was already serialized via `authorize.schema.access_schema()` into `schema.access`. No changes needed.
+998: 
+999: ### Frontend Implementation
+1000: 
+1001: **`utils/Permissions.js`** — Singleton module:
+1002: - `permissions.init()` — Fetches `/auth/me` using the JWT from `localStorage['jwtToken']`. Non-blocking; deduplicates.
+1003: - `permissions.user` — Current user object or null.
+1004: - `permissions.role` — Current role string ('anonymous' if not logged in).
+1005: - `permissions.canView(fieldDef)` — Checks `fieldDef.access.view` against user.
+1006: - `permissions.canEdit(fieldDef)` — Checks `fieldDef.access.edit` against user.
+1007: - `permissions.canAction(accessDict, action)` — Checks model-level `schema.access[action]` against user. Handles composite rules (or/and/not).
+1008: 
+1009: **Rule evaluation**:
+1010: - `'anyone'` → always true
+1011: - `'authenticated'` → true if logged in
+1012: - `'owner'` → true if logged in (ownership enforced server-side)
+1013: - Any other string → treated as role name, matched against `permissions.role`
+1014: - Composite rules: `{op: 'or', rules: [...]}`, `{op: 'and', rules: [...]}`, `{op: 'not', rule: {...}}`
+1015: 
+1016: **Formidable integration** (`generators/form.js`):
+1017: - `getForm()` filters out fields where `permissions.canView(def)` returns false
+1018: - `getInput()` downgrades edit mode to display mode if `permissions.canEdit(def)` returns false
+1019: 
+1020: **NTTItem integration** (`components/ntx-item.js`):
+1021: - Edit button hidden if `permissions.canAction(schema.access, 'update')` returns false
+1022: - `toggleMode()` blocked if user lacks update permission
+1023: 
+1024: **Bootstrap**: `permissions.init()` called in `index.html` module script. Non-blocking — components degrade gracefully (show everything by default, apply restrictions once identity resolves).
+1025: 
+1026: ---
+1027: 
+1028: ## 13. Enhancement: Relationship-Aware Smart Defaults — DONE
+1029: 
+1030: ### Goal
+1031: 
+1032: When Formidable encounters a `list[Comment]` relationship field, auto-render it as a proper nested list component with schema-aware child resolution.
+1033: 
+1034: ### Implementation
+1035: 
+1036: `getListInput()` in `form.js` now provides:
+1037: 
+1038: 1. **Schema-aware child tag resolution**: Looks up the referenced model's `$defs` entry for `ui.renderer.item`. If `Comment` has `renderer.item: 'comment-bubble'`, the list field stamps `<comment-bubble>` instead of `<ntx-item>`.
+1039: 
+1040: 2. **Count header**: Renders a `.list-field-header` with model name label and count badge.

@@ -1,0 +1,685 @@
+
+### docs/MODELS.md (413 total lines)
+1: # N3TX Model Layer
+2: 
+3: The model layer is the core of N3TX. A Python model definition is the
+4: single source of truth for the entire stack: data structure, validation,
+5: API endpoints, JSON Schema, access control, UI rendering.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+11: 1. [ProtoModel](#protomodel)
+12: 2. [Schema Pipeline (proto_schema)](#schema-pipeline-proto_schema)
+13: 3. [Dump Pipeline (proto_dump)](#dump-pipeline-proto_dump)
+14: 4. [StorableMixin](#storablemixin)
+15: 5. [BaseUser](#baseuser)
+16: 6. [ActorModel](#actormodel)
+17: 7. [References](#references)
+18: 8. [Optional File Resource](#optional-file-resource-n3tx-files)
+19: 9. [File Layout](#file-layout)
+20: 
+21: ---
+22: 
+23: ## ProtoModel
+24: 
+25: **File**: `proto_model.py`
+26: 
+27: Base class for all N3TX models. Extends `PydanticBaseModel`.
+28: 
+29: ### Responsibilities
+30: 
+31: - Schema generation via `schema()` (delegates to `proto_schema.run_pipeline()`)
+32: - Serialization via `model_response()` (delegates to `proto_dump.run_pipeline()`)
+33: - Optional storage injection via `__storable__` flag (injects `StorableMixin`)
+34: - FK field transformation (`BaseModel` annotations -> `Ref[T]`)
+35: - Method signature collection for API documentation
+36: - Schema caching (per-class, `deepcopy` on read)
+37: 
+38: ### Key Methods
+39: 
+40: | Method | Purpose |
+41: |--------|---------|
+42: | `schema()` | Returns JSON Schema via the schema pipeline. Cached per class. |
+43: | `model_response()` | Returns enriched dict via the dump pipeline (`$schema`, `$id`). |
+44: | `model_dump()` | Plain Pydantic dict. For storage operations (no metadata). |
+45: | `referenced_json_schema()` | Schema for `$defs` inclusion. Resolves `Ref` to `$ref`. |
+46: | `invalidate_schema_cache()` | Clears cached schema (for tests / dynamic redefinition). |
+47: 
+48: ### Class Variables
+49: 
+50: | Variable | Type | Purpose |
+51: |----------|------|---------|
+52: | `__storable__` | `bool` | Enable StorableMixin injection and CRUD |
+53: | `__tablename__` | `str` | Database table / API collection path |
+54: | `__fk_models__` | `dict` | Join model cache for FK hydration |
+55: | `__hidden_fields__` | `set` | Fields excluded from schema entirely |
+56: | `__protected_fields__` | `set` | Fields hidden in edit forms, auto-injected on create |
+57: | `__owner_field__` | `str` | Field name used for OWNER rule evaluation |
+58: | `__ui__` | `dict` | UI hints: field_order, groups, renderer |
+59: | `__access__` | `dict` | ABAC access rules (read, create, update, delete) |
+60: 
+61: ### `__init_subclass__` Magic
+62: 
+63: When `__storable__ = True`:
+64: 1. Injects `StorableMixin` into `__bases__`
+65: 2. Rewrites `BaseModel` field annotations to `Ref[T]`
+66: 
+67: ---
+68: 
+69: ## Schema Pipeline (proto_schema)
+70: 
+71: **File**: `proto_schema.py`
+72: 
+73: Composable `dict -> dict` stages that build the JSON Schema for a model
+74: class. `ProtoModel.schema()` calls `proto_schema.run_pipeline(cls)`.
+75: 
+76: ### Default Stages
+77: 
+78: | # | Stage | Input | Output |
+79: |---|-------|-------|--------|
+80: | 1 | `base` | `cls` | Pydantic core JSON Schema + `Ref['self']` patches |
+81: | 2 | `strip_hidden` | `cls, schema` | Removes `__hidden_fields__` from properties |
+82: | 3 | `methods` | `cls, schema` | Injects `@expose_route` method signatures + stream event schemas |
+83: | 4 | `defs` | `cls, schema` | Collects referenced models into `$defs` |
+84: | 5 | `access` | `cls, schema` | Serializes ABAC rules (top-level + `$defs`) |
+85: | 6 | `ui` | `cls, schema` | Injects UI hints, protected fields, `__ui__` config |
+86: | 7 | `metadata` | `cls, schema` | Stamps `$schema` and `$id` |
+87: 
+88: ### Extension Protocol
+89: 
+90: Insert stages into the pipeline without modifying `proto_schema.py`:
+91: 
+92: ```python
+93: from n3tx.core.models.proto_schema import schema_extension
+94: 
+95: @schema_extension(after='methods')
+96: def federation(cls, schema: dict) -> dict:
+97:     if getattr(cls, '__federated__', False):
+98:         schema['federation'] = {...}
+99:     return schema
+100: ```
+101: 
+102: The function name becomes the stage name. Positioning via `after=` or
+103: `before=` relative to existing named stages.
+104: 
+105: ### Pipeline Introspection
+106: 
+107: ```python
+108: from n3tx.core.models.proto_schema import get_pipeline
+109: get_pipeline()  # ['base', 'strip_hidden', 'methods', 'defs', 'access', 'ui', 'metadata']
+110: ```
+111: 
+112: ---
+113: 
+114: ## Dump Pipeline (proto_dump)
+115: 
+116: **File**: `proto_dump.py`
+117: 
+118: Composable `dict -> dict` stages that serialize a model instance.
+119: `ProtoModel.model_response()` calls `proto_dump.run_pipeline(instance)`.
+120: 
+121: Mirrors `proto_schema` -- same pattern, same extension mechanism.
+122: 
+123: ### Default Stages
+124: 
+125: | # | Stage | Input | Output |
+126: |---|-------|-------|--------|
+127: | 1 | `base` | `instance` | Plain Pydantic `model_dump()` |
+128: | 2 | `relationships` | `instance, data` | Enriches hydrated `T` and `list[T]` children through their dump pipelines |
+129: | 3 | `schema_url` | `instance, data` | Injects the model `$schema` URL |
+130: | 4 | `instance_url` | `instance, data` | Injects the resource `$id` URL |
+
+### docs/MODELS.md (413 total lines)
+131: | 5 | `populate` | `instance, data` | Overlays explicitly populated storage relationships |
+132: 
+133: The URL stages cache per-class metadata so they do not rebuild URL prefixes on
+134: every serialization.
+135: 
+136: ### Extension Protocol
+137: 
+138: ```python
+139: from n3tx_core.models.proto_dump import dump_extension
+140: 
+141: @dump_extension(after='instance_url')
+142: def activity(instance, d: dict) -> dict:
+143:     if getattr(instance.__class__, '__federated__', False):
+144:         d['@context'] = 'https://www.w3.org/ns/activitystreams'
+145:         d['type'] = instance.__class__.__name__
+146:     return d
+147: ```
+148: 
+149: ### When to Use Which
+150: 
+151: | Method | Use Case |
+152: |--------|----------|
+153: | `model_dump()` | Storage operations, internal processing |
+154: | `model_response()` | HTTP API responses (includes `$schema`, `$id`, extensions) |
+155: 
+156: ---
+157: 
+158: ## StorableMixin
+159: 
+160: **File**: `storable_mixin.py`
+161: 
+162: Provides CRUD operations via dependency injection (Strategy Pattern).
+163: Injected into model `__bases__` by `ProtoModel.__init_subclass__` when
+164: `__storable__ = True`.
+165: 
+166: ### Methods
+167: 
+168: | Method | Signature | Purpose |
+169: |--------|-----------|---------|
+170: | `create(data)` | classmethod | Insert new record |
+171: | `get(id)` | classmethod | Fetch by primary key |
+172: | `list(sql_filter, limit, offset)` | classmethod | Query with optional pagination |
+173: | `update(id, data)` | classmethod | Validate and persist a partial update |
+174: | `delete(id)` | classmethod | Remove record |
+175: 
+176: ### Pagination
+177: 
+178: When `limit` is provided, `list()` returns
+179: `{"data": [...], "meta": {"total", "limit", "offset", "has_more"}}`.
+180: Without `limit`, returns a plain list (backward compatible).
+181: 
+182: `StorableMixin.update(id, data)` and generated direct/actor `PUT` handlers write
+183: only supplied dictionary keys after validating the merged complete entity.
+184: [API CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource).
+185: 
+186: ### JSON Fields
+187: 
+188: Storable models may use embedded JSON fields for data owned entirely by the
+189: parent row:
+190: 
+191: ```python
+192: class AgentConfig(ProtoModel):
+193:     __tablename__ = 'agent_configs'
+194:     __storable__ = True
+195: 
+196:     tools: list[str] = Field(default=[])
+197:     constraints: dict = Field(default={})
+198: ```
+199: 
+200: `dict`, `Dict[...]`, primitive typed list fields, `list[T]`, and `list[Ref[T]]`
+201: fields are stored as SQLite `TEXT` columns using JSON serialization. They are
+202: deserialized before Pydantic model construction on reads. `list[T]` stores local
+203: child ids and hydrates them into model objects; `list[Ref[T]]` stores pointer
+204: refs. `ManyToMany[T]` is a legacy shared-link helper and should not be used as
+205: the default owned collection primitive.
+206: 
+207: Use JSON fields for metadata, settings, agent constraints, primitive tags,
+208: ordered local model collections, pointer arrays, and external payload fragments.
+209: Use explicit models and custom methods when nested data needs identity, auth,
+210: pagination, lifecycle events, or independent updates.
+211: See [JSON Fields](JSON_FIELDS.md) for implementation details and tradeoffs.
+212: 
+213: ---
+214: 
+215: ## References
+216: 
+217: **File**: `models/ref.py`
+218: 
+219: `Ref[T]` is the typed identity pointer primitive:
+220: 
+221: ```text
+222: Ref[T] means “an absolute HTTP(S) URL for a T identity.”
+223: ```
+224: 
+225: Accepted reference inputs are absolute HTTP(S) entity URLs ending in
+226: `/{ClassName}/{id}`. They are stored and emitted unchanged. Local integer ids
+227: and local paths belong to `T`/`list[T]` relationship storage, not `Ref[T]`.
+228: 
+229: Local owned collections use `list[T]` and are stored as ordered local ids on the
+230: parent row. Distributed pointer arrays use `list[Ref[T]]`.
+231: 
+232: Remote dereference is opt-in. Storage with no `reference_resolver` preserves and
+233: returns canonical remote refs without fetching them. Actor-mode bootstrap can
+234: inject a `MatrixReferenceResolver` so populated remote refs resolve through
+235: `RemoteMatrix`. For explicit Python calls to a remote `ActorModel` identity, use
+236: the model-centric handle:
+237: 
+238: ```python
+239: artifact = Artifact.ref('https://storage.example.com/Artifact/42')
+240: result = await artifact.call('process', mode='fast')
+241: ```
+242: 
+243: Reference helpers live with the model primitives in `models/ref.py`:
+244: 
+245: | Helper | Purpose |
+246: |---|---|
+247: | `Ref.base_url(ref)` | Return the service API base before `/{ClassName}/{id}`. |
+248: | `Ref.schema(ref)` | Return the target class-name segment. |
+249: | `Ref.id(ref)` | Return the target id segment as a string. |
+250: | `Ref.hydrate(...)` | Explicitly dereference through a supplied resolver context. |
+251: | `local_ref_id()` | Extract an id only for current-service local relationship storage. |
+252: | `public_id_url()` | Build the canonical public URL for a local entity id. |
+253: 
+254: The historical `n3tx_core.utils.typer.Ref` import remains as a compatibility
+255: surface and re-exports `Ref` from `models/ref.py`.
+256: 
+257: ---
+258: 
+259: ## BaseUser
+260: 
+
+### docs/MODELS.md (413 total lines)
+261: **File**: `base_user.py`
+262: 
+263: Abstract base user model with built-in authentication. Subclass to get
+264: login, register, and password hashing for free.
+265: 
+266: ```python
+267: class User(BaseUser):
+268:     __tablename__ = 'users'
+269:     __abstract__ = False
+270:     image: Optional[str] = Field(default=None)
+271: ```
+272: 
+273: ### Provided Fields
+274: 
+275: `name`, `email`, `role`, `password_hash` (hidden from schema via
+276: `__hidden_fields__`).
+277: 
+278: ### Provided Endpoints
+279: 
+280: | Method | Route | Access | Purpose |
+281: |--------|-------|--------|---------|
+282: | `login()` | `POST /login` | `ANYONE` | Returns JWT token + user data |
+283: | `register_user()` | `POST /register` | `ANYONE` | Creates user, returns JWT token |
+284: 
+285: **Note**: The method is `register_user()` (not `register()`) to avoid
+286: MRO collisions with `Actor.register()` when using `ActorModel`.
+287: 
+288: ### Password Handling
+289: 
+290: - `register_user()` stashes the plain password as `_plain_password` on
+291:   the instance
+292: - `BaseUser.create()` hashes it before storage via `hash_password()`
+293: - `password_hash` is excluded from schema and responses
+294: 
+295: ---
+296: 
+297: ## ActorModel
+298: 
+299: **File**: `actor_model.py`
+300: 
+301: Bridge class: `Actor` (messaging) + `ProtoModel` (data/schema/storage).
+302: 
+303: ```
+304: MRO: Product -> ActorModel -> Actor -> ProtoModel -> PydanticBaseModel
+305: ```
+306: 
+307: ### CRUD via Messages
+308: 
+309: `handler_crud()` adapts TX messages to StorableMixin methods:
+310: 
+311: | TX name | StorableMixin call |
+312: |---------|-------------------|
+313: | `schema` | `cls.schema()` |
+314: | `create` | `cls.create(cls(**data))` |
+315: | `get` | `cls.get(id)` |
+316: | `list` | `cls.list(limit, offset)` |
+317: | `update` | `cls.update(id, data)` |
+318: | `delete` | `cls.delete(id)` |
+319: 
+320: Non-CRUD messages fall through to Actor's generic `getattr` dispatch.
+321: 
+322: ### Lifecycle Events
+323: 
+324: After create/update/delete, `_publish_lifecycle()` sends a `LIFECYCLE`
+325: TX to registered subscribers (fire-and-forget). See the
+326: [actors README](../actors/README.md) for details.
+327: 
+328: ---
+329: 
+330: ## Optional File Resource (`n3tx-files`)
+331: 
+332: **File**: `packages/n3tx-files/src/n3tx_files/file.py`
+333: 
+334: `n3tx-files` provides `File(ActorModel)`, an optional model/capability for
+335: addressable files. The model carries authoritative metadata while bytes live in
+336: a separate `FileStore` provider.
+337: 
+338: ```python
+339: from n3tx_files import File, LocalFileStore, configure_file_store
+340: 
+341: configure_file_store(LocalFileStore('./file-blobs'))
+342: app = create_app(models=[File], storage='sqlite:///app.db')
+343: ```
+344: 
+345: ### Fields
+346: 
+347: | Field | Purpose |
+348: |---|---|
+349: | `filename` | Original/display name |
+350: | `content_type` | MIME type, default `application/octet-stream` |
+351: | `size` | Byte size, protected from user writes |
+352: | `sha256` | Content checksum, protected from user writes |
+353: | `storage_key` | Provider key for blob bytes, protected from user writes |
+354: | `origin` | Optional origin/remote source marker |
+355: | `public` | App-level public/private hint |
+356: | `user_owner` | Owner id for `OWNER` access rules |
+357: | `meta` | Provider/app metadata |
+358: 
+359: ### Byte routes
+360: 
+361: File byte IO is explicit package-owned API routing, not static-file serving:
+362: 
+363: | Route | Purpose |
+364: |---|---|
+365: | `POST /files/upload` | Multipart upload with form field `upload`; creates File metadata |
+366: | `GET /files/{id}/download` | Binary download |
+367: | `GET /File/{id}/download` | Class-name download mirror |
+368: 
+369: Download supports inclusive byte ranges with `Range: bytes=start-end` and
+370: returns `206` plus `Content-Range` for partial reads.
+371: 
+372: ### Reference resolution and materialization
+373: 
+374: `File.resolve(ref)` accepts the canonical absolute `$id` URL of a File on the
+375: current API, for example `http://localhost:5000/File/1`.
+376: 
+377: When `n3tx_files` is imported, it registers a typed argument materializer. A
+378: custom method annotated with `File` receives a resolved `File` instance when the
+379: payload contains a canonical File URL:
+380: 
+381: ```python
+382: @expose_route('/transcribe', methods=['POST'])
+383: async def transcribe(audio: File) -> dict:
+384:     local = await audio.ensure_local()
+385:     ...
+386: ```
+387: 
+388: Plain `str` parameters are not materialized. This keeps remote IO explicit and
+389: type-gated.
+390: 
+
+### docs/MODELS.md (413 total lines)
+391: ### Storage boundary
+392: 
+393: - SQLite/N3TX storage owns metadata only.
+394: - `FileStore` providers own bytes (`LocalFileStore` is the default local provider).
+395: - Dynamic file downloads must not be mounted through the static asset catch-all.
+396: - Remote storage/CDN nodes are provider/deployment strategies behind the same
+397:   `File` contract.
+398: 
+399: ---
+400: 
+401: ## File Layout
+402: 
+403: ```
+404: models/
+405:     __init__.py          Public API: BaseUser, ActorModel
+406:     proto_model.py       ProtoModel base class, schema(), model_response()
+407:     proto_schema.py      Schema pipeline: 7 composable stages + extension protocol
+408:     proto_dump.py        Dump pipeline: composable stages + extension protocol
+409:     storable_mixin.py    CRUD operations (create/get/list/update/delete)
+410:     base_user.py         Abstract base user with login/register endpoints
+411:     actor_model.py       ActorModel bridge (Actor + ProtoModel)
+412:     ref.py               Ref[T] distributed/local reference helpers
+413: ```
+
+### docs/README.md (586 total lines)
+1: # N3TX
+2: 
+3: **N3TX** is a lightweight, declarative Python framework for building REST APIs with automatic CRUD operations, schema generation, and flexible storage backends. Define your data models once, and N3TX handles the routing, validation, database operations, and API documentation.
+4: 
+5: ## Features
+6: 
+7: - **Declarative Model Definition** - Define models using Pydantic with automatic API generation
+8: - **Automatic CRUD Operations** - GET, POST, PUT, DELETE endpoints generated automatically
+9: - **Flexible Storage Backends** - SQLite, JSON, or implement your own
+10: - **Foreign Key Support** - Type-safe relationships between models
+11: - **Auto-Generated Documentation** - OpenAPI/Swagger compatible schemas
+12: - **Custom Endpoints** - Easily add custom business logic with decorators
+13: - **Optional File Capability** - `n3tx-files` adds `File(ActorModel)`, multipart upload, binary/range download, and typed file materialization
+14: - **Multiple Backend Support** - FastAPI or Flask (with easy extensibility)
+15: - **Auto-Migration** - Database schema updates automatically
+16: - **JSON-LD Style Responses** - All responses include `$schema` and `$id` metadata for self-describing resources
+17: 
+18: ## Quick Start
+19: 
+20: ### Installation
+21: 
+22: ```bash
+23: # Clone the repository
+24: git clone https://github.com/yourusername/n3tx.git
+25: cd n3tx
+26: 
+27: # Install dependencies
+28: pip install pydantic fastapi uvicorn sqlite3
+29: ```
+30: 
+31: ### Basic Example
+32: 
+33: ```python
+34: # models/user_model.py
+35: from models.proto_model import ProtoModel
+36: from typing import ClassVar, Optional
+37: 
+38: class User(ProtoModel):
+39:     __storable__: ClassVar[bool] = True
+40:     __tablename__: ClassVar[str] = 'users'
+41:     
+42:     id: Optional[int] = None
+43:     name: str
+44:     email: str
+45:     age: Optional[int] = None
+46: ```
+47: 
+48: ```python
+49: # main.py
+50: from storage.sqlite_storage import SQLiteStorage
+51: from utils.registrar import register_model
+52: from api.backend import FastAPIBackend
+53: import config
+54: 
+55: # Set up storage
+56: storage = SQLiteStorage('database.db')
+57: 
+58: # Register your model
+59: register_model(User, storage=storage)
+60: 
+61: # Create backend
+62: backend = FastAPIBackend(
+63:     name="My API",
+64:     version="1.0.0",
+65:     description="API built with N3TX"
+66: )
+67: backend.register_routes(registered_models)
+68: app = backend.get_app()
+69: 
+70: if __name__ == "__main__":
+71:     import uvicorn
+72:     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+73: ```
+74: 
+75: Run your API:
+76: 
+77: ```bash
+78: python main.py
+79: ```
+80: 
+81: Your API now has:
+82: - `GET /users` - List all users
+83: - `POST /users` - Create a user
+84: - `GET /users/{id}` - Get a specific user
+85: - `PUT /users/{id}` - Update a user
+86: - `DELETE /users/{id}` - Delete a user
+87: - `GET /User` - Get the JSON schema for the User model
+88: 
+89: All CRUD responses include `$schema` and `$id` metadata:
+90: 
+91: ```json
+92: {
+93:   "$schema": "http://localhost:8000/User",
+94:   "$id": "http://localhost:8000/User/1",
+95:   "id": 1,
+96:   "name": "Alice Johnson",
+97:   "email": "alice@example.com",
+98:   "age": 28
+99: }
+100: ```
+101: 
+102: ## Core Concepts
+103: 
+104: ### Models
+105: 
+106: N3TX models inherit from `ProtoModel` and use class variables to configure behavior:
+107: 
+108: ```python
+109: class Product(ProtoModel):
+110:     __storable__: ClassVar[bool] = True      # Enable storage/CRUD
+111:     __tablename__: ClassVar[str] = 'products'  # Database table name
+112:     
+113:     id: Optional[int] = None
+114:     name: str
+115:     price: float
+116:     description: str = ''
+117: ```
+118: 
+119: ProtoModel's Config sets `extra='allow'` so that metadata fields like `$schema` and `$id` survive FastAPI's response model validation.
+120: 
+121: ### Response Metadata
+122: 
+123: All CRUD route handlers call `.model_response()` to include self-describing metadata in every response:
+124: 
+125: - `$schema` - URL pointing to this model's JSON Schema (e.g., `http://localhost:8000/Product`)
+126: - `$id` - URL pointing to this specific resource instance using the class-name route grammar (e.g., `http://localhost:8000/Product/1`)
+127: 
+128: This enables clients to discover the schema for any resource directly from the response payload.
+129: 
+130: ### Storage Backends
+
+### docs/README.md (586 total lines)
+131: 
+132: N3TX supports multiple storage backends:
+133: 
+134: #### SQLite Storage
+135: 
+136: ```python
+137: from storage.sqlite_storage import SQLiteStorage
+138: 
+139: storage = SQLiteStorage('database.db')
+140: register_model(Product, storage=storage)
+141: ```
+142: 
+143: #### JSON Storage
+144: 
+145: ```python
+146: from storage.json_storage import JSONStorage
+147: 
+148: storage = JSONStorage(directory='data')
+149: register_model(Product, storage=storage)
+150: ```
+151: 
+152: #### Custom Storage
+153: 
+154: Implement the `AbstractStorage` interface:
+155: 
+156: ```python
+157: from storage.abstract_storage import AbstractStorage
+158: 
+159: class MyStorage(AbstractStorage):
+160:     def create_table(self, model_class): ...
+161:     def create(self, model_class, data): ...
+162:     def list(self, model_class): ...
+163:     def get(self, model_class, id_, as_dict=False, **kwargs): ...
+164:     def update(self, model_class, id_, data): ...
+165:     def delete(self, model_class, id_): ...
+166: ```
+167: 
+168: ### Optional Files
+169: 
+170: Install `n3tx-files` when your app needs uploaded documents, media, artifacts, or
+171: other byte resources:
+172: 
+173: ```python
+174: from n3tx_core.app import create_app
+175: from n3tx_files import File, LocalFileStore, configure_file_store
+176: 
+177: configure_file_store(LocalFileStore('./file-blobs'))
+178: app = create_app(models=[File], storage='sqlite:///app.db')
+179: ```
+180: 
+181: `File` metadata is normal N3TX model data. Bytes live in a `FileStore` provider.
+182: The package adds:
+183: 
+184: - `POST /files/upload` for multipart upload
+185: - `GET /files/{id}/download` and `/File/{id}/download` for binary/range reads
+186: - `File.resolve('http://localhost:5000/File/1')` using the canonical File `$id`
+187: - typed method materialization for parameters annotated as `File`
+188: 
+189: ### Foreign Keys
+190: 
+191: N3TX automatically handles relationships between models:
+192: 
+193: ```python
+194: from utils.typer import Ref
+195: 
+196: class Comment(ProtoModel):
+197:     __storable__: ClassVar[bool] = True
+198:     __tablename__: ClassVar[str] = 'comments'
+199:     
+200:     id: Optional[int] = None
+201:     text: str
+202:     user: Ref[User]  # Type-safe foreign key
+203: ```
+204: 
+205: When `__storable__` is True, N3TX automatically converts Pydantic model references to `Ref` types.
+206: 
+207: ### Custom Endpoints
+208: 
+209: Add custom business logic with the `@expose_route` decorator:
+210: 
+211: ```python
+212: from utils.decorators import expose_route
+213: 
+214: class User(ProtoModel):
+215:     __storable__: ClassVar[bool] = True
+216:     __tablename__: ClassVar[str] = 'users'
+217:     
+218:     name: str
+219:     email: str
+220:     
+221:     @staticmethod
+222:     @expose_route('/login', methods=['POST'])
+223:     def login(email: str, password: str) -> User:
+224:         """Custom login endpoint"""
+225:         users = User.list()
+226:         return next((u for u in users if u.email == email), None)
+227: ```
+228: 
+229: This creates a `POST /users/login` endpoint automatically.
+230: 
+231: ### Local Model Collections
+232: 
+233: Owned child collections are normal model fields:
+234: 
+235: ```python
+236: class Product(ProtoModel):
+237:     __storable__: ClassVar[bool] = True
+238:     __tablename__: ClassVar[str] = 'products'
+239: 
+240:     comments: list[Comment] = Field(default=[])
+241: ```
+242: 
+243: N3TX stores an ordered list of local child ids on the parent row and hydrates
+244: them into child objects in responses. Shared relationship data should use an
+245: explicit link model; `ManyToMany[T]` is a legacy helper for existing shared-link
+246: cases.
+247: 
+248: ## Architecture
+249: 
+250: N3TX follows a modular architecture with clear separation of concerns:
+251: 
+252: ```
+253: +---------------------------------------------------------+
+254: |                   API Layer                              |
+255: |  (FastAPI/Flask Backend)                                 |
+256: |  - Route Registration                                    |
+257: |  - Request/Response Handling (model_response())           |
+258: +--------------------------+------------------------------+
+259:                            |
+260: +--------------------------v------------------------------+

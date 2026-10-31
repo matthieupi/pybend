@@ -1,0 +1,10 @@
+
+ RUN  v1.6.1 /workspace/neuralys/collagen/lib/n3tx/tests/frontend
+
+ ✓ ../../.project/documentation-overhaul/t02e-native-create.test.js  (3 tests) 72ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  13:34:37
+   Duration  1.31s (transform 226ms, setup 50ms, collect 310ms, tests 72ms, environment 625ms, prepare 87ms)
+

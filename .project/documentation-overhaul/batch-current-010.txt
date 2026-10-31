@@ -1,0 +1,583 @@
+
+### RELEASE_NOTES.md (402 total lines)
+261:    - Use custom methods such as `Product.comment(...)` for append/toggle rules.
+262: 
+263: 3. **Migrate existing data.**
+264:    - Generated join tables are no longer read to populate `list[T]` fields.
+265:    - Move old relationship rows into the parent's JSON id-array column before
+266:      deploying this version against an existing database.
+267: 
+268: This is a breaking cleanup for clients or data migrations that depended on
+269: `ListRef`, generated join models, generated nested routes, or href-array
+270: collection responses. The supported replacement is simpler and model-first:
+271: flat entities, explicit model registration, and schema-declared `list[T]`
+272: relationships.
+273: 
+274: ### n3tx-actors: NetworkAPI route grammar cleanup
+275: 
+276: `create_api_routes()` now uses the same flat model route grammar as direct
+277: FastAPI routing. Level 3 actor HTTP routes are derived from the registered
+278: model name and class name; the router no longer synthesizes parent-scoped
+279: join/nested routes from legacy `__owner__`, `__parent__`, or `__tagname__`
+280: metadata.
+281: 
+282: #### What remains supported
+283: 
+284: | Concern | Route shape |
+285: |---|---|
+286: | Schema | `GET /{ClassName}` |
+287: | Table-name collection | `GET /{tablename}` |
+288: | Table-name create | `POST /{tablename}` |
+289: | Table-name item | `GET /{tablename}/{id:int}` |
+290: | Table-name update/delete | `PUT /{tablename}/{id:int}`, `DELETE /{tablename}/{id:int}` |
+291: | Class-name collection mirror | `GET /{ClassName}/_` |
+292: | Class-name create mirror | `POST /{ClassName}` |
+293: | Class-name item mirror | `GET /{ClassName}/{id:int}` |
+294: | Class-name update/delete mirrors | `PUT /{ClassName}/{id:int}`, `DELETE /{ClassName}/{id:int}` |
+295: | Custom instance methods | `/{tablename}/{id:int}/{route}` and `/{ClassName}/{id:int}/{route}` |
+296: | Custom class/static/actor methods | `/{tablename}/{route}` and `/{ClassName}/{route}` |
+297: | Streaming methods | Same literal `@expose_route` paths, served as SSE |
+298: 
+299: Optional package-owned hooks remain supported: models can still contribute
+300: view routes via `register_view_routes()` and capability-specific API routes via
+301: `register_extra_routes()`.
+302: 
+303: #### Removed legacy route shapes
+304: 
+305: The actor HTTP adapter no longer generates these parent-scoped routes:
+306: 
+307: ```text
+308: /{parent_tablename}/{parent_id:int}/{child_tagname}
+309: /{parent_tablename}/{parent_id:int}/{child_tagname}/{id:int}
+310: /{ParentClass}/{parent_id:int}/{ChildClass}
+311: /{ParentClass}/{parent_id:int}/{ChildClass}/{id:int}
+312: /{ParentClass}/{parent_id:int}/{ChildClass}/{id:int}/{method}
+313: ```
+314: 
+315: Because those paths are gone, `NetworkAPI` also no longer injects a parent FK
+316: from `parent_id`, sends `parent_id` in list TX payloads, or post-filters list
+317: responses by parent FK. Relationship ownership should be represented in the
+318: model/schema/storage contract, not in route synthesis.
+319: 
+320: #### Migration notes
+321: 
+322: If your client called parent-scoped actor routes, migrate to one of these
+323: N3TX-native patterns:
+324: 
+325: 1. **Use flat child model routes for explicit child/link records.**
+326:    - Before: `POST /products/5/comments`
+327:    - After: `POST /comments` or `POST /Comment`
+328:    - Include the relationship field in the body when the child/link model owns
+329:      an explicit FK/ref field, for example `{"product_id": 5, ...}`.
+330: 
+331: 2. **Use parent model methods for domain-specific owned collections.**
+332:    - Define a method such as `Product.comment(...)` with `@expose_route`.
+333:    - Call `POST /Product/5/comment` or `POST /products/5/comment`.
+334:    - Keep append/toggle/validation behavior inside the model method instead of
+335:      encoding it in a generated nested route.
+336: 
+337: 3. **Use schema-declared relationships plus populate for reads.**
+338:    - Define local owned collections as model fields, for example
+339:      `comments: list[Comment]`.
+340:    - Read the parent with `GET /Product/5?populate=comments&depth=1` when the
+341:      UI or caller needs related child data.
+342: 
+343: 4. **Keep ownership and authorization at the model boundary.**
+344:    - Use model fields, `__access__`, protected fields such as `user_owner`, and
+345:      custom methods for ownership semantics.
+346:    - Do not rely on a URL parent segment to imply authorization or persistence
+347:      behavior.
+348: 
+349: This is a breaking cleanup for clients that depended on legacy join-route
+350: generation in Level 3 actor routing. Flat routes, class-name mirrors, custom
+351: methods, streaming methods, TX metadata, and two-tier authorization remain the
+352: supported contract.
+353: 
+354: ### Frontend: Hydrated relationship objects and flat child identity
+355: 
+356: The frontend runtime now consumes the simplified backend relationship contract
+357: directly instead of converting hydrated owned children back into href arrays.
+358: 
+359: #### Runtime behavior
+360: 
+361: | Relationship | Frontend value |
+362: |---|---|
+363: | Owned scalar `T` | Hydrated child object |
+364: | Owned collection `list[T]` | Ordered array of hydrated child objects |
+365: | Explicit pointer `Ref[T]` | Ref string |
+366: | Explicit pointer collection `list[Ref[T]]` | Ordered array of ref strings |
+367: 
+368: - Hydrated children are registered in the appropriate DynamicClass cache while
+369:   remaining plain serializable objects in their parent value.
+370: - Child `$id` values from the backend are authoritative. Attaching a component
+371:   can no longer replace a flat child identity such as `/Comment/2` with a
+372:   parent-scoped URL.
+373: - Already-hydrated children render from the cache without an additional read.
+374: - Optimistic like/favorite responses derive flat child identity from the target
+375:   relationship schema instead of constructing `/Parent/id/field/child-id`.
+376: - Legacy nested hash navigation aliases may still be parsed, but they mount the
+377:   child through flat NTT identity such as `Comment/2`; they are not API routes or
+378:   canonical entity identity.
+379: 
+380: #### Agent tools
+381: 
+382: `AgentActor.tools: list[AgentTool]` now renders its hydrated `AgentTool` records
+383: directly. Agent cards display each tool's `target` and expose its escaped
+384: description without fetching the tool again. Plain actor-address strings and
+385: legacy URL strings retain compatibility rendering.
+386: 
+387: #### Frontend migration notes
+388: 
+389: 1. Treat owned relationship values as objects, not href strings:
+390: 
+
+### RELEASE_NOTES.md (402 total lines)
+391:    ```diff
+392:    - comments: ["/Product/1/Comment/2"]
+393:    + comments: [{"id": 2, "$schema": "/Comment", "$id": "/Comment/2", ...}]
+394:    ```
+395: 
+396: 2. Use each child's `$id` for links and component refs. Do not derive identity
+397:    from the parent entity, field name, or array position.
+398: 3. Keep pointer-specific code for `Ref[T]` and `list[Ref[T]]`; this release does
+399:    not turn explicit refs into embedded owned objects.
+400: 4. Replace frontend routes or API calls that rely on
+401:    `/Parent/id/Child/id` with flat child routes such as `/Child/id`, or use a
+402:    schema-declared parent method for domain-specific mutations.
+
+### TODO.md (86 total lines)
+1: # 📋 N3TX TODO
+2: 
+3: > Ideas, improvements, and planned work. Check an item off with `[x]` when done.
+4: 
+5: ---
+6: 
+7: ## 🔗 Full Stack
+8: 
+9: _End-to-end features spanning backend and frontend_
+10: 
+11: - [ ] Addr that cross boundaries
+12:   - Currently the addr for the incoming TX will be the actor creating this 
+13:     TX from the network data, like 'ws' or 'api'. We would need to change 
+14:     this to have full stack addressing. A scheme could be to use IP but then 
+15:     2 different client on the same network would share the same ref. 
+16: - [ ] Storable Mixin search method
+17: - [ ] Storable Mixin update to get many (checks if param is item or list)
+18: 
+19: 
+20: - [ ] When deleting from ListRef, on a Item detail page, the actual record 
+21:   gets deleted, instead of just removing it from the list. E.g. In 
+22:   AgentACtor, if I remove a tool, the tool disappears. THis is because Agent 
+23:   Tool is by definition tied to AgentActor by foreign key. This is fine for 
+24:   some e.g. comments, that does not make sense to change their parent. (A 
+25:   comment is contextually tied to the item it was created on). But for tools,
+26:   we would need a many-to-many relationship. We need to implement a way to 
+27:   elegantly execute this from within the framework.
+28: 
+29: - [ ] Method button label defaults to method name instead of "run"
+30: - [ ] When we have a method button that needs params, when we click on it we 
+31:   should open a small form yo enter the required fields
+32: - [ ] Add dtype to TX
+33: - [ ] Add <ntx-render> capability to chat agents
+34: - [ ] CDN
+35: - [ ] Notion style recursive blocks
+36: - [ ] Actors execution app live view
+37: 
+38: ---
+39: 
+40: ## ⚙️ Backend
+41: 
+42: _Python · Models · Storage · API · Auth · Actors · Agents_
+43: 
+44: - [ ] TX Collection
+45: - [ ] TX/RX
+46: - [ ] AgentMixin improvements
+47:   - The docstring as the prompt?
+48:   - Magentic
+49: - [ ] Make TX meta a buildable dict, mirroring dump_ext and schema_ext
+50: - [ ] Pyrofunc <=> Actor natural integration
+51: - [ ] Review Pyrofunc and see if some implementations details/features could 
+52:   enhance our current Actor
+53: - [ ] Change relative to absolute paths for imports (SSR stuff)
+54: - [ ] Add param to expose route to receive actual TX instead of parsed items
+55: ---
+56: 
+57: ## 🖥️ Frontend
+58: 
+59: _JS · Web Components · UI · Forms · Rendering_
+60: 
+61: - [ ] Add system so that if given render method is not defined (md, sm) we 
+62:   drop down to the next available one
+63: - [ ] Add support for custom ntt-method components
+64: - [ ] Make <ntx-table> row use the same widget (edit/display) as ntx-item
+65:   - Currently it uses it's own widget, meaning we have to do everything in 
+66:     double, and having 2 system to render leads to various bugs. 
+67:   - E.g In Grant watcher, User is shown as User #1,2,3 Instead of showing 
+68:     avatar. Url is not clickable. We had some validation bugs as well.
+69:   - Might require a deeper redesign of the primitives to make the 
+70:     integration more seamless
+71: - [ ] Hook up router with URL bar, so we can navigate using browser and refresh
+72: - 
+73: ---
+74: 
+75: ## Done
+76: 
+77: - [x] Add dict and list types (saved as JSON) based on AgentActor idea
+78: - [x] Change agent_run for run() or exec()
+79: - [x] Swap agentic() and run()
+80: - [x] Streaming via SSE
+81: - [x] Streaming via WS
+82: - [x] Add debug mode:
+83:   - Server starts in debug, auto-reloads
+84:   - All users are created as admin role
+85:   - ntt-method shows method tx results
+86: 
+
+### Universal Context Protocol.md (132 total lines)
+1: # Universal Context Protocol (UCP) Specification — Draft v0.1
+2: 
+3: ## Introduction
+4: The **Universal Context Protocol (UCP)** is a specification designed to enable seamless and standardized communication between heterogeneous backend systems and user interfaces. UCP aims to provide a machine-inspectable and semantically rich context model for interoperable data exchange, introspection, and presentation.
+5: 
+6: UCP is inspired by the strengths of GraphQL, JSON Schema, and REST, while simplifying the protocol to support wide adoption across backends with minimal implementation effort.
+7: 
+8: ---
+9: 
+10: ## Goals
+11: 
+12: - 📡 Define a protocol enabling frontends to query and interact with arbitrary backend services.
+13: - 🧠 Encode machine-readable schema for all accessible objects.
+14: - 🔍 Enable schema discovery, introspection, and contextual documentation.
+15: - 🔄 Support dynamic UI rendering from backend types.
+16: - 🧩 Be backend-agnostic and compatible with REST, RPC, and WebSocket-style APIs.
+17: 
+18: ---
+19: 
+20: ## Architecture Overview
+21: 
+22: - **Schema Endpoint**: Provides the introspectable type and endpoint structure.
+23: - **Context Objects**: Objects provided by the backend, described using UCP Type Schema.
+24: - **Operations**: Actions (GET, POST, PUT, DELETE) described declaratively alongside schemas.
+25: - **Frontend Resolver**: Client-side interpreter that reads UCP schema and dynamically builds UI/forms.
+26: 
+27: ---
+28: 
+29: ## Core Concepts
+30: 
+31: ### 1. UCP Schema
+32: Each backend implements a single schema endpoint, e.g. `/ucp/schema`, returning a full description of types and endpoints:
+33: 
+34: ```json
+35: {
+36:   "version": "0.1",
+37:   "types": { "User": {...}, "Product": {...} },
+38:   "endpoints": [
+39:     {
+40:       "route": "/users",
+41:       "method": "POST",
+42:       "input": "User",
+43:       "output": "User"
+44:     },
+45:     {
+46:       "route": "/products/list",
+47:       "method": "GET",
+48:       "output": "Product[]"
+49:     }
+50:   ]
+51: }
+52: ```
+53: 
+54: ### 2. Type Descriptions
+55: Each UCP ProtoType contains:
+56: 
+57: ```json
+58: {
+59:   "prototype": "<Class Name>",
+60:   "description": "A human readable description of the type. It will be used for documentation and LLM parsing purposes.",
+61:   "fields": {
+62:     "id": { "type": "int", "readOnly": true },
+63:     "name": { "type": "string" },
+64:     "email": { "type": "string", "format": "email" }
+65:   }
+66: }
+67: ```
+68: 
+69: ### 3. Instanciated object representation
+70: 
+71: ### 4. Endpoint Objects
+72: Each operation endpoint includes:
+73: - `route`: Relative URL
+74: - `method`: HTTP verb
+75: - `input`: Optional input type (UCP type reference)
+76: - `output`: Output type or array
+77: 
+78: ---
+79: 
+80: ## Specification Requirements
+81: 
+82: ### Minimal Backend Support
+83: A UCP-compliant server must:
+84: - Serve a static or dynamic `/ucp/schema` endpoint that provides the 
+85:   server's topology
+86: - Serve a static or dynamic `/ucp/<prototype>` endpoint that provides the
+87:   prototype for a given type
+88: - Provide type metadata for all exposed objects
+89: - Provide endpoint metadata for all operations
+90: 
+91: ### Roadmap features
+92: - `examples`, `descriptions`, and `tags` fields for documentation
+93: - `permissions`, `validators`, and `hints` for frontend rendering
+94: 
+95: ---
+96: 
+97: ## Roadmap
+98: 
+99: ### v0.1 (Current)
+100: - Type and endpoint schema definitions
+101: - Static discovery format
+102: 
+103: ### v0.2
+104: - Server metadata (name, description, auth info)
+105: - Partial query introspection (field subsets)
+106: 
+107: ### v1.0
+108: - Dynamic resolvers
+109: - Standardized error model
+110: - WebSocket or subscription support
+111: 
+112: ---
+113: 
+114: ## Comparison with GraphQL
+115: | Feature                | UCP           | GraphQL        |
+116: |------------------------|----------------|----------------|
+117: | Introspection         | ✅             | ✅              |
+118: | REST compatibility    | ✅             | ❌              |
+119: | Type system           | JSON-inspired  | GraphQL Schema |
+120: | Transport flexibility | ✅ (HTTP/WS/etc)| Mostly HTTP     |
+121: | Frontend dynamic UI   | ✅             | ⚠️ (custom tooling required) |
+122: 
+123: ---
+124: 
+125: ## License
+126: UCP is released under the MIT License.
+127: 
+128: ---
+129: 
+130: ## Contributions
+
+### Universal Context Protocol.md (132 total lines)
+131: This is a working draft. Feedback, proposals, and reference implementations are welcome via GitHub Issues or Pull Requests.
+132: 
+
+### apps/veille/docs/Orientations stratégiques RTS 2023-2028.txt (209 total lines)
+1: Orientations stratégiques RTS 2023-2028
+2: NOTRE MISSION
+3: Favoriser l’accès à la santé en français en rassemblant,
+4: mobilisant et outillant les instances gouvernementales,
+5: les gestionnaires d’établissements de santé et de
+6: formation, les professionnels de la santé et la
+7: communauté
+8: 
+9: NOTRE VISION
+10: Les ténois ont la capacité de vivre leur santé en français.
+11: Ils ont accès à des services de santé, sociaux et de mieuxêtre de qualité en français, et ce, dans des conditions
+12: optimales.
+13: 
+14: NOS VALEURS
+15: Collaboration : Travailler de façon complémentaire
+16: avec nos partenaires stratégiques.
+17: Équité : Favoriser l’accès aux services de santé et de
+18: mieux-être pour tous.
+19: Respect : Assurer la participation égale des membres
+20: lors de la prise de décisions.
+21: 
+22: LA FÉDÉRATION FRANCO-TÉNOISE (FFT)
+23: Établie en 1978, le mandat de la FFT est de servir de porteparole pour la francophonie des TNO auprès des
+24: gouvernements fédéral et territorial, ainsi que des
+25: organisations nationales et régionales. La fédération fournit
+26: également une gamme de services en français à la
+27: communauté. Dans le domaine de la santé, son rôle est
+28: d’encourager la population franco-ténoise à prendre des
+29: mesures et à demander des services de santé en français.
+30: 
+31: LE RÉSEAU TNO SANTÉ (RTS)
+32: Établi en 2003, la mission du RTS est de faciliter l’accès aux
+33: services de santé en français en rassemblant, en mobilisant
+34: et en équipant les organismes gouvernementaux, les
+35: gestionnaires d’institutions de santé et de formation, les
+36: professionnels de la santé et la communauté. Le réseau joue
+37: un double rôle en sensibilisant les prestataires de soins de
+38: santé à l’importance des services de santé en français et en
+39: promouvant la vitalité linguistique et culturelle des
+40: professionnels francophones en offrant des services en
+41: français.
+42: 
+43: 
+44: Axe 1 : Outiller et appuyer les partenaires du système de santé
+45: ORIENTATION STRATÉGIQUE
+46: Soutenir et outiller les partenaires du système de santé pour que les services répondent adéquatement aux besoins des
+47: francophones dans toute leur diversité, en respectant les capacités d’action du RTS.
+48: 
+49: OBJECTIFS OPÉRATIONNELS ET ACTIONS CLÉS
+50: 
+51: 1.
+52: 2.
+53: 3.
+54: 4.
+55: 5.
+56: 6.
+57: 
+58: Positionner le RTS comme un acteur stratégique
+59: Participer activement aux comités stratégiques, maintenir des liens avec le Secrétariat aux affaires francophones et
+60: favoriser la présence du RTS dans les espaces de décision.
+61: Renforcer le recrutement, la formation et la rétention de la main-d’œuvre bilingue
+62: Collaborer avec le GTNO et les partenaires clés, appuyer le développement d’une stratégie commune de recrutement et
+63: favoriser la rétention des étudiant·es et stagiaires en sciences de la santé.
+64: Améliorer l’accès aux services de santé en français
+65: Développer et implanter des stratégies ciblées, établir des partenariats par et pour (petite enfance, santé, aîné·es), et
+66: soutenir la reconnaissance des acquis et la mobilité des spécialistes.
+67: Stimuler l’innovation en santé
+68: Identifier et documenter des approches novatrices pour répondre aux besoins spécifiques des francophones et informer
+69: les décideurs.
+70: Assurer le suivi et l’évaluation des projets
+71: Contribuer à la collecte et la mise à jour des données linguistiques, assurer le suivi des projets collaboratifs (plateforme
+72: OZI, formation à l’offre active, etc.), et soutenir le développement des ressources humaines en santé.
+73: Développer des partenariats sectoriels stratégiques
+74: Établir des liens avec les associations professionnelles de santé et d’autres secteurs pour sensibiliser aux enjeux
+75: francophones et consolider les collaborations.
+76: 
+77: 
+78: Axe 2 : Renforcer les capacités organisationnelles du RTS
+79: ORIENTATION STRATÉGIQUE
+80: Renforcer les fondations, la gouvernance et les capacités internes du RTS pour assurer une action cohérente, alignée avec sa
+81: mission et son rôle au sein de la FFT.
+82: 
+83: OBJECTIFS OPÉRATIONNELS ET ACTIONS CLÉS
+84: 
+85: 1.
+86: 2.
+87: 3.
+88: 4.
+89: 5.
+90: 
+91: Optimiser les communications et la visibilité du RTS
+92: Élaborer un plan de communication stratégique incluant la mobilisation des connaissances et le démarchage auprès de
+93: partenaires. Actualiser les outils de communication, les politiques internes et les termes de référence pour refléter les
+94: rôles et responsabilités actuels du RTS.
+95: Diversifier les ressources humaines et financières
+96: Évaluer les besoins en ressources humaines internes, rechercher de nouvelles sources de financement et travailler avec le
+97: Conseil de développement économique des TNO pour développer une stratégie RH.
+98: Clarifier et renforcer la gouvernance
+99: Mettre en place des stratégies de gouvernance interne avec un suivi régulier des projets et une planification annuelle.
+100: Clarifier les relations FFT–RTS pour assurer leur cohérence fonctionnelle.
+101: Intégrer l’équité, la diversité et l’inclusion (EDI)
+102: Concevoir et mettre en œuvre, avec la FFT, des stratégies EDI adaptées aux réalités nordiques. Structurer un recrutement
+103: continu et représentatif du comité consultatif du RTS, en mobilisant décideur·euses politiques, gestionnaires de santé,
+104: membres de la communauté, professionnel·les et institutions postsecondaires des TNO.
+105: Structurer le suivi, l’évaluation et les partenariats
+106: Développer des outils pour améliorer la planification et la reddition de comptes. Collaborer avec les organismes
+107: communautaires du Yukon et du Nunavut pour partager des bonnes pratiques et co-construire des projets. Établir des
+108: relations avec les communautés et organismes autochtones dans une approche interculturelle et partenariale structurante.
+109: 
+110: 
+111: Axe 3 : Favoriser le renforcement communautaire et la demande active
+112: ORIENTATION STRATÉGIQUE
+113: Appuyer les francophones des Territoires du Nord-Ouest pour qu’iels puissent revendiquer leurs droits en matière de santé en
+114: français, en développant leur pouvoir d’agir, leur accès à l’information, et leur capacité à mobiliser les ressources existantes.
+115: 
+116: OBJECTIFS OPÉRATIONNELS ET ACTIONS CLÉS
+117: 
+118: 1.
+119: 2.
+120: 3.
+121: 4.
+122: 5.
+123: 6.
+124: 
+125: Sensibiliser aux droits linguistiques et à la santé en français
+126: Organiser des activités d’information, de sensibilisation et d’accompagnement pour mieux faire connaître les droits
+127: linguistiques et encourager la demande active.
+128: Renforcer l’engagement communautaire
+129: Créer des interactions régulières et significatives entre le RTS et les communautés, notamment à travers des initiatives
+130: conjointes avec des partenaires locaux.
+
+### apps/veille/docs/Orientations stratégiques RTS 2023-2028.txt (209 total lines)
+131: Appuyer des projets porteurs
+132: Soutenir et collaborer à des projets dans les domaines de l’immigration, de la petite enfance, des aîné·es et des
+133: populations minorisées. Mettre en place un cadre de retour structuré (sondages, consultations, rencontres).
+134: Offrir des espaces de dialogue et de participation
+135: Développer des occasions d’échange et de retour d’information, permettant aux membres de la communauté de partager
+136: leurs besoins et priorités en santé.
+137: Valoriser les initiatives en santé en français
+138: Mettre en lumière et promouvoir les efforts communautaires et les projets du RTS pour accroître la visibilité et mobiliser
+139: l’ensemble des partenaires.
+140: Intégrer l’équité, la diversité et l’inclusion (EDI)
+141: Développer des projets alignés avec les principes EDI, en réponse aux besoins des groupes marginalisés (2ELGBTQQIA+,
+142: personnes noires, femmes, aîné·es, etc.). Maintenir et explorer de nouveaux partenariats avec des acteurs agissant sur
+143: les déterminants sociaux de la santé.
+144: 
+145: 
+146: Volet transversal : Innovation, apprentissage et ancrage territorial
+147: ORIENTATION STRATÉGIQUE
+148: Ce volet soutient et relie les trois axes stratégiques du RTS. Il reflète l’engagement de l’organisme à adapter ses pratiques en
+149: fonction du terrain, à apprendre de ses expériences, et à bâtir une approche souple, territorialisée et intersectorielle.
+150: 
+151: OBJECTIFS OPÉRATIONNELS ET ACTIONS CLÉS
+152: 
+153: 1.
+154: 2.
+155: 3.
+156: 4.
+157: 
+158: Faciliter l’intégration et la cohérence entre les axes
+159: Assurer que communication, mobilisation et partenariats se renforcent mutuellement. Documenter les apprentissages,
+160: développer une cartographie des actions et maintenir un cadre de gestion intégré.
+161: Favoriser l’innovation organisationnelle et sectorielle
+162: Expérimenter de nouvelles façons de faire adaptées au Nord. Évaluer annuellement la mise en œuvre du plan stratégique et
+163: ajuster selon les leçons tirées.
+164: Instaurer une culture d’apprentissage continu
+165: S’appuyer sur la documentation, l’évaluation interne et le partage de pratiques. Animer des espaces d’échange avec les
+166: partenaires territoriaux et interterritoriaux (Yukon, Nunavut, etc.).
+167: Adapter les actions aux spécificités territoriales des TNO
+168: Veiller à la cohérence avec les plans de la FFT et les dynamiques interterritoriales. Harmoniser initiatives communautaires,
+169: actions politiques et outils internes.
+170: 
+171: 
+172: AXE 1 : OUTILLER ET
+173: APPUYER LES PARTENAIRES
+174: DU SYSTÈME DE SANTÉ
+175: 
+176: AXE 2 : RENFORCER LES
+177: CAPACITÉS
+178: ORGANISATIONNELLES DU
+179: RTS
+180: 
+181: AXE 3 : FAVORISER LE
+182: RENFORCEMENT
+183: COMMUNAUTAIRE ET LA
+184: DEMANDE ACTIVE
+185: 
+186: Soutenir et outiller les partenaires du
+187: système de santé pour que les services
+188: répondent adéquatement aux besoins des
+189: francophones dans toute leur diversité, en
+190: respectant les capacités d’action du RTS.
+191: 
+192: Renforcer les fondations, la gouvernance et
+193: les capacités internes du RTS pour assurer
+194: une action cohérente, alignée avec sa
+195: mission et son rôle au sein de la FFT.
+196: 
+197: Appuyer les francophones des Territoires
+198: du Nord-Ouest pour qu’iels puissent
+199: revendiquer leurs droits en matière de
+200: santé en français, en développant leur
+201: pouvoir d’agir, leur accès à l’information, et
+202: leur capacité à mobiliser les ressources
+203: existantes.
+204: 
+205: VOLET TRANSVERSAL : INNOVATION, APPRENTISSAGE ET ANCRAGE TERRITORIAL
+206: Ce volet soutient et relie les trois axes stratégiques du RTS. Il reflète l’engagement de l’organisme à adapter ses pratiques en
+207: fonction du terrain, à apprendre de ses expériences, et à bâtir une approche souple, territorialisée et intersectorielle.
+208: 
+209: 

@@ -1,0 +1,518 @@
+
+### docs/frontend/ARCHITECTURE.md (380 total lines)
+131:     Assert.js                  # assert(), caution(), inform() with configurable trigger level
+132:     Logging.js                 # Logging with caller detection, styled console output
+133:     theme.js                   # Persisted theme selection + configured theme cycling
+134:     Snippets.js, DateFormat.js, str_utils.js  # General utilities
+135:   docs/                        # This documentation
+136: ```
+137: 
+138: The theme runtime is page-configured: first-party pages statically link `theme-base.css` plus the theme entrypoints, then provide `window.NTX_THEME_CONFIG = { themes: [...] }` before loading `utils/theme.js`. Shell theme controls are manual — pages place `<ntx-theme-button slot="user-menu">` and `<ntx-theme-button slot="footer">` explicitly where needed.
+139: 
+140: ---
+141: 
+142: ## Initialization Sequence
+143: 
+144: When `index.html` loads:
+145: 
+146: ```
+147: 1. Matrix.js executes
+148:    - Actor.subclass(Matrix) wires static/instance methods
+149:    - `new Matrix("matrix://root")` creates the singleton
+150:    - Actor.registerRoot(matrix) sets it as the global message bus
+151:    - Matrix creates a NetworkAdapter(this) for remote calls
+152: 
+153: 2. N3TX.js executes
+154:    - Actor.subclass(TT)
+155:    - Actor.subclass(N3TX, Observable)   -- N3TX gets signal/observe/notify
+156:    - window.N3TX = N3TX exposed globally
+157: 
+158: 3. Component.js executes
+159:    - Actor.subclass(Component)         -- applied ONCE, all subclasses inherit
+160:    - matrix.register(Component)        -- Component class registered as Matrix child
+161: 
+162: 4. NTTElement.js, ListElement.js execute
+163:    - Define base classes (no Actor.subclass, no customElements.define)
+164: 
+165: 5. Router.js executes
+166:    - Actor.subclass(Router, Observable)  -- Router gets send/inbox + signal/observe/notify
+167: 
+168: 6. ntx-item.js, ntx-list.js, ntx-router.js execute
+169:    - customElements.define('ntx-item', NTTItem)     -- extends NTTElement
+170:    - customElements.define('ntx-list', NTTList)      -- extends ListElement
+171:    - customElements.define('ntx-router', NTTRouter)  -- extends Component
+172: 
+173: 7. Browser parses <ntx-router name="main" hash>
+174:    - NTTRouter constructor: Component base (shadow DOM, actor identity)
+175:    - connectedCallback: creates Router("main", {hash:true}), observes 'route'
+176:    - Sets router="main" on child <ntx-list>
+177: 
+178: 8. Browser parses <ntx-list model="Product">
+179:    - NTTList constructor runs:
+180:      - super() -> ListElement -> Component -> HTMLElement
+181:      - Component: attachShadow, actor identity, matrix.register, stylesheet link
+182:      - connectedCallback: starts ResizeObserver for adaptive display
+183:    - attributeChangedCallback fires for model="Product"
+184:      - Sends TX { name: ATTACH, source: <list-addr>, target: N3TX, data: "Product" }
+185: ```
+186: 
+187: ---
+188: 
+189: ## Data Flow Summary
+190: 
+191: See [MESSAGE_PROTOCOL.md](./MESSAGE_PROTOCOL.md) for the full message protocol.
+192: See [ACTORS.md](./ACTORS.md) for detailed per-class documentation.
+193: 
+194: The primary data flow for rendering a list of entities:
+195: 
+196: ```
+197: <ntx-list model="Product">
+198:   |
+199:   | attributeChangedCallback("model", "Product")
+200:   | TX { ATTACH, source: list-addr, target: N3TX, data: "Product" }
+201:   v
+202: Matrix.inbox() -> routes to N3TX (static)
+203:   |
+204:   | N3TX.ATTACH() - "Product" not in #prototypes (undefined)
+205:   | Sets #prototypes["Product"] = null (schema in flight)
+206:   | Queues the ATTACH TX in #waiting
+207:   | Dispatches: TX { SCHEMA, source: N3TX, target: http://...8000/Product, meta: {remote:true} }
+208:   v
+209: Matrix.inbox() -> target not local -> NetworkAdapter.send()
+210:   |
+211:   | HTTP.get("http://localhost:8000/Product") -> backend returns JSON schema
+212:   v
+213: NetworkAdapter.httpCallback() -> swaps source/target, sets name to SCHEMA
+214:   | TX { SCHEMA, source: http://...8000/Product, target: N3TX, data: <schema> }
+215:   v
+216: Matrix.inbox() -> routes to N3TX (static)
+217:   |
+218:   | N3TX.SCHEMA(data):
+219:   |   - Calls prototype(addr, schema, href) -> creates DynClass "Product"
+220:   |   - Stores DynClass in #prototypes["Product"]
+221:   |   - Registers any $defs models as additional DynClasses
+222:   |   - Replays queued TXs from #waiting (the original ATTACH)
+223:   |   - DynClass.call('READ', {}) triggers data fetch
+224:   v
+225: DynClass "Product" receives replayed ATTACH
+226:   | DynClass.ATTACH() -> adds list as watcher
+227:   |
+228:   | Meanwhile, DynClass.call('READ') sends:
+229:   | TX { READ, source: Product, target: http://...8000/products, meta: {remote:true} }
+230:   v
+231: NetworkAdapter -> HTTP.get(.../products) -> backend returns [{id:1,...}, ...]
+232:   | httpCallback: name stays READ (no meta.inbox override here)
+233:   | TX { READ, source: http://...8000/products, target: Product, data: [...] }
+234:   v
+235: DynClass.READ(data):
+236:   | Creates N3TX instances for each record, stores in DynClass.instances
+237:   | Replays any _pendingAttaches
+238:   | Notifies all watchers (the list)
+239:   | TX { UPDATE, source: Product, target: <list-addr>, data: ["Product/1","Product/2",...] }
+240:   v
+241: ListElement.UPDATE(data):
+242:   | this.value = array of address strings
+243:   | this.render() creates child elements via createChild(addr), sets el.ref = "Product/1"
+244:   |   (child resolution: template > item-tag attr > childTag property > schema hint > 'ntx-item')
+245:   v
+246: NTTItem.ref setter (inherited from Component):
+247:   | TX { ATTACH, source: <item-addr>, target: N3TX, data: "Product/1" }
+248:   v
+249: N3TX.ATTACH() -> "Product" exists in #prototypes -> forwards to DynClass
+250:   | DynClass.ATTACH() -> instance-level -> forwards to N3TX instance
+251:   |
+252:   | N3TX instance ATTACH():
+253:   |   - this.watch(item-addr, false)
+254:   |   - TX { DESCRIBE, source: 1, target: <item-addr>, data: {proto: schema, data: values} }
+255:   v
+256: NTTItem.DESCRIBE(data) (inherited from NTTElement):
+257:   | this.schema = data.proto
+258:   | this.value = data.data
+259:   | this.render() -> Formidable.getForm({schema, value}, mode) -> HTML card
+260:   |   (respects field_order, groups, widget hints, validation, field exclusion)
+
+### docs/frontend/ARCHITECTURE.md (380 total lines)
+261: ```
+262: 
+263: ---
+264: 
+265: ## Navigation Flow
+266: 
+267: When a user clicks a product card to navigate to a detail view:
+268: 
+269: ```
+270: User clicks card (not on interactive element)
+271:   |
+272:   | NTTItem.#bindEvents() click handler fires
+273:   | Reads select-target attribute → list's addr
+274:   | TX { SELECT, source: item-addr, target: list-addr, data: "Product/3" }
+275:   v
+276: ListElement.SELECT(data):
+277:   | this.toggle("Product/3") → adds to #selected Set
+278:   | Reads router attribute → "main"
+279:   | TX { NAVIGATE, source: list-addr, target: "main", data: "Product/3" }
+280:   v
+281: Matrix.inbox() → routes to Router actor "main"
+282:   |
+283:   | Router.NAVIGATE("Product/3"):
+284:   |   - Push current (null) onto #stack
+285:   |   - Set #current = "Product/3"
+286:   |   - Update location.hash = "Product/3"
+287:   |   - notify('route', "Product/3", null)
+288:   v
+289: NTTRouter observes 'route' → render()
+290:   |
+291:   | #mountView("Product/3"):
+292:   |   - Resolve tag: schema.ui.renderer.detail || 'ntx-item'
+293:   |   - Build chrome: back button + title "Product"
+294:   |   - Create <ntx-item ref="Product/3">
+295:   |   - Mount in shadow DOM .router-content
+296:   v
+297: NTTItem resolves ref="Product/3" → ATTACH → DESCRIBE → render()
+298: ```
+299: 
+300: Going back:
+301: 
+302: ```
+303: User clicks back button (or browser back)
+304:   |
+305:   | TX { BACK, source: router-addr, target: "main" }
+306:   v
+307: Router.BACK():
+308:   | Pop #stack → null
+309:   | Set #current = null
+310:   | Clear location.hash
+311:   | notify('route', null, "Product/3")
+312:   v
+313: NTTRouter observes 'route' → render()
+314:   |
+315:   | #showSlot():
+316:   |   - Remove dynamic view element
+317:   |   - Restore <slot></slot>
+318:   |   - Light DOM <ntx-list> re-projects instantly (no re-fetch)
+319: ```
+320: 
+321: ---
+322: 
+323: ## Current Status
+324: 
+325: **Working — Core:**
+326: - Actor base class with subclass() metaclass, hierarchical routing, mixin system
+327: - Matrix as root actor with NetworkAdapter bridge to N3TX backend
+328: - Router: pure navigation state Actor with history stack, hash sync, Observable
+329: - N3TX type registry with null-pointer bootstrap, universal ATTACH router, SSR pre-loading
+330: - DynClass generation via `prototype()` with typed properties and methods
+331: - Observable mixin (signal/observe/notify) applied to N3TX, DynClass, and Router
+332: - TX message envelope with hash, serialization, event type subclasses
+333: 
+334: **Working — Component Layer (refactored):**
+335: - Unified Component base class: Actor bridge + Shadow DOM + schema resolution + adaptive display (xs–xl) + stylesheet hook
+336: - Adaptive display: abstract sizes (`xs`–`xl`) with semantic aliases (`pill`, `card`, etc.), forced mode via `display` attribute, ResizeObserver auto-mode
+337: - NTTElement (entity base): UPDATE/DESCRIBE/READ handlers, save(), auto-render on value change
+338: - ListElement (collection base): subscribe to proto, UPDATE handler, SELECT handler, selection API (Set-based), child resolution chain, size cascade
+339: - NTTItem (built-in default): size methods (`xs`–`xl`) return HTML, `render()` dispatches + binds events, click-to-select, heuristic field selection via `#topFields()`
+340: - NTTList (built-in default): 19-line thin shell over ListElement
+341: - NTTRouter: generic view container, loads any component dynamically via Router, slot persistence for instant back-navigation
+342: 
+343: **Working — Schema-Driven Primitives:**
+344: - `__ui__` ClassVar: field ordering, groups, renderer hints injected into schema
+345: - Per-field UI hints via `json_schema_extra`: widget, placeholder, display
+346: - Field exclusion conventions: `*_id`, `id`, timestamps auto-hidden
+347: - Schema-driven validation: HTML5 attrs from minLength/maxLength/min/max/pattern/required
+348: - Widget rendering: textarea, currency (with format), placeholder
+349: - Grouped fields: `<fieldset>` with `<legend>` per schema group
+350: - Relationship rendering: schema-aware child tags, count badge, collapse/expand
+351: - Scaffolding: CLI (`python -m utils.scaffold`) + API (`?scaffold=item`) generates starter components
+352: 
+353: **Working — SSR Pre-Loading:**
+354: - Inline `<script data-ntx-schema="Model">` consumed before network fetch
+355: - Inline `<script data-ntx-data="tablename">` consumed after DynClass creation
+356: - Eliminates both network round-trips for server-rendered pages
+357: 
+358: **WIP / Incomplete:**
+359: - N3TX constructor has most initialization commented out (detach, meta, observer setup)
+360: - Adaptive display schema integration (§8 phase 3): backend `__ui__.display_modes` for per-mode field selection — frontend heuristic (`#topFields`) works now, schema override not yet consumed
+361: - `lg` and `xl` size methods delegate to `md` — future: show normally-hidden fields, expanded metadata
+362: - Debug logging throughout (console.warn, console.error) not cleaned up
+363: - example.html references old architecture and is broken against the current version
+364: - No automated tests exist; testing is manual via browser + console
+365: 
+366: ---
+367: 
+368: ## Upcoming: Backend Actor Bridge
+369: 
+370: <a id="upcoming-backend-actor-bridge"></a>
+371: 
+372: The v0.8 backend introduces a Python-side Actor/Matrix/TX messaging system that mirrors the frontend's architecture. Backend actors communicate via the same TX message envelope (`name`, `source`, `target`, `data`, `meta`) and route through a backend Matrix.
+373: 
+374: **Wave 3 (planned):** A WebSocket bridge will connect frontend actors to backend actors, enabling bidirectional real-time messaging across the stack. The frontend `Socket.js` transport and the backend's Actor system will share a common TX protocol, allowing:
+375: 
+376: - Backend actors to push updates to frontend components without polling
+377: - Frontend actors to send messages to specific backend actors by address
+378: - Cross-stack actor hierarchies where backend and frontend actors participate in the same routing tree
+379: 
+380: **No frontend changes are needed until Wave 3.** The current HTTP transport continues to work as-is. When the WebSocket bridge ships, `NetworkAdapter` will gain a mode switch to route TX messages over WebSocket instead of HTTP, with automatic fallback. The frontend Actor/Matrix system is already designed for this -- `Socket.js` exists and handles reconnection, heartbeat, and message queuing. The missing piece is the backend-side WebSocket endpoint and the TX serialization bridge between Python and JavaScript actors.
+
+### docs/frontend/COMPONENTS.md (1008 total lines)
+1: # UI Components Reference
+2: 
+3: Documentation for the web component layer that renders N3TX data in the browser.
+4: 
+5: ## Table of Contents
+6: 
+7: 1. [Component (base)](#component)
+8: 2. [NTTElement (entity base)](#nttelement)
+9: 3. [ListElement (collection base)](#listelement)
+10: 4. [NTTItem (built-in default item)](#nttitem)
+11: 5. [NTTList (built-in default list)](#nttlist)
+12: 6. [NTTMethod](#nttmethod)
+13: 7. [NTTStream](#nttstream)
+14: 8. [Router (navigation actor)](#router)
+15: 9. [NTTRouter (view container)](#nttrouter)
+16: 10. [Formidable (form generator)](#formidable)
+17: 11. [Scaffolding](#scaffolding)
+18: 
+19: ---
+20: 
+21: ## Component
+22: 
+23: **File:** `core/Component.js`
+24: **Tag:** Not registered as a custom element (abstract base class)
+25: 
+26: Unified base class for all N3TX web components. Merges Actor bridge, Shadow DOM, schema resolution, adaptive display, and stylesheet management into a single class.
+27: 
+28: ### Class Hierarchy
+29: 
+30: ```
+31: HTMLElement
+32:   └── Component              (core/Component.js, ~317 lines)
+33:         ├── NTTElement       (components/NTTElement.js — entity lifecycle)
+34:         │     └── NTTItem    (components/ntx-item.js — built-in default)
+35:         └── ListElement      (components/ListElement.js — collection lifecycle)
+36:               └── NTTList    (components/ntx-list.js — built-in default)
+37: ```
+38: 
+39: ### Constructor
+40: 
+41: ```javascript
+42: constructor(defaultValue = {}) {
+43:   super();
+44:   this.attachShadow({mode: 'open'});
+45:   // Actor identity
+46:   this.#hash = this.getAttribute('hash') || generateId();
+47:   this.#addr = this.getAttribute('addr') || `${this.constructor.name}-${this.#hash}`;
+48:   matrix.register(this);
+49:   this.constructor.register(this);
+50:   // Entity state
+51:   this.#model = this.getAttribute('model') || undefined;
+52:   this.#data = defaultValue;
+53:   // Stylesheet hook
+54:   if (this.styles) { /* creates <link> in shadowRoot */ }
+55: }
+56: ```
+57: 
+58: ### Actor Integration
+59: 
+60: ```javascript
+61: Actor.subclass(Component);    // Applied ONCE — all subclasses inherit
+62: matrix.register(Component);   // Component CLASS is a Matrix child
+63: ```
+64: 
+65: `Actor.subclass()` is called only on Component. NTTElement, ListElement, NTTItem, NTTList — all inherit it. Do not call `Actor.subclass()` on any other component class.
+66: 
+67: ### Observed Attributes
+68: 
+69: `['model', 'addr', 'hash', 'ref', 'display']`
+70: 
+71: ### Properties
+72: 
+73: | Property | Type | Description |
+74: |----------|------|-------------|
+75: | `addr` | `string` | Unique actor address. Set once, immutable. |
+76: | `model` | `string` | Model name (e.g., `"Product"`). Setting triggers ATTACH TX to N3TX. |
+77: | `ref` | `string` | Entity reference. URL → READ TX. N3TX address → ATTACH TX. |
+78: | `proto` | `DynamicClass` | The DynamicClass prototype (set via `define()`). |
+79: | `schema` | `object` | JSON Schema from proto. Cached in `_schema`. |
+80: | `value` | `object\|array` | Current data. **No auto-render** — subclasses decide. |
+81: | `defaultValue` | `object\|array` | The default passed to constructor (`{}` or `[]`). |
+82: | `displayMode` | `string` | Current display mode (`'xs'`, `'sm'`, `'md'`, `'lg'`, `'xl'`, or table-only `'row'`). |
+83: | `display` | `string` | The `display` attribute value, or `'auto'`. Set to force a display mode. |
+84: 
+85: ### Static Members
+86: 
+87: | Member | Type | Description |
+88: |--------|------|-------------|
+89: | `SIZES` | `string[]` | `['xs', 'sm', 'md', 'lg', 'xl', 'row']` — valid display mode names. `row` is reserved for table-row renderers. |
+90: | `ALIASES` | `object` | Semantic name → size mapping: `{pill: 'xs', 'list-item': 'sm', card: 'md', detail: 'lg', page: 'xl', row: 'row'}`. |
+91: | `normalizeDisplay(value)` | `function` | Resolves a display value (abstract or semantic) to an abstract size. Returns `null` for `'auto'` or unrecognized values. |
+92: 
+93: ### Stylesheet Hook
+94: 
+95: ```javascript
+96: // Override in subclass:
+97: get styles() { return new URL('./my-component.css', import.meta.url).href; }
+98: 
+99: // Or return multiple stylesheets for inherited component stacks:
+100: get styles() {
+101:   return [
+102:     new URL('./base.css', import.meta.url).href,
+103:     new URL('./my-component.css', import.meta.url).href,
+104:   ];
+105: }
+106: ```
+107: 
+108: The base `Component` fetches stylesheet URL(s), converts them into shared constructable stylesheets, and adopts them on the shadow root. Return a single URL for simple components, or an array when a subclass needs both inherited and component-specific CSS.
+109: 
+110: ### Adaptive Display Mode
+111: 
+112: Every component gets space-awareness via ResizeObserver. Sizes use abstract names (`xs`–`xl`) with optional semantic aliases (`pill`, `card`, etc.).
+113: 
+114: **Sizes:**
+115: 
+116: | Size | Alias | Default Breakpoint | NTTItem Rendering |
+117: |------|-------|--------------------|-------------------|
+118: | `xs` | `pill` | 0px+ | Name badge only |
+119: | `sm` | `list-item` | 200px+ | Compact row: name + 2–3 key fields |
+120: | `md` | `card` | 400px+ | Full card: edit + form + methods |
+121: | `lg` | `detail` | 600px+ | Detail view (future: normally-hidden fields) |
+122: | `xl` | `page` | 800px+ | Page view (future: full metadata) |
+123: | `row` | `row` | n/a | Table row layout for `NTTRow`; not selected by ResizeObserver |
+124: 
+125: **Auto mode (default):** ResizeObserver measures component width and resolves to the largest matching breakpoint.
+126: 
+127: **Forced mode:** Set the `display` attribute to lock a specific size, bypassing ResizeObserver:
+128: 
+129: ```html
+130: <!-- Abstract size -->
+
+### docs/frontend/COMPONENTS.md (1008 total lines)
+131: <ntx-item display="sm"></ntx-item>
+132: 
+133: <!-- Semantic alias -->
+134: <ntx-item display="pill"></ntx-item>
+135: 
+136: <!-- Programmatic -->
+137: <script>
+138:   document.querySelector('ntx-item').display = 'lg';
+139: </script>
+140: 
+141: <!-- Back to auto -->
+142: <ntx-item display="auto"></ntx-item>
+143: ```
+144: 
+145: **Override breakpoints:**
+146: 
+147: ```javascript
+148: get displayBreakpoints() {
+149:   return { xl: 800, lg: 600, md: 400, sm: 200, xs: 0 };
+150: }
+151: ```
+152: 
+153: **Hook on mode change:**
+154: 
+155: ```javascript
+156: displayModeChanged(oldMode, newMode) {
+157:   // Default: re-renders if schema available
+158:   // Override for CSS-only mode switching:
+159:   this.shadowRoot.host.setAttribute('data-mode', newMode);
+160: }
+161: ```
+162: 
+163: ### Schema Resolution Flow
+164: 
+165: ```
+166: 1. model="Product" attribute set
+167: 2. attributeChangedCallback sends ATTACH TX → target: 'N3TX'
+168: 3. N3TX bootstraps DynamicClass (fetch schema, create prototype)
+169: 4. N3TX.attach callback calls component.define(DynamicClass)
+170: 5. define() stores proto, calls definedCallback()
+171: 6. Subclass overrides definedCallback() for type-specific setup
+172: ```
+173: 
+174: ### Subscription Helpers
+175: 
+176: | Method | Description |
+177: |--------|-------------|
+178: | `subscribe(tt, attribute, callback)` | Subscribe to an observable property on a TT/DynamicClass. Auto-cleans previous subscription. |
+179: | `attach(addr)` | Imperative `N3TX.attach(addr, this.define)`. Lazy-imports N3TX to avoid circular deps. |
+180: 
+181: ### Lifecycle
+182: 
+183: | Callback | Behavior |
+184: |----------|----------|
+185: | `connectedCallback()` | Applies forced display mode if set, starts ResizeObserver. |
+186: | `disconnectedCallback()` | Stops ResizeObserver, cleans up subscriptions. |
+187: | `definedCallback()` | Hook called after `define()`. Override in subclasses. |
+188: | `render()` | Abstract — throws if not overridden. |
+189: 
+190: ---
+191: 
+192: ## NTTElement
+193: 
+194: **File:** `components/NTTElement.js`
+195: **Tag:** Not registered (abstract base — use `NTTItem` or extend directly)
+196: 
+197: Single entity base class. Handles the data lifecycle for one entity instance.
+198: 
+199: ### Constructor
+200: 
+201: ```javascript
+202: constructor() {
+203:   super({});  // Default value: single entity object
+204: }
+205: ```
+206: 
+207: ### Value Override
+208: 
+209: ```javascript
+210: set value(data) {
+211:   super.value = data;
+212:   // Auto-renders when schema + data are both available
+213:   if (this.schema && this.schema.__name__) {
+214:     this.render();
+215:   }
+216: }
+217: ```
+218: 
+219: ### Message Handlers
+220: 
+221: | Handler | Trigger | Behavior |
+222: |---------|---------|----------|
+223: | `UPDATE(data)` | TT watcher notification | Validates `$schema` field, sets value. If schema source changed, sends CONNECT. |
+224: | `DESCRIBE(data)` | N3TX instance ATTACH response | Sets `schema = data.proto`, `value = data.data`, renders. Also subscribes to entity signal for live updates — future value changes (e.g., after `pull()`) automatically re-render. |
+225: | `READ(data)` | Direct URL fetch response | Looks up DynamicClass from `data-model` attribute, sets schema + value. |
+226: 
+227: ### Entity Signal Subscription
+228: 
+229: When `DESCRIBE` is called, the component subscribes to the N3TX entity's signal. This means:
+230: - After a method call, the entity's `_response_` handler either applies a structured local update (`{action, _field, id}`), updates same-entity payloads directly, or falls back to `pull()` for ambiguous / child-entity responses. Any entity value change notifies the component via the signal.
+231: - The subscription is cleaned up in `disconnectedCallback()` to prevent memory leaks.
+232: 
+233: ### Save
+234: 
+235: ```javascript
+236: save() {
+237:   // Sends UPDATE TX with current value to this.ref
+238:   this.send(new TX({ name: 'UPDATE', source: this.addr, target: this.ref, data: this.value }));
+239: }
+240: ```
+241: 
+242: ### Developer Pattern
+243: 
+244: ```javascript
+245: import { NTTElement } from './NTTElement.js';
+246: 
+247: class ProductCard extends NTTElement {
+248:   get styles() { return new URL('./product-card.css', import.meta.url).href; }
+249: 
+250:   render() {
+251:     if (!this.schema || !this.value) return;
+252:     const { name, price, description } = this.value;
+253:     this.shadowRoot.innerHTML = `
+254:       <div class="product-card">
+255:         <h2>${name}</h2>
+256:         <p>${description}</p>
+257:         <span>$${price?.toFixed(2)}</span>
+258:       </div>
+259:     `;
+260:     if (this.$styles) this.shadowRoot.appendChild(this.$styles);

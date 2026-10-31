@@ -1,0 +1,731 @@
+
+### docs/API_INDEX.md (459 total lines)
+1: # N3TX API Documentation Index
+2: 
+3: Complete frontend-focused API documentation for N3TX applications.
+4: 
+5: ## 📚 Documentation Structure
+6: 
+7: This documentation is organized into four focused sections:
+8: 
+9: ### 1. [API Overview](./API_OVERVIEW.md) - **START HERE**
+10: General conventions, setup, and concepts you need to understand before using any N3TX API.
+11: 
+12: **Topics covered:**
+13: - Base URL and protocol
+14: - Request/response format
+15: - Authentication patterns
+16: - Error handling
+17: - HTTP status codes
+18: - Optional file upload/download routes
+19: - Data types and formatting
+20: - Foreign keys and relationships
+21: - CORS configuration
+22: - OpenAPI/Swagger access
+23: 
+24: **Who should read this:** Everyone using a N3TX API
+25: 
+26: ---
+27: 
+28: ### 2. [Standard CRUD Endpoints](./API_CRUD_ENDPOINTS.md)
+29: Complete reference for the auto-generated CRUD endpoints available for every storable model.
+30: 
+31: **Topics covered:**
+32: - Get model schema
+33: - Create resource (POST)
+34: - List resources (GET)
+35: - Get single resource (GET)
+36: - Update resource (PUT)
+37: - Delete resource (DELETE)
+38: - Nested resources (many-to-many)
+39: - Complete workflow examples
+40: - TypeScript integration
+41: 
+42: **Who should read this:** Frontend developers implementing basic CRUD operations
+43: 
+44: ---
+45: 
+46: ### 3. [Custom Endpoints](./API_CUSTOM_ENDPOINTS.md)
+47: How to use custom business logic endpoints exposed via `@expose_route`.
+48: 
+49: **Topics covered:**
+50: - URL patterns for custom endpoints
+51: - Request/response formats
+52: - Static methods, class methods, instance methods
+53: - Complex parameters (nested objects, lists)
+54: - Common patterns (auth, search, state transitions, aggregations)
+55: - Complete authentication flow example
+56: - Error handling
+57: - Best practices
+58: 
+59: **Who should read this:** Frontend developers using application-specific features
+60: 
+61: ---
+62: 
+63: ### 4. [Data Models Reference](./API_DATA_MODELS.md)
+64: Detailed schema reference for example models with complete TypeScript integration.
+65: 
+66: **Topics covered:**
+67: - User model (with login endpoint)
+68: - Product model (with comment relationship)
+69: - Comment model (nested resource example)
+70: - Field-level details and constraints
+71: - Complete request/response examples
+72: - TypeScript interfaces and API clients
+73: - Foreign key resolution
+74: - Dynamic form generation from schemas
+75: 
+76: **Who should read this:** Frontend developers needing detailed schema information
+77: 
+78: ---
+79: 
+80: ## 🚀 Quick Start Guide
+81: 
+82: ### First Time Using a N3TX API?
+83: 
+84: Follow this path:
+85: 
+86: 1. **Read**: [API Overview](./API_OVERVIEW.md) - Understand the basics (15 minutes)
+87: 2. **Explore**: Open `http://localhost:8000/docs` in your browser for interactive documentation
+88: 3. **Try**: Use the interactive docs to make your first API call
+89: 4. **Reference**: Use [Standard CRUD Endpoints](./API_CRUD_ENDPOINTS.md) as you build
+90: 
+91: ### Building a Feature?
+92: 
+93: 1. **Discover**: `GET /{ModelName}` to get the model's schema and available endpoints
+94: 2. **Check**: [Custom Endpoints](./API_CUSTOM_ENDPOINTS.md) for any application-specific methods
+95: 3. **Implement**: Use [Data Models Reference](./API_DATA_MODELS.md) for detailed schema information
+96: 4. **Handle Errors**: Refer to error handling in [API Overview](./API_OVERVIEW.md)
+97: 
+98: ---
+99: 
+100: ## 🔍 Quick Reference
+101: 
+102: ### Essential Endpoints
+103: 
+104: For a model called `User` with `__tablename__ = 'users'`:
+105: 
+106: | Purpose | Method | Endpoint | Documentation |
+107: |---------|--------|----------|---------------|
+108: | Get schema | GET | `/User` | [Overview](./API_OVERVIEW.md#openapi--swagger-documentation) |
+109: | Create | POST | `/users` | [CRUD](./API_CRUD_ENDPOINTS.md#create-resource) |
+110: | List all | GET | `/users` | [CRUD](./API_CRUD_ENDPOINTS.md#list-resources) |
+111: | Get one | GET | `/users/{id}` | [CRUD](./API_CRUD_ENDPOINTS.md#get-single-resource) |
+112: | Update | PUT | `/users/{id}` | [CRUD](./API_CRUD_ENDPOINTS.md#update-resource) |
+113: | Delete | DELETE | `/users/{id}` | [CRUD](./API_CRUD_ENDPOINTS.md#delete-resource) |
+114: 
+115: For optional `n3tx-files` apps:
+116: 
+117: | Purpose | Method | Endpoint | Documentation |
+118: |---------|--------|----------|---------------|
+119: | Upload file bytes | POST | `/files/upload` | [Overview](./API_OVERVIEW.md#optional-file-api-n3tx-files) |
+120: | Download file bytes | GET | `/files/{id}/download` | [Overview](./API_OVERVIEW.md#optional-file-api-n3tx-files) |
+121: | Download mirror | GET | `/File/{id}/download` | [Overview](./API_OVERVIEW.md#optional-file-api-n3tx-files) |
+122: 
+123: ### Custom Endpoint Patterns
+124: 
+125: | Method Type | Pattern | Example | Documentation |
+126: |-------------|---------|---------|---------------|
+127: | Static | `/{resource}{path}` | `POST /users/login` | [Custom](./API_CUSTOM_ENDPOINTS.md#static-method) |
+128: | Class | `/{resource}{path}` | `GET /users/search` | [Custom](./API_CUSTOM_ENDPOINTS.md#class-method) |
+129: | Instance | `/{resource}/{id}{path}` | `POST /products/1/discount` | [Custom](./API_CUSTOM_ENDPOINTS.md#instance-method) |
+130: 
+
+### docs/API_INDEX.md (459 total lines)
+131: ### HTTP Status Codes
+132: 
+133: | Code | Meaning | When | How to Handle |
+134: |------|---------|------|---------------|
+135: | 200 | OK | Successful GET/PUT/DELETE | Process response data |
+136: | 201 | Created | Successful POST | Process new resource |
+137: | 400 | Bad Request | Validation error | Show error to user |
+138: | 404 | Not Found | Resource doesn't exist | Show not found message |
+139: | 422 | Unprocessable | Invalid data type | Show field error |
+140: | 500 | Server Error | Backend error | Log and show generic error |
+141: 
+142: See [API Overview - Status Codes](./API_OVERVIEW.md#status-codes) for details.
+143: 
+144: ---
+145: 
+146: ## 📋 Common Tasks
+147: 
+148: ### Create a Resource
+149: 
+150: ```javascript
+151: const user = await fetch('http://localhost:8000/users', {
+152:   method: 'POST',
+153:   headers: { 'Content-Type': 'application/json' },
+154:   body: JSON.stringify({
+155:     name: 'Alice',
+156:     email: 'alice@example.com'
+157:   })
+158: }).then(r => r.json());
+159: ```
+160: 
+161: See: [CRUD - Create Resource](./API_CRUD_ENDPOINTS.md#create-resource)
+162: 
+163: ### Get All Resources
+164: 
+165: ```javascript
+166: const users = await fetch('http://localhost:8000/users')
+167:   .then(r => r.json());
+168: ```
+169: 
+170: See: [CRUD - List Resources](./API_CRUD_ENDPOINTS.md#list-resources)
+171: 
+172: ### Update a Resource
+173: 
+174: ```javascript
+175: const updated = await fetch('http://localhost:8000/users/1', {
+176:   method: 'PUT',
+177:   headers: { 'Content-Type': 'application/json' },
+178:   body: JSON.stringify({ age: 29 })
+179: }).then(r => r.json());
+180: ```
+181: 
+182: See: [CRUD - Update Resource](./API_CRUD_ENDPOINTS.md#update-resource)
+183: 
+184: ### Call a Custom Endpoint
+185: 
+186: ```javascript
+187: const result = await fetch('http://localhost:8000/users/login', {
+188:   method: 'POST',
+189:   headers: { 'Content-Type': 'application/json' },
+190:   body: JSON.stringify({
+191:     email: 'alice@example.com',
+192:     password: 'secret'
+193:   })
+194: }).then(r => r.json());
+195: ```
+196: 
+197: See: [Custom Endpoints](./API_CUSTOM_ENDPOINTS.md#static-method)
+198: 
+199: ### Handle Errors
+200: 
+201: ```javascript
+202: try {
+203:   const response = await fetch('/users', {
+204:     method: 'POST',
+205:     headers: { 'Content-Type': 'application/json' },
+206:     body: JSON.stringify(userData)
+207:   });
+208:   
+209:   if (!response.ok) {
+210:     const error = await response.json();
+211:     const message = error.detail?.[0]?.error || 'Unknown error';
+212:     console.error('API Error:', message);
+213:     return null;
+214:   }
+215:   
+216:   return await response.json();
+217:   
+218: } catch (err) {
+219:   console.error('Network error:', err);
+220:   return null;
+221: }
+222: ```
+223: 
+224: See: [Overview - Error Handling](./API_OVERVIEW.md#error-handling)
+225: 
+226: ### Work with Relationships
+227: 
+228: ```javascript
+229: // Create a comment on a product (nested resource)
+230: const comment = await fetch('http://localhost:8000/products/1/comments', {
+231:   method: 'POST',
+232:   headers: { 'Content-Type': 'application/json' },
+233:   body: JSON.stringify({
+234:     text: 'Great product!',
+235:     user: 1  // Foreign key - send ID
+236:   })
+237: }).then(r => r.json());
+238: 
+239: // Get the full user object
+240: const user = await fetch(`http://localhost:8000/users/${comment.user}`)
+241:   .then(r => r.json());
+242: ```
+243: 
+244: See: [Overview - Foreign Keys](./API_OVERVIEW.md#foreign-keys--relationships)
+245: 
+246: ---
+247: 
+248: ## 🎯 By Use Case
+249: 
+250: ### Building a Login Form
+251: 
+252: 1. Read: [Custom Endpoints - Authentication Pattern](./API_CUSTOM_ENDPOINTS.md#1-authentication)
+253: 2. Check: Does your User model have a `/login` endpoint? `GET /User` to see schema
+254: 3. Implement: Use the pattern from [Complete Authentication Flow](./API_CUSTOM_ENDPOINTS.md#example-complete-authentication-flow)
+255: 
+256: ### Building a Product Listing
+257: 
+258: 1. Read: [CRUD - List Resources](./API_CRUD_ENDPOINTS.md#list-resources)
+259: 2. If filtering needed: Check for custom search endpoint in [Custom Endpoints](./API_CUSTOM_ENDPOINTS.md#2-searchfilter)
+260: 3. For details: See [Data Models - Product](./API_DATA_MODELS.md#product-model)
+
+### docs/API_INDEX.md (459 total lines)
+261: 
+262: ### Building a Comment System
+263: 
+264: 1. Read: [CRUD - Nested Resources](./API_CRUD_ENDPOINTS.md#nested-resource-endpoints)
+265: 2. For schema: See [Data Models - Comment](./API_DATA_MODELS.md#comment-model)
+266: 3. Complete example: [Data Models - React Component](./API_DATA_MODELS.md#complete-frontend-integration-example)
+267: 
+268: ### Dynamic Form Generation
+269: 
+270: 1. Read: [Data Models - Schema Discovery](./API_DATA_MODELS.md#schema-discovery)
+271: 2. Fetch schema: `GET /{ModelName}`
+272: 3. Generate fields based on `properties` and `required` arrays
+273: 
+274: ### TypeScript Integration
+275: 
+276: 1. Define interfaces: See [Data Models - TypeScript Interfaces](./API_DATA_MODELS.md#typescript-interface)
+277: 2. Build type-safe clients: See examples in each model section
+278: 3. Reference: [CRUD - TypeScript Integration](./API_CRUD_ENDPOINTS.md#typescript-integration)
+279: 
+280: ---
+281: 
+282: ## 🔧 Tools & Resources
+283: 
+284: ### Interactive API Explorer
+285: 
+286: Visit `http://localhost:8000/docs` (FastAPI backend) for:
+287: - Complete endpoint listing
+288: - Request/response examples
+289: - Try-it-out functionality
+290: - Automatic schema documentation
+291: 
+292: ### Schema Endpoint
+293: 
+294: For any model: `GET /{ModelName}` returns complete JSON schema including:
+295: - All fields with types
+296: - Required fields
+297: - Custom methods and parameters
+298: - Validation rules
+299: 
+300: Example:
+301: ```bash
+302: curl http://localhost:8000/User
+303: ```
+304: 
+305: ### OpenAPI Specification
+306: 
+307: The entire API is documented using OpenAPI 3.0 standard, accessible at:
+308: - `http://localhost:8000/openapi.json` (FastAPI)
+309: 
+310: ---
+311: 
+312: ## 💡 Best Practices
+313: 
+314: ### Always Check Schemas First
+315: 
+316: ```javascript
+317: // Get schema to understand available fields and methods
+318: const schema = await fetch('/User').then(r => r.json());
+319: console.log('Available methods:', Object.keys(schema.methods));
+320: console.log('Required fields:', schema.required);
+321: ```
+322: 
+323: ### Handle All Error Cases
+324: 
+325: ```javascript
+326: async function apiCall(url, options) {
+327:   try {
+328:     const response = await fetch(url, options);
+329:     
+330:     if (!response.ok) {
+331:       const error = await response.json();
+332:       
+333:       switch (response.status) {
+334:         case 400: // Validation
+335:           showValidationError(error.detail[0].error);
+336:           break;
+337:         case 404: // Not found
+338:           showNotFound();
+339:           break;
+340:         case 422: // Invalid format
+341:           showFieldError(error.detail);
+342:           break;
+343:         default:
+344:           showGenericError();
+345:       }
+346:       return null;
+347:     }
+348:     
+349:     return await response.json();
+350:   } catch (err) {
+351:     console.error('Network error:', err);
+352:     showNetworkError();
+353:     return null;
+354:   }
+355: }
+356: ```
+357: 
+358: See: [Overview - Error Handling](./API_OVERVIEW.md#error-handling)
+359: 
+360: ### Use TypeScript for Type Safety
+361: 
+362: ```typescript
+363: interface User {
+364:   id: number;
+365:   name: string;
+366:   email: string;
+367: }
+368: 
+369: async function getUser(id: number): Promise<User> {
+370:   return await fetch(`/users/${id}`).then(r => r.json());
+371: }
+372: ```
+373: 
+374: See: [Data Models - TypeScript](./API_DATA_MODELS.md#typescript-interface)
+375: 
+376: ### Cache Schema Information
+377: 
+378: ```javascript
+379: const schemaCache = new Map();
+380: 
+381: async function getSchema(modelName) {
+382:   if (!schemaCache.has(modelName)) {
+383:     const schema = await fetch(`/${modelName}`).then(r => r.json());
+384:     schemaCache.set(modelName, schema);
+385:   }
+386:   return schemaCache.get(modelName);
+387: }
+388: ```
+389: 
+390: ---
+
+### docs/API_INDEX.md (459 total lines)
+391: 
+392: ## 🆘 Troubleshooting
+393: 
+394: ### "Not found" on Custom Endpoint
+395: 
+396: 1. Check schema: `GET /{ModelName}` → Look in `methods` object
+397: 2. Verify URL pattern matches method type (static/class/instance)
+398: 3. See: [Custom Endpoints - URL Patterns](./API_CUSTOM_ENDPOINTS.md#endpoint-url-patterns)
+399: 
+400: ### "Missing field: X"
+401: 
+402: 1. Check schema for required fields: `GET /{ModelName}` → Look in `required` array
+403: 2. Ensure all required fields are in request body
+404: 3. See: [CRUD - Create Resource](./API_CRUD_ENDPOINTS.md#create-resource)
+405: 
+406: ### "Invalid field 'X': ..."
+407: 
+408: 1. Check field type in schema: `GET /{ModelName}` → Look in `properties.X.type`
+409: 2. Ensure request value matches expected type
+410: 3. See: [Overview - Data Types](./API_OVERVIEW.md#data-types)
+411: 
+412: ### Foreign Key Not Resolving
+413: 
+414: Remember: Foreign keys are stored as IDs, not full objects.
+415: 
+416: ```javascript
+417: // Response contains ID
+418: const comment = await fetch('/comments/1').then(r => r.json());
+419: // { user: 1 } ← This is an ID, not a user object
+420: 
+421: // Fetch full object separately
+422: const user = await fetch(`/users/${comment.user}`).then(r => r.json());
+423: // { id: 1, name: "Alice", ... } ← Full object
+424: ```
+425: 
+426: See: [Overview - Foreign Keys](./API_OVERVIEW.md#foreign-keys--relationships)
+427: 
+428: ---
+429: 
+430: ## 📞 Getting Help
+431: 
+432: 1. **Check the docs** - Use this index to find relevant sections
+433: 2. **Try interactive docs** - Visit `/docs` endpoint
+434: 3. **Inspect schemas** - `GET /{ModelName}` for model details
+435: 4. **Check examples** - Each doc section includes working code examples
+436: 5. **Read error messages** - Error responses include detailed stack traces
+437: 
+438: ---
+439: 
+440: ## 📖 Complete Documentation Set
+441: 
+442: - **[API Overview](./API_OVERVIEW.md)** - Conventions, setup, and general concepts
+443: - **[Standard CRUD Endpoints](./API_CRUD_ENDPOINTS.md)** - Auto-generated REST endpoints
+444: - **[Custom Endpoints](./API_CUSTOM_ENDPOINTS.md)** - Application-specific business logic
+445: - **[Data Models Reference](./API_DATA_MODELS.md)** - Detailed schema and examples
+446: 
+447: ---
+448: 
+449: ## 🎓 Additional Resources
+450: 
+451: - [N3TX README](./README.md) - Project overview and setup
+452: - [Getting Started Guide](./GETTING_STARTED.md) - Tutorial for building your first API
+453: - [Examples](./EXAMPLES.md) - Real-world application patterns
+454: - [Architecture Guide](./ARCHITECTURE.md) - Backend implementation details (for backend devs)
+455: 
+456: ---
+457: 
+458: *Last Updated: 2025-01-15*  
+459: *N3TX Version: 0.5.0*
+
+### docs/API_OVERVIEW.md (598 total lines)
+1: # N3TX API Documentation
+2: 
+3: **Version**: 0.8.2
+4: **Base URL**: `http://localhost:8000` (default, configurable)  
+5: **Protocol**: REST over HTTP/HTTPS  
+6: **Content-Type**: `application/json` for generated JSON APIs; optional file upload/download routes use multipart and binary responses.
+7: 
+8: ## Purpose
+9: 
+10: N3TX automatically generates a complete REST API from your Python model definitions. This documentation explains how to interact with the generated endpoints from a frontend perspective.
+11: 
+12: ## Routing Modes
+13: 
+14: N3TX supports two routing modes, selectable via the `routing` parameter:
+15: 
+16: ### Direct Routing (default)
+17: 
+18: ```python
+19: app = create_app(models=[Product, User], storage="sqlite:///app.db")
+20: # or explicitly:
+21: app = create_app(models=[Product, User], storage="sqlite:///app.db", routing='direct')
+22: ```
+23: 
+24: HTTP requests go directly to route handlers which call StorableMixin CRUD methods. This is the simplest mode — no actor system involvement in request processing.
+25: 
+26: ### Actor Routing (Level 3)
+27: 
+28: ```python
+29: app = create_app(models=[Product, User], storage="sqlite:///app.db", routing='actor')
+30: ```
+31: 
+32: HTTP requests are translated into TX messages routed through the Matrix actor system:
+33: 
+34: ```
+35: HTTP Request → NetworkAPI adapter → TX → Matrix → ActorModel.handler_crud → StorableMixin
+36: HTTP Response ← NetworkAPI adapter ← TX ← Matrix ← ActorModel.handler_crud ←
+37: ```
+38: 
+39: Actor routing enables interceptors (e.g., authentication at the protocol boundary), lifecycle events, and uniform message-based architecture across all protocols (HTTP, MCP, ActivityPub).
+40: 
+41: Both modes produce identical API endpoints and response formats. The choice is transparent to API consumers.
+42: 
+43: ---
+44: 
+45: ## Key Concepts
+46: 
+47: ### Models & Resources
+48: 
+49: Each N3TX model becomes a REST resource with automatic CRUD endpoints. For example:
+50: 
+51: - `User` model -> `/users` endpoints
+52: - `Product` model -> `/products` endpoints
+53: - `Comment` model -> `/comments` endpoints
+54: 
+55: ### Automatic Endpoint Generation
+56: 
+57: For every model marked as `__storable__ = True`, N3TX generates:
+58: 
+59: 1. **Schema Endpoint** - Get the model's JSON schema
+60: 2. **Create** - Create new resource
+61: 3. **List** - Get all resources
+62: 4. **Get** - Get single resource by ID
+63: 5. **Update** - Update existing resource
+64: 6. **Delete** - Delete resource
+65: 
+66: ### Response Metadata
+67: 
+68: All CRUD route handlers call `.model_response()`, which injects two metadata fields at the top of every response object:
+69: 
+70: - `$schema` - URL to the model's JSON Schema (e.g., `http://localhost:8000/User`)
+71: - `$id` - canonical class-name URL to this specific resource instance (e.g., `http://localhost:8000/User/1`)
+72: 
+73: This makes every response self-describing, allowing clients to discover schema information directly from the payload.
+74: 
+75: ### Custom Endpoints
+76: 
+77: Models can expose additional endpoints using the `@expose_route` decorator. These appear as:
+78: 
+79: - Static methods -> `/{resource}{custom_path}`
+80: - Class methods -> `/{resource}{custom_path}`
+81: - Instance methods -> `/{resource}/{id}{custom_path}`
+82: 
+83: Optional packages can also register package-owned routes through model capability
+84: hooks. For example, `n3tx-files` adds multipart/binary routes for `File` because
+85: file bytes cannot be represented as normal JSON method payloads.
+86: 
+87: ### Optional File API (`n3tx-files`)
+88: 
+89: When an app registers `n3tx_files.File`, these routes are available in addition
+90: to normal File metadata CRUD/schema routes:
+91: 
+92: | Operation | Method | Path | Body/Response |
+93: |---|---|---|---|
+94: | Upload bytes | POST | `/files/upload` | multipart form field `upload`; returns `File.model_response()` |
+95: | Download bytes | GET | `/files/{id}/download` | binary stream |
+96: | Download mirror | GET | `/File/{id}/download` | binary stream |
+97: 
+98: Downloads support `Range: bytes=start-end`. Successful range reads return
+99: `206 Partial Content` and `Content-Range`.
+100: 
+101: `File.resolve(ref)` and typed method materialization accept the canonical
+102: absolute File `$id`, for example `http://localhost:5000/File/1`.
+103: 
+104: ### Nested Resources (Many-to-Many)
+105: 
+106: When models have relationships, N3TX creates nested endpoints:
+107: 
+108: - Parent resource: `/products`
+109: - Child resources: `/products/{parent_id}/comments`
+110: 
+111: ---
+112: 
+113: ## General API Conventions
+114: 
+115: ### Request Format
+116: 
+117: Most generated API requests use:
+118: - **Content-Type**: `application/json`
+119: - **Accept**: `application/json`
+120: 
+121: Exceptions:
+122: - `POST /files/upload` uses `multipart/form-data` with a form field named
+123:   `upload`.
+124: - `GET /files/{id}/download` and `GET /File/{id}/download` return binary bytes,
+125:   not JSON.
+126: 
+127: ### Response Format
+128: 
+129: All successful responses return JSON with `$schema` and `$id` metadata at the top, followed by the resource data:
+130: 
+
+### docs/API_OVERVIEW.md (598 total lines)
+131: ```json
+132: {
+133:   "$schema": "http://localhost:8000/User",
+134:   "$id": "http://localhost:8000/User/1",
+135:   "id": 1,
+136:   "name": "Alice Johnson",
+137:   "email": "alice@example.com",
+138:   "age": 28
+139: }
+140: ```
+141: 
+142: ### `$id` Migration Note
+143: 
+144: N3TX response identity is class-name based. A response fetched through either
+145: `/users/1` or `/User/1` advertises:
+146: 
+147: ```json
+148: {
+149:   "$schema": "http://localhost:8000/User",
+150:   "$id": "http://localhost:8000/User/1"
+151: }
+152: ```
+153: 
+154: Legacy table-name routes such as `/users/1` remain supported as compatibility
+155: transport paths, but new clients should treat `$id` as the canonical entity URL.
+156: Nested entities use parent-scoped class-name identity such as
+157: `/Product/1/Comment/2`. N3TX does not emit `$href` or `links`; `$id` is the
+158: single response identity.
+159: 
+160: All error responses return:
+161: ```json
+162: {
+163:   "detail": [
+164:     {
+165:       "file": "path/to/file.py",
+166:       "line": 42,
+167:       "function": "function_name",
+168:       "code": "source code line",
+169:       "error": "Error message"
+170:     }
+171:   ]
+172: }
+173: ```
+174: 
+175: ### HTTP Methods Semantics
+176: 
+177: | Method | Purpose | Idempotent | Safe |
+178: |--------|---------|------------|------|
+179: | GET | Retrieve resource(s) | Yes | Yes |
+180: | POST | Create resource or trigger action | No | No |
+181: | PUT | Partially update a resource; omitted fields remain unchanged | Yes | No |
+182: | DELETE | Remove resource | Yes | No |
+183: 
+184: ### Status Codes
+185: 
+186: | Code | Meaning | When Used |
+187: |------|---------|-----------|
+188: | 200 | OK | Successful GET, PUT, DELETE |
+189: | 201 | Created | Successful POST (resource created) |
+190: | 400 | Bad Request | Validation error, missing required fields |
+191: | 404 | Not Found | Resource with given ID doesn't exist |
+192: | 422 | Unprocessable Entity | Invalid field type or format |
+193: | 500 | Internal Server Error | Unexpected server error |
+194: 
+195: ---
+196: 
+197: ## Foreign Keys & Relationships
+198: 
+199: ### Understanding Foreign Keys
+200: 
+201: When a model has a foreign key reference:
+202: 
+203: ```python
+204: class Comment(ProtoModel):
+205:     user: Ref[User]  # Foreign key to User
+206: ```
+207: 
+208: **In Requests** - Send the ID as an integer:
+209: ```json
+210: {
+211:   "text": "Great product!",
+212:   "user": 1
+213: }
+214: ```
+215: 
+216: **In Responses** - Receive the ID as an integer, along with `$schema` and `$id` metadata:
+217: ```json
+218: {
+219:   "$schema": "http://localhost:8000/Comment",
+220:   "$id": "http://localhost:8000/Product/5/Comment/1",
+221:   "id": 1,
+222:   "text": "Great product!",
+223:   "user": 1
+224: }
+225: ```
+226: 
+227: **To Get Full Object** - Make a separate request:
+228: ```javascript
+229: // First, get the comment
+230: const comment = await fetch('/Comment/1').then(r => r.json());
+231: 
+232: // Then, get the full user object
+233: const user = await fetch(`/users/${comment.user}`).then(r => r.json());
+234: ```
+235: 
+236: ### Local Model Collections
+237: 
+238: When models have local owned collections, N3TX stores ordered child ids on the
+239: parent and returns hydrated child objects in the parent response:
+240: 
+241: ```python
+242: class Product(ProtoModel):
+243:     comments: list[Comment] = Field(default=[])
+244: ```
+245: 
+246: Example response:
+247: 
+248: ```json
+249: {
+250:   "$schema": "http://localhost:8000/Product",
+251:   "$id": "http://localhost:8000/Product/5",
+252:   "id": 5,
+253:   "comments": [
+254:     {
+255:       "$schema": "http://localhost:8000/Comment",
+256:       "$id": "http://localhost:8000/Comment/1",
+257:       "id": 1,
+258:       "text": "Great!",
+259:       "user": "http://localhost:8000/User/1"
+260:     }

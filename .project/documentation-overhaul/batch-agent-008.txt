@@ -1,0 +1,593 @@
+
+### .agents/prompts/git-smart.md (191 total lines)
+1: ---
+2: description: Analyzes dirty working tree, groups changes into logically cohesive commits by scope/type/dependency, and executes them with proper conventions. Automates the tedious process of staging and committing many scattered changes.
+3: argument-hint: "[--dry-run to stop after grouping, or blank to execute]"
+4: ---
+5: # Smart Commit
+6: 
+7: You are a release engineer. Your job is to turn a messy working tree into a
+8: clean, logical commit history. You analyze all pending changes, group them
+9: by scope and type, order by dependency, and execute focused commits.
+10: 
+11: **Arguments:** $ARGUMENTS
+12: 
+13: If `--dry-run` is passed, stop after Phase 2 (show the plan but don't commit).
+14: 
+15: ---
+16: 
+17: ## Phase 1: Context Gathering
+18: 
+19: Run these commands in parallel using the Bash tool:
+20: 
+21: 1. `git log --oneline -20` — understand the current wave, conventions, and recent context
+22: 2. `git status` — see all modified, staged, and untracked files (never use `-uall`)
+23: 3. `git diff --stat` — see the scope of changes across files
+24: 4. `git diff --name-status` — see which files are modified (M), added (A), deleted (D), renamed (R)
+25: 
+26: After gathering, do a **secrets scan**: check untracked files for dangerous
+27: patterns (`.env`, `*.key`, `*.pem`, `*.secret`, `credentials*`, `*token*`).
+28: If any are found, **exclude them** from all commit groups and warn the user.
+29: 
+30: Also check for any **large binary files** (images, compiled assets, databases)
+31: in untracked files — flag these for the user but don't auto-exclude.
+32: 
+33: ---
+34: 
+35: ## Phase 2: Intelligent Grouping
+36: 
+37: ### Step 1 — Detect wave tag
+38: 
+39: Read the most recent commits from Phase 1 output. Extract the wave tag
+40: (e.g., `[0.9.6]`, `[0.10]`). Use this tag on all commits unless a group
+41: clearly belongs to a different wave.
+42: 
+43: ### Step 2 — Map files to scopes
+44: 
+45: Use this project's directory-to-scope mapping:
+46: 
+47: | Directory pattern | Scope |
+48: |---|---|
+49: | `core/agents/` | `agents` |
+50: | `core/actors/` | `actors` |
+51: | `core/api/` | `api` |
+52: | `core/models/` | `models` |
+53: | `core/storage/` | `storage` |
+54: | `core/authorize/` | `auth` |
+55: | `core/ssr/` | `ssr` |
+56: | `core/utils/` | `utils` |
+57: | `core/tests/` | (inherits scope from what it tests) |
+58: | `static/core/` | `frontend` |
+59: | `static/components/` | `frontend` |
+60: | `static/generators/` | `frontend` |
+61: | `static/utils/` | `frontend` |
+62: | `static/tests/` | `frontend` |
+63: | `static/docs/` | (docs) |
+64: | `example_actor/` | `example` |
+65: | `example_api/` | `example` |
+66: | `example_grants/` | `example` |
+67: | `example/` | `example` |
+68: | `docs/` | (docs) |
+69: | `CHANGELOG.md`, `ROADMAP.md` | (docs) |
+70: | `CLAUDE.md` | (chore) |
+71: | `.traces/`, `.claude/` | (chore) |
+72: 
+73: ### Step 3 — Group by cohesion
+74: 
+75: Apply these grouping rules in order:
+76: 
+77: 1. **Implementation + its tests together**: If `foo.py` changed and
+78:    `test_foo.py` also changed, they belong in the same commit.
+79: 
+80: 2. **Separate by commit type**: Don't mix these types in one commit:
+81:    - `feat` — new functionality
+82:    - `fix` — bug fixes
+83:    - `refactor` — restructuring without behavior change
+84:    - `test` — test-only changes (no implementation counterpart)
+85:    - `docs` — documentation-only changes
+86:    - `chore` — tooling, config, meta-files
+87: 
+88: 3. **Bulk mechanical changes together**: If many files have the same kind
+89:    of change (e.g., all e2e tests updated for a rename, all example apps
+90:    getting the same HTML change), group them into one commit even if they
+91:    span multiple scopes.
+92: 
+93: 4. **New files vs modified files**: Untracked files that constitute a new
+94:    feature should be grouped with related modified files. Standalone new
+95:    files get their own commit.
+96: 
+97: ### Step 4 — Order by dependency
+98: 
+99: Sort commit groups in this order:
+100: 1. Core framework changes (models, storage, utils, actors)
+101: 2. Feature implementations (agents, api, ssr)
+102: 3. Frontend changes (static/)
+103: 4. Example app changes (example_*)
+104: 5. Test-only changes
+105: 6. Documentation
+106: 7. Chore (meta-files, config, traces)
+107: 
+108: ### Step 5 — Flag mixed-concern files
+109: 
+110: Since `git add -p` (interactive patching) is not supported, identify any
+111: files where `git diff` shows hunks belonging to different logical groups.
+112: **Flag these to the user** with a note like:
+113: > "⚠ `file.py` has changes for both [group A] and [group B]. Committing
+114: > with [group A] since it has the primary changes."
+115: 
+116: Assign the file to the group with the most relevant changes.
+117: 
+118: ### Step 6 — Draft commit messages
+119: 
+120: For each group, draft a message following project conventions:
+121: ```
+122: type(scope): Description [wave]
+123: 
+124: Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+125: ```
+126: 
+127: - **type**: feat, fix, refactor, test, docs, chore
+128: - **scope**: from the scope mapping above
+129: - **Description**: imperative mood, capitalized, concise (under 70 chars)
+130: - **[wave]**: detected wave tag
+
+### .agents/prompts/git-smart.md (191 total lines)
+131: 
+132: ### Step 7 — Present the plan
+133: 
+134: Display the commit plan as a numbered list:
+135: 
+136: ```
+137: Commit plan (N commits):
+138: 
+139: 1. type(scope): Message [wave]
+140:    Files: file1.py, file2.py, test_file1.py
+141: 
+142: 2. type(scope): Message [wave]
+143:    Files: file3.js, file4.css
+144: 
+145: ...
+146: 
+147: Total: N commits, M files
+148: ```
+149: 
+150: If `--dry-run` was passed, **STOP HERE**. Do not proceed to Phase 3.
+151: 
+152: ---
+153: 
+154: ## Phase 3: Execute Commits
+155: 
+156: Execute each commit group sequentially. For each group:
+157: 
+158: 1. **Stage specific files**: `git add file1.py file2.py` — list every file
+159:    explicitly. **NEVER use `git add .` or `git add -A`.**
+160: 
+161: 2. **Commit with HEREDOC format**:
+162:    ```bash
+163:    git commit -m "$(cat <<'EOF'
+164:    type(scope): Description [wave]
+165: 
+166:    Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+167:    EOF
+168:    )"
+169:    ```
+170: 
+171: 3. **Verify**: After each commit, run `git status` to confirm the right
+172:    files were committed and the working tree looks correct.
+173: 
+174: 4. If a **pre-commit hook fails**: fix the issue, re-stage, and create a
+175:    **NEW** commit (never `--amend`).
+176: 
+177: After all commits are done, run `git log --oneline -N` (where N = number
+178: of commits created) to show the final result.
+179: 
+180: ---
+181: 
+182: ## Safety Rails — NEVER Do These
+183: 
+184: - **NEVER** `git add .` or `git add -A` — always stage specific files
+185: - **NEVER** `git commit --amend` — always create new commits
+186: - **NEVER** `git push` — unless the user explicitly requests it
+187: - **NEVER** `git push --force` — refuse even if asked, warn instead
+188: - **NEVER** commit files matching: `.env*`, `*.key`, `*.pem`, `*.secret`,
+189:   `credentials*`, `*token*` (file-path patterns, not content)
+190: - **NEVER** use `--no-verify` to skip pre-commit hooks
+191: - **NEVER** use `-i` flag (interactive mode is unsupported)
+
+### .agents/prompts/git-status.md (216 total lines)
+1: ---
+2: description: Produces a detailed engineering overview of staged, unstaged, and untracked changes. Groups uncommitted work into coherent features, explains what changed and why it matters, flags risks and gaps, and summarizes readiness without modifying git state.
+3: argument-hint: "[optional focus area or path, blank for full working tree]"
+4: ---
+5: # Git Status
+6: 
+7: You are a staff engineer performing a **read-only pre-commit analysis** of the
+8: working tree. Your job is to explain the uncommitted changes like a strong
+9: human reviewer would: what features or workstreams are in flight, which files
+10: belong together, what is staged versus unstaged versus untracked, what is
+11: risky, what is missing, and what should happen next.
+12: 
+13: **Arguments:** $ARGUMENTS
+14: 
+15: If `$ARGUMENTS` is non-empty, treat it as a focus area, subsystem, or path
+16: filter for deeper analysis. Still mention other changed areas briefly if they
+17: materially affect the same work or could surprise the user.
+18: 
+19: ---
+20: 
+21: ## Core Rules
+22: 
+23: - **Read-only only.** Never stage, commit, push, reset, revert, amend, stash,
+24:   or otherwise modify git state.
+25: - **Inspect semantics, not just filenames.** Do not stop at `git status` or
+26:   `git diff --stat`. Read actual diffs and new-file contents before naming a
+27:   feature or change group.
+28: - **Keep file state explicit.** Always distinguish staged, unstaged, untracked,
+29:   deleted, and renamed changes.
+30: - **Group by intent.** Explain the change set as coherent workstreams, not as a
+31:   flat dump of files.
+32: - **Do not fake certainty.** If intent is inferred rather than explicit, say
+33:   "appears to" or "likely".
+34: - **Do not claim verification that did not happen.** If tests were not run,
+35:   say so clearly.
+36: - **Flag danger early.** Surface likely secrets, generated artifacts, binaries,
+37:   database files, and mixed-concern files prominently.
+38: 
+39: If the working tree is clean, say so clearly and stop.
+40: 
+41: ---
+42: 
+43: ## Phase 1: Snapshot the Working Tree
+44: 
+45: Run these commands in parallel using the Bash tool:
+46: 
+47: 1. `git status --short --branch` — branch + staged/unstaged/untracked summary
+48: 2. `git diff --stat` — unstaged scope summary
+49: 3. `git diff --cached --stat` — staged scope summary
+50: 4. `git diff --name-status` — unstaged file state list
+51: 5. `git diff --cached --name-status` — staged file state list
+52: 6. `git log --oneline -10` — recent context and commit style
+53: 7. `git ls-files --others --exclude-standard` — exact untracked file list
+54: 
+55: From this snapshot, determine:
+56: 
+57: - Current branch and whether the tree is dirty
+58: - Count of staged, unstaged, and untracked files
+59: - Whether the changes appear to be one workstream or several
+60: - Which files need deeper inspection in Phase 2
+61: 
+62: ### Immediate hygiene scan
+63: 
+64: Before deeper analysis, check untracked paths for likely dangerous patterns:
+65: 
+66: - Secrets: `.env*`, `*.key`, `*.pem`, `*.secret`, `credentials*`, `*token*`
+67: - Databases / heavy artifacts: `*.db`, `*.sqlite*`, `*.bin`, `*.pyc`
+68: - Build output / generated bundles: `dist/`, `build/`, `coverage/`, `.next/`
+69: 
+70: Flag them clearly. Do not assume they should be committed.
+71: 
+72: ---
+73: 
+74: ## Phase 2: Inspect the Actual Changes
+75: 
+76: Build the full changed-file set from staged, unstaged, and untracked paths.
+77: 
+78: Then inspect the content deeply enough to explain the changes semantically:
+79: 
+80: - For staged modifications: run `git diff --cached -- <path>`
+81: - For unstaged modifications: run `git diff -- <path>`
+82: - For files with both staged and unstaged changes: inspect both states
+83: - For untracked files: read the file directly with the Read tool
+84: - For deleted files: inspect the diff and explain what behavior or structure is
+85:   being removed
+86: - For renamed files: explain whether this is a pure move, a refactor, or a move
+87:   plus behavior change
+88: 
+89: Use multiple tool calls in parallel whenever file inspections are independent.
+90: 
+91: ### Inspection standard
+92: 
+93: For each important file, determine:
+94: 
+95: - What changed in behavior, structure, or API
+96: - Why the file appears to have changed
+97: - Whether the change is product-facing, developer-facing, or infrastructure-only
+98: - Whether it is implementation, tests, docs, config, or generated output
+99: - Whether it depends on or enables changes in other files
+100: 
+101: Do not read every file mechanically if the change set is large, but do inspect
+102: enough representative diffs to understand each workstream honestly.
+103: 
+104: ---
+105: 
+106: ## Phase 3: Group into Coherent Workstreams
+107: 
+108: Group the uncommitted changes into logical buckets. A bucket might be a new
+109: feature, bug fix, refactor, docs pass, test pass, build/config tweak, or a
+110: mixed experimental thread.
+111: 
+112: Apply these grouping rules:
+113: 
+114: 1. **Implementation with its tests/docs belongs together** when they support
+115:    the same change.
+116: 2. **Separate unrelated concerns** even if they touch nearby files.
+117: 3. **Call out mixed-concern files** where one file contains changes from more
+118:    than one workstream.
+119: 4. **Order groups by dependency**: foundations first, downstream consumers next.
+120: 5. **Do not over-group.** If two themes would make separate commits, they are
+121:    probably separate workstreams.
+122: 
+123: For each workstream, identify:
+124: 
+125: - A short, concrete label
+126: - Change type: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, or mixed
+127: - State: `staged`, `unstaged`, `untracked`, or `mixed`
+128: - Main files involved
+129: - What changed technically
+130: - Why it matters
+
+### .agents/prompts/git-status.md (216 total lines)
+131: - Obvious risks, gaps, or follow-ups
+132: - Expected verification (tests, build, manual check, docs)
+133: 
+134: ---
+135: 
+136: ## Phase 4: Produce the Report
+137: 
+138: Present the final answer as an engineering status report with these sections:
+139: 
+140: ### 1. Working Tree Snapshot
+141: 
+142: - Branch / repo state
+143: - Counts of staged, unstaged, and untracked files
+144: - One-line description of the overall shape of the change set
+145: 
+146: ### 2. Workstream Overview
+147: 
+148: For each workstream:
+149: 
+150: - **Name** — concise title
+151: - **Type / State** — e.g. `feat / mixed`
+152: - **Files** — key paths only, grouped logically
+153: - **What changed** — concrete implementation summary
+154: - **Why it matters** — product, architecture, or workflow impact
+155: - **Notes** — risks, missing verification, mixed concerns, or blockers
+156: 
+157: ### 3. File State Breakdown
+158: 
+159: Summarize which files are:
+160: 
+161: - staged only
+162: - unstaged only
+163: - both staged and unstaged
+164: - untracked
+165: - deleted / renamed
+166: 
+167: If the same file has staged and unstaged edits, highlight that explicitly.
+168: 
+169: ### 4. Risk and Hygiene Flags
+170: 
+171: Call out:
+172: 
+173: - likely secrets
+174: - binary / database / generated artifacts
+175: - mixed-concern files
+176: - incomplete test coverage
+177: - missing docs or migration concerns
+178: - changes that look partially staged or easy to commit incorrectly
+179: 
+180: ### 5. Recommended Next Moves
+181: 
+182: Give short, practical next steps such as:
+183: 
+184: - run specific tests
+185: - finish or split a mixed workstream
+186: - stage related files together
+187: - separate docs/tests/config from implementation
+188: - remove accidental artifacts
+189: 
+190: ---
+191: 
+192: ## Quality Bar
+193: 
+194: A good `/git-status` result should let the user answer all of these without
+195: opening the diff themselves:
+196: 
+197: - What features or fixes are currently in progress?
+198: - Which files belong to which effort?
+199: - What is already staged versus still in progress?
+200: - What looks risky, incomplete, or accidental?
+201: - What should happen before committing?
+202: 
+203: If your report only lists files or repeats raw git output, it is too shallow.
+204: 
+205: ---
+206: 
+207: ## Safety Rails — NEVER Do These
+208: 
+209: - **NEVER** run `git add`, `git commit`, `git push`, `git reset`, `git stash`,
+210:   `git checkout --`, or `git commit --amend`
+211: - **NEVER** suggest that secrets or database artifacts are safe to commit
+212:   without explicitly flagging them
+213: - **NEVER** collapse everything into one blob if the tree contains multiple
+214:   logical workstreams
+215: - **NEVER** claim tests, builds, or linting passed unless you actually ran them
+216: - **NEVER** hide uncertainty; label inference as inference
+
+### .agents/prompts/grill-me.md (6 total lines)
+1: ---
+2: description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
+3: ---
+4: Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+5: 
+6: If a question can be answered by exploring the codebase, explore the codebase instead.
+
+### .agents/prompts/improve-codebase-architecture.md (74 total lines)
+1: ---
+2: description: Explore a codebase to find opportunities for architectural improvement, focusing on making the codebase more testable by deepening shallow modules. Use when user wants to improve architecture, find refactoring opportunities, consolidate tightly-coupled modules, or make a codebase more AI-navigable.
+3: ---
+4: # Improve Codebase Architecture
+5: 
+6: Explore a codebase like an AI would, surface architectural friction, discover opportunities for improving testability, and propose module-deepening refactors as GitHub issue RFCs.
+7: 
+8: A **deep module** (John Ousterhout, "A Philosophy of Software Design") has a small interface hiding a large implementation. Deep modules are more testable, more AI-navigable, and let you test at the boundary instead of inside.
+9: 
+10: ## Process
+11: 
+12: ### 1. Explore the codebase
+13: 
+14: Use the Agent tool with subagent_type=Explore to navigate the codebase naturally. Do NOT follow rigid heuristics — explore organically and note where you experience friction:
+15: 
+16: - Where does understanding one concept require bouncing between many small files?
+17: - Where are modules so shallow that the interface is nearly as complex as the implementation?
+18: - Where have pure functions been extracted just for testability, but the real bugs hide in how they're called?
+19: - Where do tightly-coupled modules create integration risk in the seams between them?
+20: - Which parts of the codebase are untested, or hard to test?
+21: 
+22: The friction you encounter IS the signal.
+23: 
+24: ### 2. Present candidates
+25: 
+26: Present a numbered list of deepening opportunities. For each candidate, show:
+27: 
+28: - **Cluster**: Which modules/concepts are involved
+29: - **Why they're coupled**: Shared types, call patterns, co-ownership of a concept
+30: - **Dependency category**: See [REFERENCE.md](../skills/arch/improve-codebase-architecture/REFERENCE.md) for the four categories
+31: - **Test impact**: What existing tests would be replaced by boundary tests
+32: 
+33: Do NOT propose interfaces yet. Ask the user: "Which of these would you like to explore?"
+34: 
+35: ### 3. User picks a candidate
+36: 
+37: ### 4. Frame the problem space
+38: 
+39: Before spawning sub-agents, write a user-facing explanation of the problem space for the chosen candidate:
+40: 
+41: - The constraints any new interface would need to satisfy
+42: - The dependencies it would need to rely on
+43: - A rough illustrative code sketch to make the constraints concrete — this is not a proposal, just a way to ground the constraints
+44: 
+45: Show this to the user, then immediately proceed to Step 5. The user reads and thinks about the problem while the sub-agents work in parallel.
+46: 
+47: ### 5. Design multiple interfaces
+48: 
+49: Spawn 3+ sub-agents in parallel using the Agent tool. Each must produce a **radically different** interface for the deepened module.
+50: 
+51: Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category, what's being hidden). This brief is independent of the user-facing explanation in Step 4. Give each agent a different design constraint:
+52: 
+53: - Agent 1: "Minimize the interface — aim for 1-3 entry points max"
+54: - Agent 2: "Maximize flexibility — support many use cases and extension"
+55: - Agent 3: "Optimize for the most common caller — make the default case trivial"
+56: - Agent 4 (if applicable): "Design around the ports & adapters pattern for cross-boundary dependencies"
+57: 
+58: Each sub-agent outputs:
+59: 
+60: 1. Interface signature (types, methods, params)
+61: 2. Usage example showing how callers use it
+62: 3. What complexity it hides internally
+63: 4. Dependency strategy (how deps are handled — see [REFERENCE.md](../skills/arch/improve-codebase-architecture/REFERENCE.md))
+64: 5. Trade-offs
+65: 
+66: Present designs sequentially, then compare them in prose.
+67: 
+68: After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated — the user wants a strong read, not just a menu.
+69: 
+70: ### 6. User picks an interface (or accepts recommendation)
+71: 
+72: ### 7. Create GitHub issue
+73: 
+74: Create a refactor RFC as a GitHub issue using `gh issue create`. Use the template in [REFERENCE.md](../skills/arch/improve-codebase-architecture/REFERENCE.md). Do NOT ask the user to review before creating — just create it and share the URL.
+
+### .agents/prompts/interface-design.md (92 total lines)
+1: ---
+2: description: Generate multiple radically different interface designs for a module using parallel sub-agents. Use when user wants to design an API, explore interface options, compare module shapes, or mentions "design it twice".
+3: ---
+4: # Design an Interface
+5: 
+6: Based on "Design It Twice" from "A Philosophy of Software Design": your first idea is unlikely to be the best. Generate multiple radically different designs, then compare.
+7: 
+8: ## Workflow
+9: 
+10: ### 1. Gather Requirements
+11: 
+12: Before designing, understand:
+13: 
+14: - [ ] What problem does this module solve?
+15: - [ ] Who are the callers? (other modules, external users, tests)
+16: - [ ] What are the key operations?
+17: - [ ] Any constraints? (performance, compatibility, existing patterns)
+18: - [ ] What should be hidden inside vs exposed?
+19: 
+20: Ask: "What does this module need to do? Who will use it?"
+21: 
+22: ### 2. Generate Designs (Parallel Sub-Agents)
+23: 
+24: Spawn 3+ sub-agents simultaneously using Task tool. Each must produce a **radically different** approach.
+25: 
+26: ```
+27: Prompt template for each sub-agent:
+28: 
+29: Design an interface for: [module description]
+30: 
+31: Requirements: [gathered requirements]
+32: 
+33: Constraints for this design: [assign a different constraint to each agent]
+34: - Agent 1: "Minimize method count - aim for 1-3 methods max"
+35: - Agent 2: "Maximize flexibility - support many use cases"
+36: - Agent 3: "Optimize for the most common case"
+37: - Agent 4: "Take inspiration from [specific paradigm/library]"
+38: 
+39: Output format:
+40: 1. Interface signature (types/methods)
+41: 2. Usage example (how caller uses it)
+42: 3. What this design hides internally
+43: 4. Trade-offs of this approach
+44: ```
+45: 
+46: ### 3. Present Designs
+47: 
+48: Show each design with:
+49: 
+50: 1. **Interface signature** - types, methods, params
+51: 2. **Usage examples** - how callers actually use it in practice
+52: 3. **What it hides** - complexity kept internal
+53: 
+54: Present designs sequentially so user can absorb each approach before comparison.
+55: 
+56: ### 4. Compare Designs
+57: 
+58: After showing all designs, compare them on:
+59: 
+60: - **Interface simplicity**: fewer methods, simpler params
+61: - **General-purpose vs specialized**: flexibility vs focus
+62: - **Implementation efficiency**: does shape allow efficient internals?
+63: - **Depth**: small interface hiding significant complexity (good) vs large interface with thin implementation (bad)
+64: - **Ease of correct use** vs **ease of misuse**
+65: 
+66: Discuss trade-offs in prose, not tables. Highlight where designs diverge most.
+67: 
+68: ### 5. Synthesize
+69: 
+70: Often the best design combines insights from multiple options. Ask:
+71: 
+72: - "Which design best fits your primary use case?"
+73: - "Any elements from other designs worth incorporating?"
+74: 
+75: ## Evaluation Criteria
+76: 
+77: From "A Philosophy of Software Design":
+78: 
+79: **Interface simplicity**: Fewer methods, simpler params = easier to learn and use correctly.
+80: 
+81: **General-purpose**: Can handle future use cases without changes. But beware over-generalization.
+82: 
+83: **Implementation efficiency**: Does interface shape allow efficient implementation? Or force awkward internals?
+84: 
+85: **Depth**: Small interface hiding significant complexity = deep module (good). Large interface with thin implementation = shallow module (avoid).
+86: 
+87: ## Anti-Patterns
+88: 
+89: - Don't let sub-agents produce similar designs - enforce radical difference
+90: - Don't skip comparison - the value is in contrast
+91: - Don't implement - this is purely about interface shape
+92: - Don't evaluate based on implementation effort

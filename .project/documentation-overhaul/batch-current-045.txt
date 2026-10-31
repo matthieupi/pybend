@@ -1,0 +1,506 @@
+
+### packages/n3tx-ui/docs/formidable.md (233 total lines)
+1: # Formidable (Form Generator)
+2: 
+3: > Part of [n3tx-ui](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The `Formidable` module in `generators/form.js`: schema-driven form generation, field rendering, validation, and layout caching. Covers the full rendering pipeline from schema properties to HTML output.
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: Schema arrives (via DESCRIBE or define())
+13:   |
+14:   v
+15: _getLayout(schema, mode)          -- cached per schema+mode+role
+16:   |  Computes field order (ui.field_order + remaining keys)
+17:   |  Filters by: not header field, ui.display !== false,
+18:   |              not protected (in edit mode), permissions.canView()
+19:   |
+20:   v
+21: getForm(ntt, mode, attachedMethods)
+22:   |
+23:   +-- normalizeSchema(schema)
+24:   |     Canonicalizes entity and method schemas into one properties-based shape
+25:   |     Expands top-level method $ref params into dotted editable fields
+26:   |
+27:   +-- getHeader(ntt, mode)         -- h2/input for name/title + description
+28:   |
+29:   +-- getFields(ntt, mode, attachedMethods)
+30:   |     Headerless field/body renderer
+31:   |     Accepts both schema.properties and schema.parameters
+32:   |     Internally operates on normalized schema.properties
+33:   |
+34:   +-- renderGroupedFields(...)     -- if schema.ui.groups defined
+35:   |     Wraps fields in <fieldset> with <legend>
+36:   |     Injects attached methods after their target field
+37:   |
+38:   +-- getInput(ntt, key, mode)     -- per-field rendering
+39:         |
+40:         +-- Widget dispatch first: getWidgetForField(def)
+41:         |     If widget found + def.ui.widget set: widget.display/edit
+42:         |     Wraps in .widget-display-wrapper or .widget-edit-wrapper
+43:         |
+44:         +-- Type dispatch fallback:
+45:               string -> input[text] / inline label-value display,
+46:               number/integer -> input[number] / bold single-line inline display,
+47:               boolean -> checkbox, array -> getListInput(),
+48:               $ref -> child component, enum -> select/pill,
+49:               object -> textarea/kv-display, selfref -> parent ID
+50: ```
+51: 
+52: ## Interface
+53: 
+54: ```javascript
+55: export const Formidable = {
+56:     // Normalize entity/method schema into canonical properties shape
+57:     normalizeSchema(schema)
+58:     // Returns normalized schema with __formKind metadata
+59: 
+60:     // Generate complete form HTML
+61:     getForm(ntt, mode = 'display', attachedMethods = {})
+62:     // ntt: { schema, value, ref?, name? }
+63:     // mode: 'display' | 'edit'
+64:     // Returns: HTML string
+65: 
+66:     // Generate fields only (no header)
+67:     getFields(ntt, mode = 'display', attachedMethods = {})
+68:     // Accepts both entity schemas (schema.properties)
+69:     // and method schemas (schema.parameters)
+70:     // Returns: HTML string
+71: 
+72:     // Generate single field
+73:     getInput(ntt, key, mode = 'display')
+74:     // Returns: HTML string
+75: 
+76:     // Generate list/array field
+77:     getListInput(ntt, key, mode = 'display')
+78:     // Returns: HTML string with nested child components
+79: 
+80:     // Render grouped fields with fieldsets
+81:     renderGroupedFields(ntt, fields, groups, mode, attachedMethods)
+82:     // Returns: HTML string
+83: 
+84:     // Format value for surgical update patches
+85:     formatDisplayValue(def, key, value)
+86:     // Returns: string (handles widgets, enums, refs, objects)
+87: 
+88:     // Client-side validation against schema constraints
+89:     validateForm(ntt)
+90:     // ntt: { schema, value }
+91:     // Returns: [{field, message}] -- empty = valid
+92: 
+93:     // Read current form values from a rendered root using data-key fields
+94:     readFormValue(root, ntt)
+95:     // Supports native inputs, widget wrappers, and ntx-list-field values
+96: 
+97:     // Shared field error utilities
+98:     clearFieldErrors(root)
+99:     showFieldErrors(root, errors)
+100: 
+101:     // Build HTML5 validation attribute string
+102:     validationAttrs(def, isRequired = false)
+103:     // Returns: string like ' required minlength="3" max="100"'
+104: 
+105:     // Clear layout cache (call on login/logout)
+106:     clearCache()
+107: }
+108: ```
+109: 
+110: ### validateForm checks
+111: 
+112: | Check | Applies to | Source |
+113: |-------|-----------|--------|
+114: | Required | all fields in `schema.required` | empty/null/undefined |
+115: | minLength / maxLength | strings | `def.minLength`, `def.maxLength` |
+116: | pattern | strings | `def.pattern` (RegExp) |
+117: | minimum / maximum | numbers | `def.minimum`, `def.maximum` |
+118: | exclusiveMinimum / exclusiveMaximum | numbers | strict bounds |
+119: | Widget validation | fields with `ui.widget` | `widget.validate()` |
+120: 
+121: Skipped: hidden (`ui.display: false`), protected (`ui.protected`), readOnly, array, object fields.
+122: 
+123: ## Usage Patterns
+124: 
+125: ### Schema-driven form in a custom component
+126: 
+127: ```javascript
+128: import { Formidable } from '../generators/form.js';
+129: 
+130: class MyComponent extends NTTElement {
+
+### packages/n3tx-ui/docs/formidable.md (233 total lines)
+131:     render() {
+132:         const html = Formidable.getForm(
+133:             { schema: this.schema, value: this.value, ref: this.ref },
+134:             this.mode
+135:         );
+136:         this.shadowRoot.innerHTML = `<div class="card">${html}</div>`;
+137:     }
+138: }
+139: ```
+140: 
+141: ### Method parameter rendering
+142: 
+143: `getFields()` is the intended entrypoint for rendering method inputs inside
+144: components like `<ntx-method>`. It accepts method schemas directly:
+145: 
+146: ```javascript
+147: const html = Formidable.getFields({
+148:     schema: {
+149:         __name__: 'Source.fetch',
+150:         parameters: {
+151:             use_js: { type: 'boolean', title: 'Use JS' },
+152:         },
+153:         required: [],
+154:         $defs: {},
+155:     },
+156:     value: { use_js: false },
+157:     name: 'fetch',
+158: }, 'edit');
+159: ```
+160: 
+161: This reuses the same schema-aware rendering path as entity forms, so boolean,
+162: array, enum, and widget-backed method params render consistently.
+163: 
+164: Top-level method `$ref` params are normalized before rendering. For a method
+165: param like:
+166: 
+167: ```javascript
+168: comment: { type: '$ref', $ref: '#/$defs/Comment' }
+169: ```
+170: 
+171: Formidable expands the referenced required fields into dotted keys like
+172: `comment.text`. If the referenced schema has no `required` list, all referenced
+173: fields are expanded.
+174: 
+175: ### Validation before save
+176: 
+177: ```javascript
+178: toggleMode() {
+179:     if (this.mode === 'edit') {
+180:         const errors = Formidable.validateForm(this);
+181:         if (errors.length > 0) {
+182:             this.showFieldErrors(errors);
+183:             return;
+184:         }
+185:         this.save();
+186:     }
+187:     this.mode = this.mode === 'edit' ? 'display' : 'edit';
+188:     this.render();
+189: }
+190: ```
+191: 
+192: ### Attached methods
+193: 
+194: Methods with `ui.attach_to` in their schema render inline after the specified field:
+195: 
+196: ```python
+197: @expose_route('/comment', methods=['POST'], ui={'attach_to': 'comments', 'layout': 'inline'})
+198: def comment(self, comment: Comment) -> str: ...
+199: ```
+200: 
+201: Formidable receives these as `attachedMethods` and injects them after the target field in both grouped and ungrouped layouts.
+202: 
+203: ## Gotchas
+204: 
+205: - **Layout cache is keyed by `schema.__name__:mode:permissions.role`.** This means the same schema renders differently for different roles (admin sees more fields). Call `Formidable.clearCache()` when the user logs in or out.
+206: 
+207: - **Header fields (`name`, `title`, `id`, `description`) are filtered from the main field list** by `_getLayout()` and rendered separately by `getHeader()`. If your model has no `name` or `title` field, the header falls back to `schema.name`. The `id` field is always hidden.
+208: 
+209: - **Method schemas are treated differently from entity schemas for layout.** When a schema uses `parameters` instead of `properties`, `getFields()` renders all method params directly and does not apply the entity header-field filtering for `name`, `title`, `id`, or `description`.
+210: 
+211: - **Method schemas are normalized once at the boundary.** Public callers may pass `schema.parameters`, but Formidable converts method forms into a canonical `schema.properties` shape internally. Layout differences remain semantic (`__formKind: 'method'`) rather than structural.
+212: 
+213: - **Method validation now matches expanded `$ref` rendering.** If a method param is expanded into dotted keys like `comment.text`, validation and field-error highlighting use those same dotted field paths.
+214: 
+215: - **Shared form reading supports custom list fields.** `readFormValue()` understands `<ntx-list-field>` in addition to native form controls, so rendered method arrays and submitted payloads stay in sync.
+216: 
+217: - **Form reading is root-based, not `<form>`-tag-based.** `readFormValue()` walks any rendered root for `[data-key]` fields, including `ntx-item` edit views that do not wrap their controls in a literal `<form>`. This keeps client-side validation aligned with the values currently shown in Formidable-rendered edit UIs.
+218: 
+219: - **Display-mode field rows are split into inline and block layouts.** Plain text, enum, selfref, and numeric values render in a two-column row with a fixed-width label column so values line up across the page. Long labels wrap inside that column. Textarea, object, ref, and array-style content stay block-stacked under their labels.
+220: 
+221: - **Edit-mode inputs use an underline treatment.** Formidable's default edit controls use a lighter single bottom border instead of a full outlined box, so edit mode reads as active without overpowering the item layout. Array/list fields follow the same treatment through `<ntx-list-field>`.
+222: 
+223: - **Array fields now route through the dedicated list-field widget.** `Formidable.getListInput()` delegates array rendering to `<ntx-list-field>`, which owns display/edit UI and `$ref` picker integration. Scalar arrays stage edits locally inside the widget. `$ref` arrays persist membership changes immediately through join/unjoin requests, because generic entity `UPDATE` does not store collection fields.
+224: 
+225: - **Protected fields use effectiveMode.** Even in edit mode, fields with `ui.protected: true` or where `permissions.canEdit()` returns false are rendered as display-only. The mode is downgraded per-field, not globally, including array/list fields.
+226: 
+227: - **anyOf resolution.** When a field has `anyOf` (Pydantic optional types), `resolveAnyOf()` strips the null type and uses the remaining definition. If multiple non-null types exist, it throws -- this is a schema design issue, not a form bug.
+228: 
+229: - **getListInput defaults to a visible count of 8.** Array fields render through `<ntx-list-field>`, which shows the first 8 items inline by default, then collapses the rest into a `.nested-collapsed` div with a "Show N more" button. The count is configurable with the component's `visible-count` attribute or schema UI hints (`ui.visible_count` / `ui.visibleCount`); use `visible-count="all"` or `"none"` to disable collapsing.
+230: 
+231: - **Widget wrappers stamp `data-key` and `data-type`** on the editable element so that `handleInputChange()` in NTTItem can process widget-produced inputs identically to plain inputs.
+232: 
+233: - **Edit headers preserve empty required values.** In edit mode, header fields like `name` and `title` render their raw value instead of falling back to display placeholders such as `Unnamed`, so required validation reflects the real entity state.
+
+### packages/n3tx-ui/docs/styling.md (133 total lines)
+1: # Styling
+2: 
+3: > Part of [n3tx-ui](../README.md)
+4: 
+5: ## Theme File Split
+6: 
+7: The shared frontend theme contract now has two layers:
+8: 
+9: - `packages/n3tx-ui/src/n3tx_ui/static/theme-base.css` owns global selectors and shared structure.
+10: - `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` and `packages/n3tx-ui/src/n3tx_ui/static/light-theme.css` own theme-specific token values.
+11: 
+12: `theme-base.css` is responsible for:
+13: 
+14: - global element defaults (`html`, `body`, headings, links, form controls)
+15: - page chrome layout (`body > .page`, sidebar offset behavior)
+16: - shared atmosphere selectors (`body::before`, `body::after`, selection, scrollbars)
+17: - consuming the canonical `--ntx-*` token contract
+18: 
+19: Theme entrypoints are responsible for:
+20: 
+21: - defining canonical `--ntx-*` tokens for typography, scale, color, motion, shadows, and shared recipes
+22: - setting theme-specific values for page atmosphere, shell surfaces, buttons, and inputs
+23: - exposing the canonical public contract only
+24: 
+25: ## Page Stylesheet Contract
+26: 
+27: Theme entrypoints are now token-only files. Pages must link `theme-base.css` explicitly alongside the theme files:
+28: 
+29: ```html
+30: <link rel="stylesheet" href="./theme-base.css" />
+31: <link rel="stylesheet" href="./dark-theme.css" />
+32: <link rel="stylesheet" href="./light-theme.css" />
+33: ```
+34: 
+35: Pages may also add app-level token entrypoints after the shared themes. Veille's
+36: `apps/veille/static/industrial-theme.css` is the canonical example: it defines
+37: only `--ntx-*` tokens and participates in runtime cycling by adding
+38: `'industrial'` to `window.NTX_THEME_CONFIG.themes`.
+39: 
+40: Legacy aliases such as `--surface-*`, `--text-*`, `--accent`, and `--border` are no longer part of the first-party contract.
+41: 
+42: ## Page Theme Contract
+43: 
+44: Pages provide the available theme order inline and load the runtime helper from `./utils/theme.js`:
+45: 
+46: ```html
+47: <link rel="stylesheet" href="./theme-base.css" />
+48: <link rel="stylesheet" href="./dark-theme.css" />
+49: <link rel="stylesheet" href="./light-theme.css" />
+50: <script>
+51:   window.NTX_THEME_CONFIG = { themes: ['dark', 'light'] };
+52: </script>
+53: <script type="module" src="./utils/theme.js"></script>
+54: ```
+55: 
+56: `toggleTheme()` no longer hardcodes dark/light branching. It cycles through the configured `themes` array in order, while `getTheme()` still resolves the persisted theme or the page's fallback theme.
+57: 
+58: `setTheme(theme)` updates both `localStorage['ntx-theme']` and `document.documentElement.dataset.theme`, then dispatches `theme-change` so multiple switchers stay synchronized.
+59: 
+60: ## Token Guidance
+61: 
+62: - Prefer canonical `--ntx-*` tokens in new framework and app CSS.
+63: - Do not reference legacy variable names in first-party CSS or tests.
+64: - Keep theme values in the theme entrypoints; do not add palette literals back into shared structural stylesheets.
+65: 
+66: ## Framework Surface Migration
+67: 
+68: The primary framework CSS surfaces now consume canonical tokens directly:
+69: 
+70: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.css`
+71: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.css`
+72: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.css`
+73: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.css`
+74: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.css`
+75: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.css`
+76: - `packages/n3tx-ui/src/n3tx_ui/static/auth.css`
+77: 
+78: These files should reference canonical `--ntx-*` tokens for layout, surfaces, typography, borders, interactions, and status styling. Repeated state treatments such as success, warning, error, and accent badges should prefer the `--ntx-status-*` family.
+79: 
+80: Current first-party chrome also prefers borderless outer shells for primary surfaces:
+81: 
+82: - topbar icon controls and the authenticated user menu rely on fill + shadow rather than visible strokes
+83: - table containers keep their internal row/header dividers but drop the outer table border
+84: - `ntx-item` detail shells (`md`/`lg`/`xl`) rely on background, spacing, and shadow instead of card borders
+85: 
+86: Veille and the shipped example surfaces now follow the same contract as well:
+87: 
+88: - `apps/veille/static/veille.css`
+89: - `apps/veille/static/components/ntx-run-output.css`
+90: - `apps/veille/static/components/ntx-run-report.css`
+91: - `examples/**/static/*.css`
+92: - `examples/**/static/*.html`
+93: - `packages/n3tx-ui/src/n3tx_ui/static/example.html`
+94: - `packages/n3tx-ui/src/n3tx_ui/static/example.css`
+95: 
+96: When examples need special semantics, prefer app/example-level composition on top of canonical tokens rather than reintroducing `--surface-*`, `--text-*`, `--accent`, or `--glass-*` dependencies.
+97: 
+98: ## Verification
+99: 
+100: Recommended verification commands:
+101: 
+102: ```bash
+103: cd /workspace/tests/frontend && npx vitest run
+104: cd /workspace/tests/frontend && npm run test:e2e:fast
+105: cd /workspace/tests/frontend && npm run test:e2e:parallel
+106: cd /workspace && python3 scripts/test-frontend.py
+107: cd /workspace && python3 scripts/test-frontend.py --suite e2e-core
+108: cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/theme-toggle.spec.js
+109: cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/css-and-theming-unit.spec.js tests/e2e/page-load.spec.js
+110: ```
+111: 
+112: ### Playwright Environment
+113: 
+114: - The browser harness runs against `examples/core`.
+115: - `tests/frontend/tests/e2e/start-e2e-app.js` creates and seeds a temp SQLite database inside the Playwright `webServer.command` before the server starts. This avoids relying on `globalSetup` ordering for the DB marker handoff.
+116: - `tests/frontend/tests/e2e/global-teardown.js` removes that temp DB after the run.
+117: - In this workspace, Python web dependencies for the Playwright server are installed in `/workspace/.venv-e2e`; `start-e2e-app.js` auto-detects and uses it.
+118: - Prefer the shared readiness helpers in `tests/frontend/tests/e2e/fixtures/ui.js`
+119:   (`gotoApp`, `waitForTopbar`, `waitForProductList`, etc.) instead of
+120:   `networkidle` plus fixed sleeps. This keeps UI tests tied to actual component
+121:   state and avoids adding seconds of guaranteed delay per assertion.
+122: - Use `tests/e2e/playwright.fast.config.js` / `npm run test:e2e:fast` for the
+123:   parallel read-only smoke lane. The full `playwright.config.js` suite remains
+124:   serial because mutation-heavy specs currently share one backend and database.
+125: - Use `tests/e2e/playwright.parallel.config.js` / `npm run test:e2e:parallel`
+126:   for the fully parallel core lane. Its `fixtures/parallel.js` worker fixture
+127:   starts isolated `examples/core` servers on separate ports with separate temp
+128:   SQLite DBs. App-specific Grants, Veille, and performance specs still use their
+129:   dedicated configs.
+130: - `scripts/test-frontend.py` is the aggregate runner. It executes selected
+
+### packages/n3tx-ui/docs/styling.md (133 total lines)
+131:   suites concurrently with 2 suite workers by default (`--workers N` or
+132:   `N3TX_FRONTEND_SUITE_WORKERS`) while `e2e-core` uses the worker-isolated
+133:   Playwright parallel config internally.
+
+### packages/n3tx-ui/docs/viewable-mixin.md (296 total lines)
+1: # ViewableMixin
+2: 
+3: > Part of [n3tx-ui](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: `ViewableMixin` and the `viewable` schema pipeline stage. Covers injection via
+8: `__viewable__` / `__ui__`, the schema output format, and the registration
+9: side-effect. Does not cover the components that consume `schema['ui']` (see
+10: [components.md](components.md) and [formidable.md](formidable.md)).
+11: 
+12: ## Architecture
+13: 
+14: ```
+15: n3tx_ui imported
+16:     |
+17:     v
+18: register_mixin('__viewable__', ViewableMixin, also_if=['__ui__'])
+19: + @schema_extension(after='ui') → viewable stage registered
+20: 
+21: At model definition time:
+22:     class Product(ProtoModel):
+23:         __viewable__ = True   # or __ui__ = {...} triggers the same
+24:     → ViewableMixin prepended to Product.__bases__
+25: 
+26: At schema generation time:
+27:     ProtoModel.schema()  →  ... → ui() → viewable() → metadata()
+28:                                                 |
+29:                                     emits schema['ui'] from __ui__
+30: ```
+31: 
+32: `ViewableMixin` carries `__ui__: ClassVar[Optional[dict]] = None`, owns the
+33: `viewable` schema extension stage, and registers model view routes for viewable
+34: models. This mirrors the backend capability split: `StorableMixin` makes a
+35: model eligible for CRUD/data routes, while `ViewableMixin` makes a model
+36: eligible for HTML/view routes.
+37: 
+38: ## Injection
+39: 
+40: ### Trigger: `__viewable__ = True`
+41: 
+42: Explicit opt-in. `ViewableMixin` is injected, but `schema['ui']` is only
+43: emitted if `__ui__` is also set.
+44: 
+45: ```python
+46: import n3tx_ui  # registers ViewableMixin before model definition
+47: 
+48: class Dashboard(ProtoModel):
+49:     __tablename__ = 'dashboards'
+50:     __viewable__ = True
+51:     # No __ui__ → schema has no 'ui' key, but issubclass(Dashboard, ViewableMixin)
+52: ```
+53: 
+54: ### Trigger: `__ui__ = {...}` (guardrail)
+55: 
+56: Setting `__ui__` automatically sets `__viewable__ = True` and injects the mixin.
+57: This is the common case — you rarely need to set `__viewable__` explicitly.
+58: 
+59: ```python
+60: import n3tx_ui  # must import before model definition
+61: 
+62: class Product(ProtoModel):
+63:     __tablename__ = 'products'
+64:     __ui__ = {
+65:         'field_order': ['name', 'price'],
+66:         'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
+67:     }
+68:     # → __viewable__ = True is set automatically
+69:     # → ViewableMixin is injected
+70: ```
+71: 
+72: ## Interface
+73: 
+74: ### `__ui__` ClassVar dict
+75: 
+76: All keys are optional. The entire dict is copied into `schema['ui']`.
+77: 
+78: | Key | Type | Description |
+79: |-----|------|-------------|
+80: | `field_order` | `list[str]` | Field render order (Formidable) |
+81: | `groups` | `dict[str, list[str]]` | Named fieldset groupings |
+82: | `icon` | `str` | Shared icon token: inline-SVG lookup key, emoji, or URL/path |
+83: | `methods` | `dict[str, dict]` | Per-method UI hints (see below) |
+84: | `renderer` | `dict` | Override component tags: `{'item': 'ntx-item', 'list': 'ntx-list'}` |
+85: | `populate` | `dict` | Schema hydration hints: `{'depth': 2}` |
+86: 
+87: Any additional keys are passed through unchanged.
+88: 
+89: ### Method UI hints (`__ui__.methods`)
+90: 
+91: Per-method rendering hints. Each key matches a method name from `@expose_route`.
+92: 
+93: ```python
+94: __ui__ = {
+95:     'methods': {
+96:         'comment': {
+97:             'layout': 'inline',       # 'inline' | 'button' | 'modal'
+98:             'attach_to': 'comments',  # Field to append result to
+99:             'button_label': 'Post',
+100:             'placeholder': 'Add comment...',
+101:             'widget': 'textarea',
+102:         },
+103:         'favorite': {
+104:             'layout': 'button',
+105:             'icon': 'star',
+106:             'count_field': 'favorites',
+107:         },
+108:     }
+109: }
+110: ```
+111: 
+112: These are emitted as `schema['methods'][name]['ui']` for the frontend to read.
+113: 
+114: ### View route registration
+115: 
+116: `ViewableMixin.register_view_routes(router, tag=...)` registers HTML/view
+117: entrypoints owned by the viewable capability. The collection route grammar
+118: supports both default and named collection views:
+119: 
+120: ```text
+121: GET /{ClassName}/@       # default collection view
+122: GET /{ClassName}/@{view} # named collection view
+123: GET /{ClassName}/{id}/@  # default member view
+124: GET /{ClassName}/{id}/@{view} # named member view
+125: ```
+126: 
+127: The response is an HTML shell that mounts the normal frontend component system;
+128: it is not a separate server-side component renderer. Default collection renderer
+129: resolution matches the frontend router. Default collection views resolve as:
+130: 

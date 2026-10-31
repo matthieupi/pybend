@@ -1,0 +1,540 @@
+
+### .project/archive/features/tests/3-e2e-page-objects-option-b.md (738 total lines)
+1: # Plan 3 — Semantic E2E Page Objects, Option B
+2: 
+3: ## Purpose
+4: 
+5: Implement **Option B: Page objects with semantic component queries** for frontend Playwright tests.
+6: 
+7: This corresponds to candidate #3 from `.project/plans/frontend-test-architecture-deepening-candidates.md`: **Semantic E2E API/session/page-object layer**.
+8: 
+9: The goal is to deepen the browser-test boundary so specs express user and framework contracts instead of repeatedly traversing Shadow DOM, hand-editing `localStorage`, and embedding component-specific selectors.
+10: 
+736: - `tests/frontend/tests/e2e/pages/session.js`
+737: - `tests/frontend/tests/e2e/pages/product-list.js`
+738: - `tests/frontend/tests/e2e/authentication.spec.js`
+
+### .project/archive/features/tests/contract-triage-p-1.md (424 total lines)
+1: # P-1 Contract Triage — Test Failure Audit
+2: 
+3: ## Purpose
+4: 
+5: This document executes **P-1: Contract Triage Gate** for the current test-failure recovery work.
+6: 
+7: The goal is to prevent accidental regressions while fixing a stale test suite. A failing test is not automatically proof that production code is wrong. Before a cluster is fixed, we must decide whether it represents:
+8: 
+9: - a real product regression;
+10: - a stale test contract;
+422: ## Immediate Next Step
+423: 
+424: Begin P0 with a narrow grants actor/storage identity test. Do not change auth response envelope behavior in production during that slice.
+
+### .project/archive/features/theme-overhaul/plan.md (955 total lines)
+1: # Theme Ownership Overhaul - Implementation Plan
+2: 
+3: ## Purpose
+4: 
+5: This document is written for a memoryless implementation agent.
+6: 
+7: Its job is to capture the current N3TX frontend theme architecture, the agreed design decisions, the exact scope of the overhaul, and the implementation sequence required to make theme entrypoints first-class owners of theme-specific style.
+8: 
+9: This plan is not the industrial visual transfer itself.
+10: 
+953: 8. major framework CSS hotspots, Veille, and first-party examples use canonical `--ntx-*` tokens.
+954: 9. legacy theme variable names are no longer the first-party contract.
+955: 10. tests and docs describe and verify the new canonical contract.
+
+### .project/archive/features/veille-agents-list/plan.md (595 total lines)
+1: # Veille Agents Surface and `ntx-agents` Plan
+2: 
+3: ## Purpose
+4: 
+5: This document is written for a memoryless implementation agent.
+6: 
+7: Its job is to capture the corrected user intent, the current N3TX and Veille
+8: behavior, the architectural constraints already verified in the codebase, and
+9: the exact implementation plan for adding a custom agents list without breaking
+10: the existing grant analysis preview.
+593:   `ntx-list`
+594: 
+595: That is the intended feature. Anything less is incomplete.
+
+### .project/archive/features/widgets/json-fields.md (219 total lines)
+1: # First-Class JSON Field Support
+2: 
+3: **Date:** 2026-03-05
+4: **Scope:** Promote dict/list JSON serialization from per-model boilerplate to a framework-level storage feature.
+5: **Status:** Implemented
+6: 
+7: ---
+8: 
+9: ## 1. Problem
+10: 
+217: ```
+218: 
+219: No `_JSON_FIELDS`, no `_storage_dict()`, no `@model_validator`, no `update()` override. The framework handles serialization and deserialization transparently in the storage layer.
+
+### .project/archive/plans/1-agent-chat-ui-plan.md (582 total lines)
+1: # Agent Chat + Veille Dashboard Refactor Plan
+2: 
+3: ## Summary
+4: 
+5: This work splits into four independent but coordinated updates:
+6: 
+7: 1. **Framework bootstrap addition** — provision a static app Assistant at startup as a pure addition
+8: 2. **Framework chat refactor** — make `ntx-chat` threaded, responsive, and based on shared stream rendering
+9: 3. **Veille dashboard rewrite** — replace the noisy default landing surface with `agents-dashboard`
+10: 4. **Veille agent interaction integration** — wire featured agent cards into detail + chat flows
+580:   - DASHBOARD shows configured featured agents only
+581:   - Assistant card opens detail
+582:   - detail chat starts a new thread and continues it during the mounted session
+
+### .project/archive/plans/2-grant-scanning-pipeline.md (207 total lines)
+1: # Grant Scanning Pipeline — Implementation Plan
+2: 
+3: ## Context
+4: 
+5: The Grant Watcher app currently has models (Grant, Source, WebTools, AgentActor) but no automated pipeline. Users must manually trigger the agent or create grants by hand. This plan implements an end-to-end automated pipeline: a scheduler wakes up periodically, scrapes all sources for grant URLs, deduplicates against the DB, creates new Grant entries, runs LLM eligibility analysis against org docs, and produces a WatchReport.
+6: 
+7: ## Architecture
+8: 
+9: ```
+10: SchedulerActor (asyncio loop, configurable interval)
+205:    - `POST /scan_pipeline/run` (admin token) — triggers pipeline
+206:    - `GET /watch_reports` — shows completed report
+207:    - `GET /scheduler/status` — shows running state
+
+### .project/archive/plans/3-formidable-method-fields-integration-plan.md (649 total lines)
+1: # Formidable Method Fields Integration Plan
+2: 
+3: ## Goal
+4: 
+5: Fix the frontend method-form rendering gap by routing method parameters through `Formidable` instead of `ntx-method`'s manual input renderer.
+6: 
+7: This should make method params such as `boolean`, `array`, `enum`, `object`, and widget-backed fields render correctly and consistently with entity forms.
+8: 
+9: ## Problem Statement
+10: 
+647: - array method params no longer degrade to primitive text fallback
+648: - method submission uses typed collection
+649: - focused frontend tests pass
+
+### .project/archive/plans/4-formidable-method-form-normalization-plan.md (661 total lines)
+1: # Formidable Method Form Normalization Plan
+2: 
+3: ## Recommendation
+4: 
+5: Adopt a **contract-first simplification** for method forms:
+6: 
+7: 1. Normalize method schemas once in `Formidable` into a canonical form spec.
+8: 2. Use that same spec for **rendering**, **value reading**, **validation**, and **field error display**.
+9: 3. Reduce `ntx-method` to a thin shell that chooses layout and invokes the method.
+10: 
+659: - method forms can submit `ntx-list-field` values correctly
+660: - method validation errors are visible in the UI
+661: - focused frontend tests pass
+
+### .project/archive/plans/5-ntx-method-optional-fields-plan.md (342 total lines)
+1: # ntx-method optional/default field disclosure plan
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Implement this as a **frontend-only change in `ntx-method` + Formidable**, with **no backend schema change in phase 1**.
+6: 
+7: Why:
+8: 
+9: - The current backend already tells the frontend which method params are `required`.
+10: - In the current Python method signature model, a non-required param is effectively a param with a default.
+340: ## Saved Plan
+341: 
+342: - `.project/plans/ntx-method-optional-fields-plan.md`
+
+### .project/archive/plans/6-canonical-auth-principal-refactor.md (476 total lines)
+1: # Canonical Auth Principal Refactor Plan
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Introduce a single framework-owned **AuthPrincipal** contract for authorization context, and keep full `User` model injection as an application-method convenience only.
+6: 
+7: The goal is not to remove `user: User = None` from custom methods. That is useful app-facing API. The goal is to stop reusing that method argument as the authorization context. Internally, every auth decision and actor/tool/thread auth hop should receive one normalized principal shape.
+8: 
+9: Recommended default path:
+10: 
+474: - `packages/n3tx-actors/src/n3tx_actors/api/network_api.py`
+475: - `packages/n3tx-actors/src/n3tx_actors/api/auth_interceptor.py`
+476: - `packages/n3tx-agents/src/n3tx_agents/mixin.py`
+
+### .project/archive/plans/ROADMAP-v0.10.md (744 total lines)
+1: # ROADMAP v0.10: Platform Expansion
+2: 
+3: > **Theme:** From framework to platform.
+4: > Connect N3TX to the agentic ecosystem, the Fediverse, and the static web.
+5: > Every new capability is a protocol adapter or schema consumer — not a rewrite.
+6: 
+7: **Generated**: 2026-03-02
+8: **Branch**: `v0.10` (from `v0.9`)
+9: **Status**: Planning
+10: **Depends on**: v0.9 (polymorphic types, CLI, REST enhancements, MCP deepening, CT verification)
+742: ---
+743: 
+744: *This roadmap is self-contained for clean-context agents. All file paths reference the actual codebase. Research documents are in `.traces/research/` and `.traces/vision/`. The v0.8 roadmap (`ROADMAP-v0.8.md`) and v0.9 roadmap (`ROADMAP-v0.9.md`) provide foundational context.*
+
+### .project/archive/plans/ROADMAP-v0.8.md (1623 total lines)
+1: # ROADMAP-B: Actor-Unified Architecture
+2: 
+3: > **One system. Actors all the way down.**
+4: > From a web framework with an actor frontend to a unified actor platform
+5: > where agents, federation, and microservices are routing configurations, not features.
+6: 
+7: **Generated**: 2026-02-26
+8: **Branch**: `v0.8`
+9: **Status**: In progress. Wave 0 complete. Wave 1 complete. Wave 2 mostly complete (2b, 2c done; 2a deferred). Wave 3 started (3a done).
+10: 
+1621: ---
+1622: 
+1623: *This roadmap is a living document. Each Wave's completion should trigger a review of the next Wave's priorities and triggers. The research that informed this roadmap lives in `.traces/research/`. ROADMAP-A provides an alternative approach that can be compared for risk/reward tradeoffs.*
+
+### .project/archive/plans/ROADMAP-v0.9.md (707 total lines)
+1: # ROADMAP v0.9: Schema Deepening & Developer Experience
+2: 
+3: > **Theme:** Harden the foundation, unlock the developer.
+4: > Make the schema pipeline richer, the access rules provably correct,
+5: > the CLI ergonomic, and the REST surface production-grade.
+6: 
+7: **Generated**: 2026-03-02
+8: **Branch**: `v0.9` (from `v0.8`)
+9: **Status**: Planning
+10: **Depends on**: v0.8 (actor system, schema/dump pipelines, NetworkAPI/MCP adapters, two-tier auth, SSR infrastructure)
+705: ---
+706: 
+707: *This roadmap is self-contained for clean-context agents. All file paths reference the actual codebase. Research documents are in `.traces/research/` and `.traces/vision/`. The v0.8 roadmap (`ROADMAP-v0.8.md`) provides foundational context.*
+
+### .project/archive/plans/distributed-refs-backend-capabilities.md (949 total lines)
+1: # Distributed Refs and Backend-to-Backend Capabilities Plan
+2: 
+3: ✅ **Goal**
+4: 
+5: Add distributed backend-to-backend capabilities to N3TX by extending the existing `Ref` + `Matrix` architecture instead of introducing a parallel distributed object system.
+6: 
+7: The intent-preserving semantic change is:
+8: 
+9: ```text
+10: Ref[T] means “a pointer to a T actor/model identity that Matrix can resolve.”
+947: ## Saved Plan
+948: 
+949: - `.project/plans/distributed-refs-backend-capabilities.md`
+
+### .project/archive/plans/file-static-store-facade.md (281 total lines)
+1: # File Static Store Facade Plan
+2: 
+3: ✅ **Recommendation:** make `File` the primary byte-store facade through explicit class/static APIs, but do **not** remove the provider seam yet. Keep `FileStore`, `LocalFileStore`, `FileStat`, `configure_file_store()`, and `get_file_store()` as compatibility exports while routing them through `File`.
+4: 
+5: This gives the ergonomics the user wants — app code can mostly say `File.configure_local_store(...)`, `File.store()`, `File.put_stream(...)`, `File.open_stream(...)` — without breaking the current tests, docs, route flow, or future S3/R2/CDN provider strategy.
+6: 
+7: ## 📍 Current state
+8: 
+9: `n3tx-files` currently has a three-part split:
+10: 
+279: ## Saved Plan
+280: 
+281: - `.project/plans/file-static-store-facade.md`
+
+### .project/archive/plans/first-class-many-to-many-relationships.md (586 total lines)
+1: # First-Class Many-to-Many Relationships in N3TX
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Add many-to-many as a **new first-class relationship primitive** instead of stretching the current generated `ListRef` join-subclass model.
+6: 
+7: Keep today's `ListRef[T]` behavior as the backward-compatible **owned collection** primitive. Introduce a field-aware relationship descriptor, a relationship registry, link-table storage, and explicit schema metadata so backend, routes, actors, and frontend agree on what add/remove/populate mean.
+8: 
+9: Use `ManyToMany[T]` for the first implementation while adding a deprecation warning for ambiguous plain `List[Model]` fields. The warning should signal the intended N3TX 0.11 behavior change:
+10: 
+584: - `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py`
+585: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list-field.js`
+586: - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js`
+
+### .project/archive/plans/framework-embedded-value-models-reviewed-execution-plan.md (418 total lines)
+1: # ✅ Revised Execution Plan: Explicit Nested Value Models
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Use an explicit model flag for embedded value models:
+6: 
+7: ```py
+8: class PipelineOptions(ProtoModel):
+9:     __nested__ = True
+10: 
+416: ## 📝 Saved Plan
+417: 
+418: - `.project/plans/framework-embedded-value-models-reviewed-execution-plan.md`
+
+### .project/archive/plans/framework-embedded-value-models.md (447 total lines)
+1: # ✅ Plan: Support Embedded Value Models in N3TX Storable Models
+2: 
+3: 📍 **Goal**: Fix the framework-level mismatch where every Pydantic model field on a storable `ProtoModel` is auto-rewritten into `Ref[T]`, even when the nested model is a non-storable value object meant to serialize inline as JSON.
+4: 
+5: This directly addresses the `Run.pipeline_options: PipelineOptions` crash:
+6: 
+7: ```text
+8: Error calling function `<lambda>`: TypeError: int() argument must be a string,
+9: a bytes-like object or a real number, not 'PipelineOptions'
+10: ```
+445: - Consider adding an explicit marker later, e.g. `Embedded[T]`, if the implicit rule ever becomes ambiguous.
+446: - Consider a migration note for apps that already created incorrect `*_id` columns for embedded models.
+447: - Consider making `get_json_fields()` support nested `BaseModel` lists separately if the framework wants `list[NonStorableModel]` as embedded JSON arrays. This plan keeps scope to single embedded model fields first.
+
+### .project/archive/plans/frontend-split-plan.md (305 total lines)
+1: # Frontend Static Split — Update to Module Split Plan
+2: 
+3: ## Context
+4: 
+5: The existing module-split-plan.md places `Actor.js`, `TX.js`, `Matrix.js` in **n3tx-actors** static and everything else in **n3tx-core** static. Analysis of the actual frontend dependency graph shows this doesn't work — `Component.js` (the base for every web component) imports Actor, Matrix, AND TX. `NTT.js` extends Actor and uses Matrix. Every rendered component transitively depends on all three "actor" files.
+6: 
+7: The frontend needs a different split axis than the backend. The proposal: add **n3tx-ui** as a fourth package that owns the visual layer — all registered web components (`ntx-*.js`), their base classes, the form generator, and widgets. n3tx-actors becomes backend-only (no frontend static).
+8: 
+9: ---
+10: 
+303: - `./components/ntx-item.js` resolves from n3tx-ui
+304: - `./components/ntx-chat.js` resolves from n3tx-agents
+305: - No 404s in any example app
+
+### .project/archive/plans/minimal-location-transparent-refs.md (624 total lines)
+1: # N3TX Plan — Minimal Location-Transparent Refs + Remote Materialization
+2: 
+3: ## ✅ Executive Recommendation
+4: 
+5: Implement the desired distributed-reference behavior by completing N3TX’s existing
+6: address/href/Matrix architecture, not by introducing a new public reference
+7: identity subsystem.
+8: 
+9: The smallest aligned path is:
+10: 
+622: 
+623: That is the minimal, N3TX-native path to location-transparent refs and remote
+624: file materialization.
+
+### .project/archive/plans/module-split-plan.md (831 total lines)
+1: # N3TX Module Split Plan
+2: 
+3: ## Context
+4: 
+5: The `expose_route` debug envelope bug revealed a deeper issue: the backend and frontend need to communicate via a unified TX-based wire format, and achieving this cleanly requires the project to be split into composable, independently installable modules. The current monolithic `n3tx` package bundles everything (models, actors, agents, storage, auth, UI) into one install, making it impossible to use the actor system without the full framework or to add agents without pulling in everything.
+6: 
+7: The goal: split into **n3tx-core** (models, storage, auth, API + JS runtime), **n3tx-actors** (messaging, backend only), **n3tx-ui** (visual components, widgets, themes), and **n3tx-agents** (LLM reasoning). The frontend split axis differs from the backend — Actor.js/TX.js/Matrix.js are foundational to every component and stay in n3tx-core, while the visual layer (registered web components, form generator, widgets) moves to n3tx-ui. Projects install only what they need.
+8: 
+9: ---
+10: 
+829: ```
+830: 
+831: Phase 0 is the only phase that can be shipped independently. Phases 1–8 are a single coordinated migration — shipping partial moves would break everything.
+
+### .project/archive/plans/n3tx-actor-custom-method-resource-auth.md (263 total lines)
+1: # N3TX Plan — Resource-Aware Auth for Actor-Routed Instance Methods
+2: 
+3: ✅ **Recommendation:** fix this at the actor framework boundary, not in app code. `@expose_route(..., access=OWNER | ROLE("admin"))` must mean the same thing for actor-routed instance methods as it does for direct FastAPI routes: load the target instance, evaluate the method rule with `AccessContext.resource`, then execute.
+4: 
+5: 📍 **Scope:** `n3tx-actors` runtime auth path, tests, and docs. Avoid changing `OWNER.evaluate()` globally.
+6: 
+7: ---
+8: 
+9: ## Current State
+10: 
+261: ## Saved Plan
+262: 
+263: - `.project/plans/n3tx-actor-custom-method-resource-auth.md`
+
+### .project/archive/plans/n3tx-cdn-architecture.md (602 total lines)
+1: # N3TX File Capability Architecture Plan
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Build the CDN capability around a **deep, unified `File(ActorModel)` module** instead of a CDN-first subsystem with separate `FileActor`, `CDNAsset`, resolver, and app-extension concepts.
+6: 
+7: The public idea should be simple:
+8: 
+9: > A file is an N3TX model, an actor, a schema contract, a stored metadata record, and a reusable capability.
+10: 
+600: ### Saved Plan
+601: 
+602: - `.project/plans/n3tx-cdn-architecture.md`
+
+### .project/archive/plans/n3tx-cdn-implementation-plan.md (258 total lines)
+1: # N3TX File Capability Implementation Plan
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Implement the PRD as an optional **`n3tx-files` package** whose public primitive is `File(ActorModel)`. Keep CDN/object-store behavior behind provider strategies; the first release should make local file storage, metadata CRUD, upload/download, `ensure_local()`, and typed method materialization work end-to-end.
+6: 
+7: The default path:
+8: 
+9: 1. Add `packages/n3tx-files` as a separate package depending on `n3tx-core` + `n3tx-actors`.
+10: 2. Add a deep file module: `File`, `FileStore`, `LocalFileStore`, `ProjectionCache`, address parsing.
+256: ## Saved Plan
+257: 
+258: - `.project/plans/n3tx-cdn-implementation-plan.md`
+
+### .project/archive/plans/n3tx-files-file-capability-alignment.md (356 total lines)
+1: # N3TX Files Alignment Plan: Make `File` the Public Capability
+2: 
+3: ✅ **Recommendation**: keep `FileStore` as a small internal byte-provider strategy, but make `File(ActorModel)` the single N3TX-facing file capability.
+4: 
+5: The goal is not to add abstraction. The goal is to **remove provider mechanics from routes and callers** so application code speaks in N3TX terms:
+6: 
+7: ```python
+8: created = await File.create_from_stream(upload, filename="audio.wav", user=user)
+9: stream = created.open_stream(start=0, end=1023)
+10: local = await created.ensure_local()
+354: - Cleaner support for remote/cloud providers.
+355: - More discoverable file behavior through the `File` model.
+356: - Better alignment with “the model is the app” without forcing binary IO into JSON method routes prematurely.
+
+### .project/archive/plans/n3tx-location-transparent-refs-handoff.md (743 total lines)
+1: # N3TX Handoff Plan — Location-Transparent `Ref[T]` Resolution Through Matrix
+2: 
+3: ## ✅ Executive recommendation
+4: 
+5: Implement **location-transparent references** in N3TX so `Ref[T]` stores a resolvable actor/model identity and resolves through Matrix:
+6: 
+7: ```python
+8: media: Ref[Media]                  # existing single reference shape
+9: files: list[Ref[File]]             # independent local/remote actor refs
+10: artifacts: list[Ref[Artifact]]     # independent local/remote actor refs
+741: - `packages/n3tx-actors/src/n3tx_actors/api/network_adapter.py`
+742: - `packages/n3tx-files/src/n3tx_files/file.py`
+743: - `packages/n3tx-files/src/n3tx_files/materialize.py`
+
+### .project/features/agentics/03-hardening-and-capabilities.md (538 total lines)
+1: # Agent Primitives: Hardening & Capabilities
+2: 
+3: **Status:** Plan
+4: **Date:** 2026-03-08
+5: **Depends on:** 02-agent-mixin-proposal.md (streaming, ctx/tools, agentic rename)
+6: **Branch:** `v0.9`
+7: 
+8: ---
+9: 
+10: ## Context
+536: | `example_grants/tests/test_agent_run.py` | T7 multi-tool integration |
+537: | *Later:* `src/n3tx/core/agents/run_model.py` | Phase 3 — run history model |
+538: | *Later:* `src/n3tx/core/agents/deps.py` | Phase 3 — delegation depth |
+
+### .project/features/agentics/04-llm-schema.md (167 total lines)
+1: # AgentMixin: Replace `_build_schema_text` with LLM pipeline
+2: 
+3: **Status:** Plan
+4: **Date:** 2026-03-14
+5: **Depends on:** 03-hardening-and-capabilities.md
+6: **Branch:** `v0.9`
+7: 
+8: ---
+9: 
+10: ## Context
+165: 2. Run agent actor tests: `python3 -m pytest src/n3tx/core/agents/tests/test_agent_actor.py -v`
+166: 3. Run proto_schema tests: `python3 -m pytest src/n3tx/core/tests/unit/test_schema_ext.py -v`
+167: 4. Print `Product.ctx()` before/after to visually compare quality
+
+### .project/features/agentics/05-unified-emit.md (392 total lines)
+1: # Unified Streaming: `Actor.emit()` Side-Channel
+2: 
+3: **Status:** Proposal
+4: **Date:** 2026-03-14
+5: **Depends on:** 04-mixin-dedup.md (shared helpers)
+6: **Branch:** `v0.10`
+7: 
+8: ---
+9: 
+10: ## Problem
+390: 4. **Agent integration:** Product.ask using single `agentic()`, verify streaming chunks arrive via SSE
+391: 5. **Backward compat:** Existing generator-based methods still work unchanged
+392: 6. **Schema:** `methods.countdown.stream = true` still present, frontend unchanged
+
+### .project/features/agentics/06-unified-emit-research.md (489 total lines)
+1: # Research: Unified Streaming via `Actor.emit()` Side-Channel
+2: 
+3: **Status:** Research / Design Exploration
+4: **Date:** 2026-03-18
+5: **Depends on:** 04-mixin-dedup.md (shared helpers)
+6: **Branch:** `v0.10`
+7: **Context:** This document captures a design conversation exploring how to unify streaming and non-streaming method signatures in N3TX's actor system. It documents the problem, design iterations, rejected approaches, and the current recommended direction.
+8: 
+9: ---
+10: 
+487: ```
+488: 
+489: **Current recommendation: v4** — `instance._tx` + `tx.chunk()` auto-seq. ~15 lines total, zero new abstractions, zero new dependencies. Addresses 100% of real streaming use cases.
+
+### .project/features/hypertext-linking/plan.md (1229 total lines)
+1: # Hypertext Linking (`@field` Reference Aliases) - Implementation Plan
+2: 
+3: ## Purpose
+4: 
+5: This document is written for a memoryless implementation agent.
+6: 
+7: Its job is to capture the current N3TX behavior, the constraints already agreed
+8: with the user, the technical caveats discovered during repository inspection,
+9: and the full implementation plan required to add hypertext-style reference
+10: aliases such as `@comments` without breaking N3TX's schema-driven architecture.
+1227:    state
+1228: 9. UI components work without having to learn raw alias keys directly
+1229: 10. docs and tests describe the feature as a first-class framework contract
+
+### .project/features/notion-block-tree/01-industry-and-decisions.md (749 total lines)
+1: # Industry Landscape & Decision Framework: Block-Based Recursive Data Models
+2: 
+3: > From Notion's 200-billion-block Postgres cluster to WordPress Gutenberg's 82 million installs,
+4: > the "everything is a block" pattern has become the dominant paradigm for content-rich applications.
+5: > This document maps who adopted it, what they gained, what they lost, and when your framework
+6: > should (and should not) provide block primitives natively.
+7: 
+8: ---
+9: 
+10: ## Table of Contents
+747: 46. [GetDX: Developer Experience Index](https://getdx.com/research/the-one-number-you-need-to-increase-roi-per-engineer/) -- DXI ROI measurement
+748: 47. [Notion Developers: Working with Page Content](https://developers.notion.com/docs/working-with-page-content) -- API nesting limits
+749: 48. [Thomas Frank: Notion API Rate Limits](https://thomasjfrank.com/how-to-handle-notion-api-request-limits/) -- API limitations
+
+### .project/features/notion-block-tree/02-technical-deep-dive.md (907 total lines)
+1: # Recursive Block Data Models: Technical Deep Dive
+2: 
+3: **Tree Architectures, Storage Patterns, Schema Design, and Block Type Systems**
+4: 
+5: *Research prepared for N3TX engineering leadership -- March 2026*
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+905: 26. [SQL Server Closure Tables -- Red Gate](https://www.red-gate.com/simple-talk/databases/sql-server/t-sql-programming-sql-server/sql-server-closure-tables/) -- Closure table implementation patterns and performance
+906: 27. [OpenAPI Discriminator -- Swagger](https://swagger.io/docs/specification/v3_0/data-models/inheritance-and-polymorphism/) -- Polymorphism in API schemas with discriminator
+907: 28. [Implementing Fractional Indexing -- David Greenspan](https://observablehq.com/@dgreensp/implementing-fractional-indexing) -- Reference implementation with string arithmetic
+
+### .project/features/notion-block-tree/03-stack-relevance.md (818 total lines)
+1: # Notion-Style Blocks & `hasChildren`: Relevance to the N3TX Stack
+2: 
+3: **Research Focus:** How N3TX's current architecture maps to recursive block concepts, what gaps exist, and where a `hasChildren` property fits within the schema-driven framework.
+4: 
+5: **Audience:** Engineering leadership + implementation team
+6: 
+7: ---
+8: 
+9: ## 📊 Executive Summary
+10: 
+816: - [Materialized Path for Hierarchical Data](https://bojanz.wordpress.com/2014/04/25/storing-hierarchical-data-materialized-path/)
+817: - [Hierarchical Models in PostgreSQL (Adjacency vs Closure vs Path)](https://www.ackee.agency/blog/hierarchical-models-in-postgresql)
+818: - [Percona: Moving Subtrees in Closure Table Hierarchies](https://www.percona.com/blog/moving-subtrees-in-closure-table/)
+
+### .project/features/notion-block-tree/04-recursive-rendering.md (1073 total lines)
+1: # Recursive Rendering & Component Composition
+2: 
+3: **How tree-shaped data drives tree-shaped UI -- Web Components recursion, drag-and-drop composition, and virtual DOM patterns for a schema-driven framework**
+4: 
+5: ---
+6: 
+7: > **Executive summary:** A `hasChildren` property on block entities creates a recursive data model that
+8: > demands recursive UI rendering. This document maps the concrete patterns --
+9: > from vanilla Web Components that stamp themselves, to drag-and-drop tree
+10: > reordering, to the CSS tricks that animate expand/collapse -- and shows
+1071: 23. [Meziantou: VS Code Tree Settings](https://www.meziantou.net/improve-the-tree-view-settings-in-visual-studio-code.htm) -- Tree indent configuration
+1072: 24. [Virtual Scrolling for High-Performance Interfaces](https://blog.openreplay.com/virtual-scrolling-high-performance-interfaces/) -- When to virtualize
+1073: 25. [dnd-kit: Tree Drag-Drop Discussion](https://dev.to/fupeng_wang/react-dnd-kit-implement-tree-list-drag-and-drop-sortable-225l) -- Flattened vs. nested context approaches

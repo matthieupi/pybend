@@ -1,0 +1,495 @@
+
+### .project/reports/research/category-theory/04-pybend-ct-mapping.md (1325 total lines)
+1: # N3TX Through the Category Theory Lens
+2: 
+3: **Mapping N3TX's Architecture to Categorical Structures**
+4: 
+5: *Research Document -- February 2026*
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1323: - Hewitt, C. (1973). "A Universal Modular ACTOR Formalism for Artificial
+1324:   Intelligence." *IJCAI*.
+1325: - Wadler, P. (1995). "Monads for functional programming." *AFP*.
+
+### .project/reports/research/category-theory/05-improving-purity.md (1237 total lines)
+1: # Improving Abstraction Purity in N3TX Through Category Theory
+2: 
+3: **Research Document -- February 2026**
+4: **Audience:** Technical CEOs, Engineering Leadership, Framework Architects
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: N3TX's core thesis -- "the model is the app" -- is a fundamentally algebraic claim. A Python class definition is a specification from which the framework *derives* an entire working stack: API, schema, storage, UI, permissions. This derivation pipeline is, in categorical terms, a series of functors mapping between categories of concern. The current implementation achieves this vision with remarkable economy, but several of these mappings exhibit impurities -- hidden side effects, broken composition laws, or structural inconsistencies -- that reduce predictability, testability, and composability.
+1235: 7. JSON Schema Specification (2020-12). https://json-schema.org/specification -- Reference for `$schema`, `$id`, `$defs` semantics used in N3TX's schema pipeline.
+1236: 
+1237: 8. N3TX CLAUDE.md. `/workspace/CLAUDE.md` -- Project philosophy, the 200-OK error case study, and architectural documentation that informed this analysis.
+
+### .project/reports/research/category-theory/06-category-theory-analysis.md (932 total lines)
+1: # Category Theory & N3TX: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+930: ---
+931: 
+932: *Report based on analysis of 5 research documents, 30+ external sources, and direct audit of 7 key framework files. N3TX codebase at commit `7550aeb` (profiling branch), February 2026.*
+
+### .project/reports/research/cli-tui/01-industry-landscape.md (632 total lines)
+1: # CLI & TUI Interfaces for Web Frameworks: Industry Landscape
+2: 
+3: **Audience:** Technical CEOs and Engineering Teams
+4: **Date:** February 2026
+5: **Scope:** Adoption statistics, success stories, failures, productivity metrics, market trends, and ecosystem maturity for framework CLIs and terminal user interfaces
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+630: 38. [Vite npm package](https://www.npmjs.com/package/vite) - 62M weekly downloads
+631: 39. [create-vite npm package](https://www.npmjs.com/package/create-vite) - 280K weekly downloads
+632: 40. [Prisma Type Safety docs](https://www.prisma.io/docs/orm/prisma-client/type-safety) - Compile-time validation
+
+### .project/reports/research/cli-tui/02-technical-deep-dive.md (1065 total lines)
+1: # CLI & TUI Interfaces: Technical Deep Dive
+2: 
+3: **For N3TX -- a schema-driven Python/FastAPI framework with vanilla JS Web Components**
+4: 
+5: *Research date: 2026-02-26 | Author: Claude Opus 4.6 | Target: Technical leadership + engineering teams*
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+1063: 23. [CodeCut -- CLI Tools Comparison](https://codecut.ai/comparing-python-command-line-interface-tools-argparse-click-and-typer/) -- argparse vs Click vs Typer
+1064: 24. [Real Python -- Click Guide](https://realpython.com/python-click/) -- Extensible CLI apps
+1065: 25. [Docker ENTRYPOINT Deep Dive](https://mihirpopat.medium.com/mastering-the-dockerfile-entrypoint-instruction-a-deep-dive-for-professionals-a9e8a6bc2db3) -- CLI containerization
+
+### .project/reports/research/cli-tui/03-decision-framework.md (830 total lines)
+1: # CLI & TUI Decision Framework: When to Build, When to Buy, When to Walk Away
+2: 
+3: **Audience:** Technical CEOs and Engineering Teams
+4: **Date:** February 2026
+5: **Scope:** Decision criteria for building CLI/TUI tools, build-vs-buy analysis, maintenance economics, adoption patterns, anti-patterns, and concrete decision trees for framework teams
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+828: - Both advantages AND disadvantages/risks covered extensively
+829: - Callout boxes for the 5 most important findings
+830: - N3TX-specific analysis with actionable 7-command recommendation and hour estimates
+
+### .project/reports/research/cli-tui/04-our-stack-relevance.md (709 total lines)
+1: # CLI/TUI Interfaces: Relevance to the N3TX Stack
+2: 
+3: > **Angle:** How N3TX's schema-driven architecture maps to CLI/TUI generation.
+4: > What we already have, what gaps exist, and what unique advantages our architecture provides.
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: N3TX's "the model is the app" philosophy gives it an unfair advantage in CLI/TUI generation that **no comparable framework possesses today**. Django's `manage.py` has ~50 built-in commands but requires separate management command classes. Rails scaffold generates files but from templates, not a live schema. Prisma generates client code but only for database access. N3TX already has the three pillars needed for a world-class CLI: a **model registry** that knows every entity (`registered_models` in `registrar.py`, line 9), a **schema generator** that produces complete JSON Schema with field types, validation, UI hints, and access rules (`ProtoModel.schema()` in `proto_model.py`, lines 198-316), and a **CRUD layer** that works without HTTP (`StorableMixin` in `storable_mixin.py`). The frontend already proves the concept -- `form.js` generates HTML forms from the same schema. A CLI could generate **terminal forms** from that same schema, making N3TX the only framework where `n3tx create Product` and `<ntx-item model="Product">` both derive from the same source of truth.
+707: - [AT Protocol Lexicon schema system](https://deepwiki.com/bluesky-social/atproto/2.3-lexicon-schema-system) -- Schema-driven code generation from JSON Schema definitions (Bluesky)
+708: - [Form.io: Schema-driven form architecture](https://form.io/features/form-from-json-schema/) -- JSON Schema to form generation patterns
+709: - [Click vs Typer comparison](https://johal.in/click-vs-typer-comparison-choosing-cli-frameworks-for-python-application-distribution/) -- CLI framework selection guidance
+
+### .project/reports/research/cli-tui/05-schema-driven-tui-rendering.md (1054 total lines)
+1: # Schema-Driven TUI Rendering: Can JSON Schema Drive Terminal UIs the Same Way It Drives Web UIs?
+2: 
+3: ```
+4: /.traces/research/cli-tui/05-schema-driven-tui-rendering.md
+5: ```
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1052: ---
+1053: 
+1054: *Research conducted February 2026. All statistics and version numbers reflect the latest available data.*
+
+### .project/reports/research/cli-tui/06-cli-tui-analysis.md (911 total lines)
+1: # CLI and TUI for N3TX: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: > *For the standalone executive summary, see [12-00-cli-tui-summary.md](../../vision/12-00-cli-tui-summary.md).*
+8: 
+9: ---
+10: 
+909: ---
+910: 
+911: *Report prepared February 2026. All statistics and version numbers reflect the latest available data. Research documents: `/workspace/.traces/research/cli-tui/01-05`.*
+
+### .project/reports/research/decentralized-protocols/01-industry-landscape.md (665 total lines)
+1: # Decentralized Social Protocols: Industry Landscape
+2: 
+3: **Date:** February 2026
+4: **Audience:** Technical CEOs, Engineering Leadership, Product Strategy Teams
+5: **Scope:** ActivityPub, AT Protocol (Bluesky), Nostr, Matrix, and the broader decentralized social ecosystem
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+663: ---
+664: 
+665: *This document reflects data available as of February 25, 2026. The decentralized protocol space moves quickly; key dates to watch include the EU DMA review (May 2026), Bluesky's subscription launch, and the Ghost/WordPress federation ecosystem maturation. Numbers cited are best-available estimates from tracked sources and should be treated as directional rather than precise.*
+
+### .project/reports/research/decentralized-protocols/02-technical-deep-dive.md (980 total lines)
+1: # Technical Deep Dive: Decentralized Social Protocols
+2: 
+3: **ActivityPub, AT Protocol, Nostr, and Matrix -- Architecture, Implementation, Security, and Interoperability**
+4: 
+5: ---
+6: 
+7: ## Executive Summary
+8: 
+9: Four protocols dominate the decentralized social landscape in 2025-2026: **ActivityPub** (powering the Fediverse / Mastodon), **AT Protocol** (powering Bluesky), **Nostr** (a minimalist relay-based system), and **Matrix** (decentralized encrypted messaging). Each embodies fundamentally different architectural philosophies -- from ActivityPub's W3C-standardized federation to Nostr's radical simplicity of keys-and-JSON. This document dissects their internal architectures, data formats, security models, scalability strategies, and the bridges emerging between them.
+10: 
+978: ---
+979: 
+980: *Document produced February 2025. Protocol specifications and ecosystem data evolve rapidly; verify against current specs before making architectural decisions.*
+
+### .project/reports/research/decentralized-protocols/03-decision-framework.md (844 total lines)
+1: # Decision Framework: Should Your Schema-Driven Framework Adopt Decentralized Protocols?
+2: 
+3: **Document type:** Decision Framework & Technical Strategy Guide
+4: **Audience:** Technical CEOs, Engineering Leads, Framework Architects
+5: **Last updated:** February 2026
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+842: ---
+843: 
+844: *This document should be revisited quarterly. The decentralized protocol landscape is evolving rapidly -- the W3C Social Web Working Group targets spec updates by Q3 2026, ATProto is pre-1.0, and DMA enforcement is expanding. Decisions made today should include explicit review dates.*
+
+### .project/reports/research/decentralized-protocols/04-our-stack-relevance.md (1219 total lines)
+1: # Decentralized Protocols and N3TX: Architecture Mapping and Integration Analysis
+2: 
+3: **Audience**: Technical CEO + Engineering Team
+4: **Date**: 2026-02-25
+5: **Scope**: How ActivityPub and ATProtocol map to N3TX's schema-driven architecture
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1217: - [Python federation library (GitHub)](https://github.com/jaywink/federation)
+1218: - [arroba - Python ATProto PDS implementation (GitHub)](https://github.com/snarfed/arroba)
+1219: - [Experiences writing an ActivityPub server in Python with Django](https://checkmyworking.com/posts/2023/02/experiences-writing-an-activitypub-server-in-python-with-django/)
+
+### .project/reports/research/decentralized-protocols/05-identity-data-portability.md (1010 total lines)
+1: # Identity & Data Portability in Decentralized Protocols
+2: 
+3: **The Strategic Case for Why Decentralization Matters Now**
+4: 
+5: Research Document | February 2026
+6: Target Audience: Technical CEOs & Engineering Teams
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+1008: ---
+1009: 
+1010: *This document was produced as part of a research series on decentralized protocols. It reflects information available as of February 2026. Standards, market data, and protocol specifications are evolving rapidly; verify current status before making architectural commitments.*
+
+### .project/reports/research/decentralized-protocols/06-decentralized-protocols-analysis.md (939 total lines)
+1: # 📋 Decentralized Protocols for N3TX: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: 
+6: ---
+7: 
+8: ### How to Read This Document
+9: 
+10: This report synthesizes five research documents totaling ~4,700 lines into an actionable strategic analysis. It serves two audiences simultaneously:
+937: ---
+938: 
+939: *This analysis reflects data available as of February 25, 2026. Key review dates: May 2026 (DMA review), November 2026 (eIDAS wallets), Q3 2026 (W3C spec updates). Revisit this document at each milestone.*
+
+### .project/reports/research/graphql/01-industry-landscape.md (532 total lines)
+1: # GraphQL Industry Landscape (2026)
+2: 
+3: **Audience:** Technical CEOs and Engineering Teams
+4: **Date:** February 2026
+5: **Scope:** Adoption statistics, major adopters at scale, success/failure case studies, ecosystem maturity, enterprise patterns, market dynamics, and community health for the GraphQL API technology
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+530: ---
+531: 
+532: *Research compiled February 2026. Data points reflect the state of the ecosystem as of this date.*
+
+### .project/reports/research/graphql/02-technical-deep-dive.md (955 total lines)
+1: # GraphQL Technical Deep Dive
+2: 
+3: ## Engineering Architecture, Security, Performance & Ecosystem Analysis
+4: 
+5: **Research Date:** February 2026
+6: **Audience:** Technical CEOs and Engineering Leadership Teams
+7: **Scope:** Schema design, resolver architecture, security, caching, federation, real-time, codegen, testing, observability, and Python ecosystem
+8: 
+9: ---
+10: 
+953: ---
+954: 
+955: *Research compiled February 2026. Data points and version numbers reflect the state of the ecosystem as of this date.*
+
+### .project/reports/research/graphql/03-decision-framework.md (827 total lines)
+1: # 🗺️ GraphQL Decision Framework
+2: ## When to Adopt, When to Avoid, and How to Choose the Right API Architecture
+3: 
+4: *Research Date: February 2026 | For: Technical CEO & Engineering Leadership*
+5: 
+6: ---
+7: 
+8: > **Executive Summary:** GraphQL is not a universal upgrade over REST — it is a
+9: > **specialized tool that excels when your problem matches its strengths**: multiple
+10: > diverse clients, complex data aggregation, and rapid frontend iteration. For
+825: ---
+826: 
+827: *Research compiled February 2026. Data points and version numbers reflect the state of the ecosystem as of this date.*
+
+### .project/reports/research/graphql/04-our-stack-relevance.md (690 total lines)
+1: # GraphQL Relevance to the N3TX Stack
+2: 
+3: **A deep analysis of where GraphQL aligns, conflicts, and potentially extends N3TX's schema-driven architecture**
+4: 
+5: ---
+6: 
+7: ## Executive Summary
+8: 
+9: The core finding of this analysis is that **N3TX already delivers 70-80% of the value proposition that drives GraphQL adoption** -- schema as single source of truth, type-safe APIs, self-describing endpoints, relationship resolution, and auto-generated CRUD. The remaining 20-30% (client-specified field selection, single-request nested resolution, introspection tooling) represents genuine capability gaps, but closing them does **not** require adopting GraphQL. Most can be addressed through targeted REST enhancements.
+10: 
+688: ---
+689: 
+690: *Analysis conducted February 2026. Based on N3TX v0.7.0 codebase analysis and current industry data.*
+
+### .project/reports/research/graphql/05-migration-patterns.md (714 total lines)
+1: # REST to GraphQL Migration Patterns: A Strategic and Technical Analysis
+2: 
+3: **Research Angle:** Migration patterns, incremental adoption, real-world case studies, and failure modes
+4: **Audience:** Technical CEO + Engineering Leadership
+5: **Date:** 2026-02-26
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+712: ---
+713: 
+714: *Research compiled February 2026. Data points and version numbers reflect the state of the ecosystem as of this date.*
+
+### .project/reports/research/graphql/06-graphql-analysis.md (722 total lines)
+1: # GraphQL for N3TX: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 26, 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+720: ---
+721: 
+722: *Analysis compiled February 26, 2026. Based on N3TX v0.7.0 codebase analysis, 5 specialist research documents, and current industry data.*
+
+### .project/reports/research/html-compiler/01-industry-landscape.md (737 total lines)
+1: # 🏢 Industry Landscape: Static HTML Generation & Pre-Rendering in Production
+2: 
+3: > **Who compiles HTML at build time, who renders at runtime, and what measurable results do they see?**
+4: >
+5: > Research brief for engineering leadership evaluating an HTML compiler for a schema-driven framework (N3TX).
+6: > February 2026
+7: 
+8: ---
+9: 
+10: ## Table of Contents
+735: ---
+736: 
+737: *Research compiled February 2026. Data points sourced from published benchmarks, engineering blogs, academic papers, and industry reports. All performance numbers are approximate and vary by implementation, hardware, and network conditions.*
+
+### .project/reports/research/html-compiler/02-technical-deep-dive.md (1122 total lines)
+1: # HTML Compiler for Schema-Driven Frameworks: Technical Deep Dive
+2: 
+3: **Research Brief** | February 2026
+4: **Audience:** Technical CEOs, Engineering Leadership
+5: **Status:** Analysis complete -- compilation strategies evaluated, implementation paths mapped
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1120: ### Pre-rendering
+1121: - [Playwright vs Puppeteer 2025 -- ScraperAPI](https://www.scraperapi.com/blog/playwright-vs-puppeteer/)
+1122: - [Puppeteer vs Prerender.io -- Prerender Blog](https://prerender.io/blog/puppeteer-vs-prerender-for-javascript-rendering/)
+
+### .project/reports/research/html-compiler/03-decision-framework.md (1135 total lines)
+1: # HTML Compiler for Schema-Driven Frameworks: Decision Framework
+2: 
+3: > **Audience:** Technical CEOs, Engineering Leadership, Architecture Teams
+4: > **Context:** Evaluating whether to build an HTML compiler for a schema-driven framework (N3TX) that currently renders entirely client-side via Web Components
+5: > **Last Updated:** February 2026
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1133: - [Hygraph: Top 12 SSGs in 2026](https://hygraph.com/blog/top-12-ssgs)
+1134: - [CloudCannon: Top 5 SSGs for 2025](https://cloudcannon.com/blog/the-top-five-static-site-generators-for-2025-and-when-to-use-them/)
+1135: - [Crystallize: React Static Site Generators in 2025](https://crystallize.com/blog/react-static-site-generators)
+
+### .project/reports/research/html-compiler/04-our-stack-relevance.md (1071 total lines)
+1: # HTML Compiler for N3TX: Schema-Driven Pre-Compilation of Entity Templates
+2: 
+3: **Research Brief 08** | February 2026
+4: **Audience:** Technical CEOs, Engineering Leadership
+5: **Angle:** How N3TX's schema-driven architecture uniquely enables HTML compilation
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1069: ---
+1070: 
+1071: *Research compiled February 2026. Source analysis based on N3TX codebase at commit `7550aeb` (profiling branch).*
+
+### .project/reports/research/html-compiler/05-static-shell-dynamic-islands.md (1084 total lines)
+1: # Static Shell + Dynamic Islands: Architecture Research Brief
+2: 
+3: ## Executive Summary
+4: 
+5: The **Static Shell + Dynamic Islands** pattern is a web architecture where the majority of a page is delivered as pre-rendered, cacheable static HTML (the "shell"), with isolated pockets of client-side interactivity ("islands") hydrated independently. Unlike SPAs that hydrate the entire page or SSR approaches that ship full-page JavaScript bundles, islands architecture sends JavaScript only for the interactive regions, achieving 60-90% reductions in client-side JavaScript.
+6: 
+7: The pattern was formalized by **Jason Miller** (Preact creator) in August 2020, building on a concept first coined by **Katie Sylor-Miller** (Etsy frontend architect) in 2019. It has since been adopted by Astro, Fresh (Deno), Marko (eBay), 11ty, and influenced Next.js PPR.
+8: 
+9: **Key finding for N3TX**: Web Components are _inherently_ island-shaped. Custom elements are encapsulated, self-contained, independently upgradable, and progressively enhanceable. N3TX's existing `<ntx-item>`, `<ntx-list>`, and `<ntx-router>` components already exhibit island characteristics. The Actor/Matrix message bus is a natural island communication layer. The primary adoption work would be generating a static HTML shell server-side and deferring component hydration via the schema bootstrap rather than doing everything client-side.
+10: 
+1082: - [Partial Prerendering -- Next.js Documentation](https://nextjs.org/docs/15/app/getting-started/partial-prerendering) -- Official PPR documentation.
+1083: - [Partial Prerendering with Next.js -- Vercel Blog](https://vercel.com/blog/partial-prerendering-with-next-js-creating-a-new-default-rendering-model) -- Vercel's PPR announcement and technical explanation.
+1084: - [Unlocking the Future of Web Performance: Partial Prerendering in Next.js 16 -- Medium](https://medium.com/@sureshdotariya/unlocking-the-future-of-web-performance-partial-prerendering-in-next-js-f3dc0b16bf34) -- PPR in Next.js 16.
+
+### .project/reports/research/html-compiler/06-html-compiler-analysis.md (954 total lines)
+1: # HTML Compiler for N3TX: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+952: ---
+953: 
+954: *Analysis compiled February 2026. Based on 4 research documents covering 70+ external sources, plus direct codebase analysis of N3TX's rendering pipeline. Performance estimates are projections based on industry benchmarks applied to N3TX's architecture; actual results will vary based on implementation, deployment infrastructure, and usage patterns.*
+
+### .project/reports/research/html-compiler/06-static-industry-landscape.md (546 total lines)
+1: # Industry Landscape: Fully Static Website Generation
+2: 
+3: **Research Date:** February 2026
+4: **Scope:** Static site generators, the no-JS movement, hosting economics, measured outcomes, limitations, and the islands-of-interactivity pattern
+5: **Audience:** Technical CEO + Engineering Team
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+544: 18. [Patterns.dev - Islands Architecture](https://www.patterns.dev/vanilla/islands-architecture) -- Technical deep-dive on the islands pattern
+545: 19. [Storieasy - JAMstack in 2025: Still Relevant or Rapidly Evolving?](https://www.storieasy.com/blog/jamstack-in-2025-still-relevant-or-evolving) -- Jamstack evolution and current trajectory
+546: 20. [Crystallize - 10 Best Static Website Hosting Providers in 2026](https://crystallize.com/blog/static-hosting) -- Comprehensive hosting comparison with pricing data
+
+### .project/reports/research/html-compiler/07-static-technical-deep-dive.md (1112 total lines)
+1: # Technical Deep Dive: Fully Static Site Generation from a Schema-Driven Python Framework
+2: 
+3: **Date:** 2026-02-25
+4: **Audience:** Technical CEO + Engineering Team
+5: **Scope:** Architecture, implementation patterns, and deployment strategies for generating a zero-runtime static site from N3TX model definitions and database content.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+1110: - [The HTMX Renaissance -- Rethinking Web Architecture for 2026](https://www.softwareseni.com/the-htmx-renaissance-rethinking-web-architecture-for-2026/)
+1111: - [Middleman: Pretty URLs (Directory Indexes)](https://middlemanapp.com/advanced/pretty-urls/)
+1112: - [Patterns.dev: Incremental Static Generation](https://www.patterns.dev/react/incremental-static-rendering/)
+
+### .project/reports/research/html-compiler/08-static-decision-framework.md (770 total lines)
+1: # Decision Framework: Static Site Generation for N3TX
+2: 
+3: **Document:** 03-decision-framework.md
+4: **Date:** 2026-02-25
+5: **Audience:** Technical CEO + Engineering Team
+6: **Status:** Research Complete
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+768: 16. [web.dev - Keeping Things Fresh with Stale-While-Revalidate](https://web.dev/articles/stale-while-revalidate) -- Google's guidance on SWR caching patterns.
+769: 
+770: 17. [DevelopersVoice - SPA vs SSR vs SSG and Edge Rendering in 2025](https://developersvoice.com/blog/frontend/rendering-models-react-dotnet/) -- Rendering spectrum analysis with decision criteria.
+
+### .project/reports/research/html-compiler/09-static-pybend-architecture.md (952 total lines)
+1: # Static Site Generation: Mapping to N3TX's Architecture
+2: 
+3: **Research Document 04** | February 2026
+4: **Audience:** Technical CEO + Engineering Team
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: N3TX's rendering pipeline is a four-stage chain: **Model Definition -> JSON Schema -> JavaScript DynamicClass -> Shadow DOM HTML**. A static site exporter (`n3tx export --static`) would short-circuit this chain by replacing stages 3-4 with server-side Python templates that consume the same schema and data. This document maps every rendering decision currently made in JavaScript to its Python-side equivalent, identifies the exact boundaries between "purely presentational" and "requires JavaScript," and proposes a concrete architecture.
+950: The existing `consumePreloadedSchema()` / `consumePreloadedData()` infrastructure in `N3TX.js` shows the architecture was already moving toward pre-rendering. Static export is the natural next step: skip the client entirely and generate the HTML that the DynamicClass system would have produced.
+951: 
+952: **Estimated effort:** 5-7 engineering days for the MVP, producing a fully functional `n3tx export --static` command that generates a complete, styled, responsive static website from any N3TX application's models and data.
+
+### .project/reports/research/html-compiler/10-css-only-interactivity.md (947 total lines)
+1: # CSS-Only & Minimal-JS Interactivity Patterns
+2: 
+3: ## Research Brief for N3TX Static Site Generation
+4: 
+5: **Date:** 2026-02-25
+6: **Audience:** Technical CEO + Engineering Team
+7: **Angle:** How much interactivity can a fully static N3TX export achieve WITHOUT JavaScript?
+8: 
+9: ---
+10: 
+945: 21. [Using Lighthouse to improve page load performance -- Chrome for Developers](https://developer.chrome.com/blog/lighthouse-load-performance)
+946: 22. [Controlling dialogs and popovers with the Invoker Commands API -- HTMHell](https://www.htmhell.dev/adventcalendar/2025/7/)
+947: 23. [CSS-Framework Lighthouse Scores comparison](https://jantimon.github.io/css-framework-performance/)
+
+### .project/reports/research/html-compiler/12-static-site-analysis.md (992 total lines)
+1: # Fully Static Website Generation for N3TX: Strategic Analysis
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+990: ---
+991: 
+992: *Analysis compiled February 2026. Based on 10 research documents covering 70+ external sources, two research syntheses, and direct codebase analysis of N3TX's rendering pipeline. Performance estimates are projections based on industry benchmarks applied to N3TX's architecture; actual results will vary based on implementation, deployment infrastructure, and usage patterns.*

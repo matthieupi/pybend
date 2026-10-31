@@ -1,0 +1,559 @@
+
+### packages/n3tx-core/docs/storage.md (218 total lines)
+1: # Storage Layer
+2: 
+3: > Part of [n3tx-core](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The storage abstraction, SQLite backend internals, JSON field serialization, FK hydration, eager loading (populate), and migration system. Does not cover the authorize package's SQL pushdown (see [authorization.md](authorization.md)).
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: StorableMixin (injected into ProtoModel when __storable__=True)
+13:   |
+14:   +-- create(data) / get(id) / list(...) / update(id, data) / delete(id)
+15:   |
+16:   v
+17: AbstractStorage (interface)
+18:   |
+19:   +-- SQLiteStorage   -- Production: connection pool, WAL mode, migrations
+20:   +-- JSONStorage     -- Development: simple JSON file per model
+21: ```
+22: 
+23: `StorableMixin` delegates all operations to `cls.storage`, which is set via `register_model(Model, storage=backend)`. The mixin is injected into the class hierarchy by `ProtoModel.__init_subclass__` when `__storable__ = True`.
+24: 
+25: ### SQLiteStorage Internals
+26: 
+27: ```
+28: SQLiteStorage(database='app.db', pool_size=4)
+29:   |
+30:   +-- _pool (queue.Queue)       -- Connection pool
+31:   +-- _migration (SQLiteMigration)  -- Schema management
+32:   +-- _connection() context mgr -- Pool-managed connections
+33: ```
+34: 
+35: WAL mode enabled on first connection. `busy_timeout=5000` prevents lock errors under concurrent writes. `check_same_thread=False` for FastAPI thread dispatch.
+36: 
+37: ## Interface
+38: 
+39: ### AbstractStorage
+40: 
+41: ```python
+42: class AbstractStorage(ABC):
+43:     def create_table(self, model_class: Type) -> None: ...
+44:     def create(self, model_class: Type, data: dict) -> Any: ...
+45:     def list(self, model_class: Type, sql_filter=None, limit=None, offset=None,
+46:              populate=None, ids=None) -> list | dict: ...
+47:     def get(self, model_class: Type, id_: int, as_dict=False, populate=None) -> Any: ...
+48:     def update(self, model_class: Type, id_: int, data: dict) -> None: ...
+49:     def delete(self, model_class: Type, id_: int) -> None: ...
+50: ```
+51: 
+52: ### StorableMixin CRUD
+53: 
+54: ```python
+55: # Create
+56: product = Product(name='Widget', price=9.99)
+57: created = Product.create(product)  # Returns model instance with id set
+58: 
+59: # Read
+60: product = Product.get(1)                          # Model instance
+61: product = Product.get(1, as_dict=True)             # Plain dict
+62: product = Product.get(1, populate=pop_spec)        # With eager loading
+63: 
+64: # List
+65: products = Product.list()                          # All records (list)
+66: products = Product.list(limit=20, offset=0)        # Paginated (dict with data/meta)
+67: products = Product.list(sql_filter=('price > ?', [10]))  # Filtered
+68: products = Product.list(ids=[1, 2, 3])             # By ID set
+69: 
+70: # Update
+71: updated = Product.update(1, {'price': 19.99})      # Returns updated instance
+72: updated = Product.update(1, product_instance)       # Accepts model or dict
+73: 
+74: # Delete
+75: Product.delete(1)
+76: 
+77: # Save (create or update based on id)
+78: product.save()
+79: ```
+80: 
+81: ### Update boundary contract
+82: 
+83: Generated HTTP routes, actor TX updates, and `StorableMixin.update()` share one
+84: patch-oriented contract. The patch is merged with the current entity and the
+85: complete result is validated through the original model, but only keys present
+86: in the supplied dictionary are written.
+87: 
+88: ```python
+89: Product.update(1, {'price': 19.99})  # all omitted fields remain unchanged
+90: ```
+91: 
+92: For every collection field, storage replacement semantics are:
+93: 
+94: | Payload state | Storage behavior |
+95: |---|---|
+96: | Field omitted from an HTTP/Python/TX patch | Leave field unchanged |
+97: | Field supplied with values | Replace the complete stored field |
+98: | Field supplied as `[]` or `{}` | Clear the complete stored field |
+99: 
+100: `list[T]` stores ordered local child IDs; `list[Ref[T]]` stores ordered
+101: local/distributed pointers. Neither performs an atomic append/remove operation.
+102: Read-modify-write updates are last-write-wins, so use domain-specific methods for
+103: concurrency-sensitive relationship mutations.
+104: 
+105: ### Pagination Response Shape
+106: 
+107: When `limit` is provided, `list()` returns a dict instead of a list:
+108: 
+109: ```python
+110: {
+111:     'data': [<model instances>],
+112:     'meta': {
+113:         'total': 100,    # Total matching rows (before pagination)
+114:         'limit': 20,
+115:         'offset': 0,
+116:         'has_more': True
+117:     }
+118: }
+119: ```
+120: 
+121: ### JSON Field Handling
+122: 
+123: `dict` and `list` fields are transparently serialized to JSON TEXT columns. No model-level boilerplate needed.
+124: For the complete developer and agent guide, including tradeoffs and change
+125: checklists, see `/workspace/docs/JSON_FIELDS.md`.
+126: 
+127: ```python
+128: class Config(ProtoModel):
+129:     __tablename__ = 'configs'
+130:     __storable__ = True
+
+### packages/n3tx-core/docs/storage.md (218 total lines)
+131:     tags: list = Field(default=[])           # TEXT column, json.dumps/loads
+132:     metadata: dict = Field(default={})       # TEXT column, json.dumps/loads
+133:     scores: List[int] = Field(default=[])    # TEXT column, json.dumps/loads
+134:     related_refs: list[Ref[Comment]] = Field(default=[])  # TEXT column, json.dumps/loads
+135: ```
+136: 
+137: Detection: `get_json_fields(model_class)` in `introspection.py` returns fields for JSON treatment. It matches `dict`, `Dict[str, Any]`, `list`, `List[str]`, `List[int]`, and distributed pointer arrays such as `list[Ref[T]]`.
+138: 
+139: Write path: `_coerce_value()` calls `json.dumps(v, default=str)` for dict/list values.
+140: Read path: `_deserialize_json_fields()` calls `json.loads()` on string values before model instantiation.
+141: 
+142: Use JSON fields for metadata, settings, primitive arrays, external payload
+143: fragments, distributed pointer arrays, and local owned `list[T]` relationship
+144: ids. If nested data needs independent routes, authorization, lifecycle events,
+145: or row-level updates, model the child as its own storable resource and store its
+146: ids in a parent `list[T]` field.
+147: 
+148: The read path also normalizes legacy empty-string values before Pydantic
+149: validation. If a bool field contains `''` or the literal string `"''"` from an
+150: older/default SQLite column, storage coerces it to `False` so existing rows
+151: remain loadable. If a nullable numeric field such as `Optional[float]` or
+152: `Optional[int]` contains the same empty-string sentinel, storage coerces it to
+153: `None`. The write path applies the nullable numeric normalization as well, so
+154: partial updates from forms or tools do not reintroduce invalid empty strings.
+155: Valid bool strings such as `'true'`, `'false'`, `'0'`, and `'1'`, and valid
+156: numeric strings such as `'123.45'`, are left intact for Pydantic's normal
+157: parsing.
+158: 
+159: ### Local Relationships and URL Refs
+160: 
+161: `T` and `list[T]` are local relationships. They store compact local ids and
+162: hydrate into model objects. `Ref[T]` and `list[Ref[T]]` are explicit pointers:
+163: they store and emit absolute HTTP(S) entity URLs unchanged.
+164: 
+165: ```python
+166: # Stored and returned unchanged
+167: file = "https://storage.example.com/api/v1/File/file-12"
+168: ```
+169: 
+170: `Ref[T]` validates the URL's final `/{Schema}/{id}` segments and behaves as a
+171: normal string. `Ref.base_url()`, `Ref.schema()`, and `Ref.id()` expose the URL
+172: parts without introducing a second address object.
+173: 
+174: Dereferencing is opt-in. Default SQLite reads, model validation, and response
+175: dumps never perform network I/O. Call `ref.hydrate(context=resolver)` for one
+176: ref, or request `populate`/positive depth on storage reads. Explicit storage
+177: population uses the same injected resolver contract:
+178: `resolve(ref, target_cls=None, user=None, context=None)`.
+179: 
+180: For pointer arrays, use JSON-backed `list[Ref[T]]`. For local owned
+181: collections, use `list[T]`: SQLite stores the parent column as a JSON array of
+182: local child ids and hydrates it into self-describing child objects on read.
+183: 
+184: ```python
+185: # Stored in DB: comments = [5, 9]
+186: # Returned by get()/list(): comments = [{"id": 5, "$id": "/Comment/5", ...}, ...]
+187: ```
+188: 
+189: ### Eager Loading (Populate)
+190: 
+191: The `populate` parameter controls eager loading of related entities via `PopulateSpec`:
+192: 
+193: ```python
+194: from n3tx_core.utils.populate import parse_populate
+195: 
+196: # Field-specific: load comments
+197: spec = parse_populate("comments", None)
+198: 
+199: # Depth-based: load all relations 1 level deep
+200: spec = parse_populate(None, 1)
+201: 
+202: # Nested: load comments and their likes
+203: spec = parse_populate("comments.likes", None)
+204: 
+205: # Combined: multiple fields
+206: spec = parse_populate("comments,tags", None)
+207: ```
+208: 
+209: Populated data is attached to `instance.__dict__['_populated']` and merged into the response by the dump pipeline's `populate` stage.
+210: 
+211: ## Gotchas
+212: 
+213: - **`list()` return type changes with pagination.** Without `limit`, returns `list[Model]`. With `limit`, returns `dict` with `data` and `meta` keys. Always check `isinstance(result, dict)` if the caller might pass optional pagination.
+214: - **SQLite `:memory:` with separate connections.** `create_table()` opens a pooled connection. If tests use `:memory:`, each connection gets a separate database. Use file-based SQLite in tests via `tmp_path` fixture.
+215: - **`_coerce_value()` converts non-native types to string.** Any value that is not `int`, `float`, `str`, `bytes`, `bool`, `None`, `datetime`, `dict`, or `list` gets `str()` applied. This includes Pydantic types like `AnyHttpUrl`.
+216: - **Collection fields are JSON columns.** Local `list[T]` fields store child ids in the parent row and hydrate to objects on read. Updates replace the stored id list for that field.
+217: - **`_validate_identifier()` rejects unsafe SQL identifiers.** Table and column names must match `^[a-zA-Z_][a-zA-Z0-9_]*$`. This prevents SQL injection but also means table names cannot contain hyphens or special characters.
+218: - **Populate cycle prevention.** `_populate_fields` tracks visited model names in `_visited` to prevent infinite recursion on circular relationships. Each branch gets an immutable copy of the visited set.
+
+### packages/n3tx-files/README.md (97 total lines)
+1: # n3tx-files
+2: 
+3: Optional N3TX file capability package.
+4: 
+5: `n3tx-files` provides an actor-backed `File` model for file metadata and a
+6: provider interface for blob bytes. The base package is intentionally local and
+7: lightweight: metadata lives in normal N3TX storage, while bytes live in a
+8: `FileStore` such as `LocalFileStore`.
+9: 
+10: ## Quick start
+11: 
+12: ```python
+13: from n3tx_core.app import create_app
+14: from n3tx_files import File, LocalFileStore, configure_file_store
+15: 
+16: configure_file_store(LocalFileStore('./file-blobs'))
+17: 
+18: app = create_app(
+19:     models=[File],
+20:     storage='sqlite:///app.db',
+21: )
+22: ```
+23: 
+24: Upload bytes:
+25: 
+26: ```bash
+27: curl -X POST http://localhost:5000/files/upload \
+28:   -H "x-access-token: $TOKEN" \
+29:   -F "upload=@./sample.pdf;type=application/pdf"
+30: ```
+31: 
+32: Download bytes:
+33: 
+34: ```bash
+35: curl http://localhost:5000/files/1/download -o sample.pdf
+36: curl http://localhost:5000/File/1/download -H "Range: bytes=0-1023"
+37: ```
+38: 
+39: Use a file in a method:
+40: 
+41: ```python
+42: from n3tx_actors.models.actor_model import ActorModel
+43: from n3tx_core.utils.decorators import expose_route
+44: from n3tx_files import File
+45: 
+46: class Transcriber(ActorModel):
+47:     __tablename__ = 'transcribers'
+48:     __storable__ = False
+49: 
+50:     @expose_route('/transcribe', methods=['POST'])
+51:     async def transcribe(audio: File) -> dict:
+52:         local = await audio.ensure_local()
+53:         return {'path': local['path']}
+54: ```
+55: 
+56: Request body:
+57: 
+58: ```json
+59: {"audio": "http://localhost:5000/File/1"}
+60: ```
+61: 
+62: ## Routes
+63: 
+64: | Route | Purpose |
+65: |---|---|
+66: | `POST /files/upload` | Multipart upload, form field `upload`; creates `File` metadata |
+67: | `GET /files/{id}/download` | Binary download |
+68: | `GET /File/{id}/download` | Class-name download mirror |
+69: 
+70: Downloads support inclusive byte ranges via `Range: bytes=start-end`.
+71: 
+72: ## References
+73: 
+74: `File.resolve(ref)` accepts the canonical absolute `$id` URL for a File on the
+75: current API, for example `http://localhost:5000/File/1`.
+76: 
+77: External HTTP imports are intentionally not enabled by default; add providers
+78: explicitly when your deployment needs them.
+79: 
+80: ## Distributed nodes
+81: 
+82: An app node can delegate byte operations to a storage node while still treating
+83: the resource as a `File` capability. The storage node owns `File` metadata and
+84: bytes; the app node forwards upload/download requests or resolves File refs
+85: through a provider/client seam. Tests cover this two-node behavior with isolated
+86: ASGI apps.
+87: 
+88: ## Extension boundaries
+89: 
+90: - Metadata is normal N3TX storage (`File(ActorModel)`).
+91: - Bytes live in `FileStore` providers (`LocalFileStore` in the base package).
+92: - Dynamic file bytes are served by explicit API routes, not static mounts.
+93: - Importing `n3tx_files` registers type-driven `File` materialization. Core does
+94:   not import this package directly.
+95: 
+96: CDN, object-store, and remote-node providers are additive strategies layered
+97: behind the same public `File` primitive.
+
+### packages/n3tx-files/docs/file.md (104 total lines)
+1: # File Capability
+2: 
+3: `n3tx-files` adds a first-class file resource to N3TX without making the core
+4: framework depend on file storage.
+5: 
+6: ## Architecture
+7: 
+8: ```text
+9: File(ActorModel)
+10:   |-- metadata in N3TX storage
+11:   |-- bytes in FileStore providers
+12:   |-- methods exposed through normal schema/actor tooling
+13: ```
+14: 
+15: The first provider is `LocalFileStore`, which streams bytes to and from a local
+16: filesystem directory while computing checksums.
+17: 
+18: ## App integration
+19: 
+20: ```python
+21: from n3tx_core.app import create_app
+22: from n3tx_files import File, LocalFileStore, configure_file_store
+23: 
+24: configure_file_store(LocalFileStore('./file-blobs'))
+25: 
+26: app = create_app(
+27:     models=[File],
+28:     storage='sqlite:///app.db',
+29: )
+30: ```
+31: 
+32: `configure_file_store()` sets the process-wide byte provider used by `File`
+33: methods and routes. If it is not called, `LocalFileStore` uses
+34: `N3TX_FILE_STORE_DIR` or `.n3tx-files/blobs`.
+35: 
+36: ## Routes and methods
+37: 
+38: `File` uses normal N3TX schema/actor metadata for file records, plus explicit
+39: byte routes for multipart and binary IO:
+40: 
+41: ```text
+42: POST /files/upload          multipart upload -> File metadata response
+43: GET  /files/{id}/download   binary download with optional Range support
+44: GET  /File/{id}/download    class-name download mirror
+45: ```
+46: 
+47: Canonical local File resolution is available through `File.resolve(ref)`, where
+48: `ref` is the File metadata response's absolute `$id`, such as
+49: `http://localhost:5000/File/1`.
+50: 
+51: External HTTP imports are deliberately not enabled by default.
+52: 
+53: ## Type-driven materialization
+54: 
+55: Importing `n3tx_files` registers a neutral core materializer for parameters
+56: annotated as `File`:
+57: 
+58: ```python
+59: async def transcribe(audio: File) -> dict:
+60:     local = await audio.ensure_local()
+61:     ...
+62: ```
+63: 
+64: When the payload contains `{"audio": "http://localhost:5000/File/1"}`, direct
+65: and actor routing resolve that URL into an authorized `File` instance before invoking the
+66: method. Plain `str` parameters are not materialized.
+67: 
+68: ## Distributed app/storage nodes
+69: 
+70: The intended multi-node shape is:
+71: 
+72: ```text
+73: App node                         Storage node
+74: --------                         ------------
+75: Receives workflow/upload   -->   POST /files/upload
+76: Stores/uses returned File        owns File metadata + blob bytes
+77: Later needs bytes          -->   GET /files/{id}/download
+78: Returns/processes stream         streams bytes through FileStore
+79: ```
+80: 
+81: In production this can be implemented by a provider/client that talks to a
+82: remote N3TX file node or object store. The public app code should still deal in
+83: `File` metadata and canonical refs, not provider-specific handles. The test suite
+84: includes a two-node ASGI test that validates upload delegation to a storage node
+85: and later app-node access loading the bytes from that storage node.
+86: 
+87: ## Developer extension points
+88: 
+89: - `FileStore` providers implement byte storage (`put_stream`, `open_stream`,
+90:   `stat`, `delete`).
+91: - `File.register_extra_routes()` mounts package-owned multipart/binary routes
+92:   through the core/actor-neutral `register_extra_routes` hook.
+93: - `n3tx_files.materialize` registers the `File` typed-argument materializer at
+94:   import time through `n3tx_core.utils.materialize.register_materializer`.
+95: - Future S3/R2/GCS/CDN providers should be optional extras and must preserve the
+96:   same metadata/auth/address contract.
+97: 
+98: ## Guardrails
+99: 
+100: - Do not store blob bytes in SQLite.
+101: - Do not serve dynamic user files through N3TX static asset mounting.
+102: - Keep cloud/CDN dependencies optional.
+103: - Keep this package absent-by-default; import it only when an app uses files.
+104: - Do not auto-fetch plain strings; only `File`-typed method parameters resolve.
+
+### packages/n3tx-ui/README.md (233 total lines)
+1: # 🎨 n3tx-ui: Your Schema Paints the Screen
+2: 
+3: > Schema-driven Web Components that render any N3TX model with zero frontend code. Define a Python model, get a full UI -- lists, cards, forms, tables, streaming output -- all wired up for you.
+4: 
+5: ## 🌐 Overview
+6: 
+7: n3tx-ui is the visual layer of the N3TX stack. You hand it a JSON Schema from the backend and it handles everything the user sees -- lists, cards, tables, forms, method buttons, streaming output. All derived from the schema at runtime. You define Python models; this package takes care of the pixels.
+8: 
+9: It builds on top of `n3tx-core` (which provides the core JS: NTT, Component, Actor, Matrix, TX, Router). This package adds what your users actually interact with: components, form generators, widgets, and themes.
+10: 
+11: ---
+12: 
+13: ## 📦 Installation
+14: 
+15: Getting started is one line:
+16: 
+17: ```bash
+18: pip install n3tx-ui            # standalone
+19: pip install n3tx[all]           # full framework meta-package
+20: pip install -e packages/n3tx-ui # editable dev install
+21: ```
+22: 
+23: ## 🚀 Quick Start
+24: 
+25: The Python export is a single function -- the real magic lives in the static JS files it serves:
+26: 
+27: ```python
+28: from n3tx_ui import get_static_dir
+29: 
+30: # Returns Path to static/ directory containing components/, generators/, widgets/
+31: static_path = get_static_dir()
+32: 
+33: # In a FastAPI app, mount it:
+34: app.mount("/static/ui", StaticFiles(directory=get_static_dir()), name="ui-static")
+35: ```
+36: 
+37: Then in your HTML, just drop in the components. They self-register via `customElements.define` -- no build step, no bundler dance:
+38: 
+39: ```html
+40: <link rel="stylesheet" href="/static/ui/dark-theme.css">
+41: <script type="module" src="/static/core/NTT.js"></script>
+42: <script type="module" src="/static/ui/components/ntx-list.js"></script>
+43: 
+44: <ntx-topbar brand="My App"></ntx-topbar>
+45: <ntx-router name="main" hash>
+46:   <ntx-list model="Product" allow-create router="main"></ntx-list>
+47: </ntx-router>
+48: ```
+49: 
+50: That's it. Your Product model is now a working UI.
+51: 
+52: ---
+53: 
+54: ## 🧱 Core Concepts
+55: 
+56: Here's where it gets fun. Let's walk through the building blocks.
+57: 
+58: ### 🏗️ Component Hierarchy
+59: 
+60: Two base classes, two built-in concrete classes per base. You extend these to build your own:
+61: 
+62: ```
+63: Component (n3tx-core)
+64:   |
+65:   +-- NTTElement       Single entity lifecycle (UPDATE/DESCRIBE/READ/ERROR/save)
+66:   |     +-- NTTItem    Zero-config entity renderer (ntx-item) -- xs/sm/md/lg/xl sizes
+67:   |     +-- NTTRow     Table row variant (ntx-row) -- inline edit
+68:   |     +-- NTTUser    User entity with avatar (ntx-user)
+69:   |
+70:   +-- ListElement      Collection lifecycle (READ/UPDATE/SELECT/pagination)
+71:         +-- NTTList    Grid list renderer (ntx-list)
+72:         +-- NTTTable   Table renderer with sortable columns (ntx-table)
+73: ```
+74: 
+75: ### 📐 Display Modes
+76: 
+77: NTTItem adapts its rendering based on a `display` attribute. Each size is a method returning an HTML string -- from a tiny pill to a full page:
+78: 
+79: | Mode | Tag attribute | Renders as |
+80: |------|--------------|------------|
+81: | `xs` | `display="xs"` | Pill badge (name only) |
+82: | `sm` | `display="sm"` | Compact row (avatar + name + 3 fields) |
+83: | `md` | `display="md"` | Card with full form + methods |
+84: | `lg` | `display="lg"` | Detail view (same as md, future: expanded) |
+85: | `xl` | `display="xl"` | Full page (same as md, future: all metadata) |
+86: | `row`| `display="row"` | Table row (raw cells for ntx-table) |
+87: 
+88: ### 📝 Formidable (Form Generator)
+89: 
+90: This is where the zero-config magic really kicks in. `Formidable` reads your schema properties and generates HTML forms. Field ordering, grouping, permission filtering, widget dispatch, validation, display formatting -- all handled. One module, no configuration:
+91: 
+92: ```javascript
+93: import { Formidable } from '../generators/form.js';
+94: // Generate form HTML from schema
+95: const html = Formidable.getForm({schema, value, ref}, 'edit', attachedMethods);
+96: // Validate against schema constraints
+97: const errors = Formidable.validateForm({schema, value});
+98: ```
+99: 
+100: ### 🎛️ Widget System
+101: 
+102: Widgets map `ui.widget` schema hints to specialized renderers. You get three contexts: `display()` (DOM node), `edit()` (DOM node), `list()` (string). The schema drives everything:
+103: 
+104: ```python
+105: # Backend: annotate the field
+106: price: float = Field(json_schema_extra={'ui': {'widget': 'currency'}})
+107: ```
+108: 
+109: ```javascript
+110: // Frontend: widget auto-dispatches via registry
+111: import { Widget, registerWidget } from '../widgets/index.js';
+112: class ColorWidget extends Widget {
+113:     display(value, config, schema) { /* return DOM node */ }
+114: }
+115: registerWidget('color', new ColorWidget());
+116: ```
+117: 
+118: ### 🔄 Schema-Driven Rendering
+119: 
+120: This is the core idea: everything flows from the JSON Schema. No hardcoded field names, no model-specific templates. Your schema is the blueprint and the UI follows instructions:
+121: 
+122: ```
+123: Schema.properties        --> form fields (type, validation, placeholder)
+124: Schema.ui.field_order    --> field rendering sequence
+125: Schema.ui.groups         --> fieldset grouping
+126: Schema.ui.renderer       --> component tag resolution
+127: Schema.access            --> edit/delete button visibility
+128: Schema.methods           --> ntx-method / ntx-stream buttons
+129: Schema.$defs             --> nested model registration
+130: ```

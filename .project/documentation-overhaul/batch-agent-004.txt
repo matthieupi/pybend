@@ -1,0 +1,570 @@
+
+### .agents/prompts/bugfix.md (300 total lines)
+1: ---
+2: description: Systematic bug fixing via TDD red-green-refactor cycle. Reproduces the bug with failing tests, fixes with surgical precision, then evaluates for deeper architectural improvements. Undoes and retries on failure — never ships a guess.
+3: argument-hint: "<description of the bug to fix>"
+4: ---
+5: # Bugfix
+6: 
+7: You are a senior debugger. Your job is to fix a bug using disciplined TDD:
+8: reproduce first, understand second, fix third, optimize fourth. You never
+9: guess-and-check — you prove the root cause before touching production code.
+10: 
+11: **Bug description:** $ARGUMENTS
+12: 
+13: ---
+14: 
+15: ## CRITICAL: Execution Order
+16: 
+17: **You MUST follow these phases in strict sequential order. No skipping ahead.**
+18: 
+19: > **START by writing failing tests. Do NOT read source code to "understand
+20: > the bug first". Do NOT analyze root causes. Do NOT touch production code.
+21: > Your FIRST action is to create test files and write failing tests.
+22: > Everything else comes after.**
+23: 
+24: | # | Phase | Gate (must be true before moving on) |
+25: |---|---|---|
+26: | 1 | **Write failing tests** | 3+ test files written |
+27: | 2 | **Confirm red** | All tests fail for the right reason |
+28: | 3 | **Diagnose** | Root cause identified, theory validated read-only |
+29: | 4 | **Propose fix — USER REVIEW** | User approves the proposed solution |
+30: | 5 | **Apply fix** | All tests pass (or 4-iteration limit hit) |
+31: | 6 | **Root cause analysis** | Root cause categorized, assessment presented |
+32: | 7 | **Optimal fix — USER REVIEW** | User approves deeper fix if one exists |
+33: | 8 | **Full suite validation** | No regressions in full test suite |
+34: | 9 | **Summary** | Summary presented, no auto-commit |
+35: 
+36: ---
+37: 
+38: ## Phase 1: Reproduce — Write Failing Tests
+39: 
+40: > **This is your FIRST action. Before you read a single line of source code,
+41: > before you form any theory, before you investigate anything — write the
+42: > tests. The tests ARE the investigation. They tell you what's broken and
+43: > where.**
+44: 
+45: Write **at least three** failing tests that reproduce the reported bug from
+46: different angles. Mix and match freely from these test types — any
+47: combination that best covers the bug:
+48: 
+49: - **Unit** — isolate the broken function/method directly
+50: - **Integration** — exercise the bug through the API or multi-module path
+51: - **E2E / Playwright** — reproduce the bug as a user would see it
+52: - **Frontend unit JS** — test the broken rendering or interaction logic
+53: - **Edge-case** — hit boundary conditions around the bug
+54: - **Happy-path** — confirm the expected behavior is actually broken
+55: - **Backend + Frontend** — cover both sides when the bug spans the API boundary
+56: 
+57: Pick the three (or more) that give the most useful signal for this specific
+58: bug. There is no fixed pairing — use your judgment.
+59: 
+60: Place tests in the appropriate directory following project conventions:
+61: - `src/n3tx/core/tests/unit/` — framework unit tests
+62: - `example_api/tests/` — integration tests (Level 1/2 direct routes)
+63: - `example_actor/tests/` — integration tests (Level 3 actor routing)
+64: - `example_grants/tests/` — grants/agents app tests
+65: - `src/n3tx/static/tests/` — frontend tests
+66: 
+67: **Name the test functions clearly** — they should describe the bug, not the
+68: fix. Example: `test_like_returns_500_when_user_not_authenticated` rather than
+69: `test_like_fix`.
+70: 
+71: Write more than three tests if the bug surface area warrants it, but three
+72: is the minimum.
+73: 
+74: ---
+75: 
+76: ## Phase 2: Confirm Red
+77: 
+78: Run **only** the tests you just wrote. They must **all fail** for the reason
+79: the bug manifests. If a test passes, it doesn't reproduce the bug — rewrite
+80: it until it fails correctly.
+81: 
+82: ```bash
+83: python3 -m pytest path/to/test_file.py::test_name_1 path/to/test_file.py::test_name_2 path/to/test_file.py::test_name_3 -v
+84: ```
+85: 
+86: Verify the failure messages match the reported bug behavior. If they fail
+87: for a different reason (import error, fixture issue, etc.), fix the test
+88: setup — don't proceed until failures are genuine reproductions.
+89: 
+90: Save the exact pytest command — you will reuse it in every iteration.
+91: 
+92: ---
+93: 
+94: ## Phase 3: Diagnose
+95: 
+96: This phase is **read-only**. You investigate the bug without changing any
+97: production code. The goal is to understand the root cause well enough to
+98: propose a concrete fix.
+99: 
+100: ### 3.1 — Analyze
+101: 
+102: Study the failing test output, relevant source code, and data flow. Form a
+103: theory about the root cause. Be specific: "the bug is in X function because
+104: Y condition isn't handled when Z happens."
+105: 
+106: ### 3.2 — Validate Theory Without Changing Code
+107: 
+108: Prove your theory through read-only investigation before making any edits:
+109: 
+110: - Read the suspect code paths end-to-end
+111: - Trace the data flow from input to failure point
+112: - Check if the theory explains **all** failing tests, not just one
+113: - Look for prior art — has this pattern been handled correctly elsewhere?
+114: - Add temporary `print()` / `console.log()` statements and run the tests
+115:   to confirm the theory if needed (remove them after)
+116: 
+117: Do **not** proceed to Phase 4 unless you are confident in the root cause.
+118: 
+119: ---
+120: 
+121: ## Phase 4: Propose Fix — USER REVIEW
+122: 
+123: > **STOP. Do not write any fix yet.** Present your findings to the user and
+124: > wait for approval before touching production code.
+125: 
+126: Use `AskUserQuestion` to present the following and get explicit approval:
+127: 
+128: 1. **Bug location** — exact file(s) and function(s) where the bug lives
+129: 2. **Root cause** — why it happens (one clear sentence)
+130: 3. **Proposed fix** — what you will change and why (be specific: "in
+
+### .agents/prompts/bugfix.md (300 total lines)
+131:    `file.py:function()`, change X to Y because Z")
+132: 4. **Scope** — which files will be modified and roughly how many lines
+133: 5. **Risk** — anything this fix might affect beyond the bug
+134: 
+135: The user may:
+136: - **Approve** → proceed to Phase 5
+137: - **Redirect** → adjust your approach based on their feedback, re-propose
+138: - **Reject** → return to Phase 3 with a different theory
+139: 
+140: Do **not** proceed to Phase 5 without explicit user approval.
+141: 
+142: ---
+143: 
+144: ## Phase 5: Apply Fix
+145: 
+146: Iterate until green. Each iteration follows this strict sequence:
+147: 
+148: ### 5.1 — Apply Fix
+149: 
+150: Make the **minimal change** needed to fix the bug, as approved in Phase 4.
+151: Do not refactor, do not clean up adjacent code, do not improve naming — just
+152: fix the bug.
+153: 
+154: ### 5.2 — Verify
+155: 
+156: Run the **same three+ tests** from Phase 2 (the saved pytest command).
+157: 
+158: ### 5.3 — Evaluate Result
+159: 
+160: - **All tests pass** → exit the loop, proceed to Phase 6.
+161: - **Any test fails** → the fix is wrong. **Undo all changes** made in 5.1
+162:   (`git checkout -- <files>`) and return to 5.1 with an adjusted approach.
+163:   If the failure suggests the approved approach is fundamentally wrong,
+164:   go back to Phase 4 and re-propose to the user. Do not iterate on a
+165:   broken fix — revert and rethink.
+166: 
+167: **Hard limit: 4 iterations.** If you haven't found the fix after 4 loops,
+168: stop and present your findings to the user:
+169: - What you've tried and why it failed
+170: - Your best current theory
+171: - What information or access you'd need to proceed
+172: 
+173: ---
+174: 
+175: ## Phase 6: Root Cause Analysis
+176: 
+177: The bug is fixed, but is the fix *right*? Analyze deeper:
+178: 
+179: 1. **Why did this bug exist?** Categorize:
+180:    - **Misunderstood architecture** — code conflicts with the system's patterns
+181:    - **Architecture gap** — no clean way to do the right thing, so a hack was used
+182:    - **Violated expectations** — success channel carrying failure (the 200-OK pattern)
+183:    - **Missing validation** — bad input accepted at a system boundary
+184:    - **Stale assumption** — code assumed something that changed upstream
+185: 
+186: 2. **Is this a band-aid or the real fix?** Ask:
+187:    - Does the fix address the root cause or just suppress the symptom?
+188:    - Could the same class of bug recur in a similar code path?
+189:    - Is there a simpler design that eliminates the bug category entirely?
+190:    - Does the fix align with the project's core values: **simplicity,
+191:      composability, extensibility, modularity**?
+192: 
+193: 3. **Present the assessment** to the conversation:
+194:    - Current fix (what it does, why it works)
+195:    - Root cause category
+196:    - Whether a deeper fix exists and what it would look like
+197:    - Your recommendation: keep the current fix or go deeper
+198: 
+199: ---
+200: 
+201: ## Phase 7: Optimal Fix — USER REVIEW (if applicable)
+202: 
+203: If Phase 6 identified a better solution:
+204: 
+205: > **STOP. Do not implement the deeper fix yet.** Present the proposed
+206: > optimal fix to the user and wait for approval.
+207: 
+208: Use `AskUserQuestion` to present:
+209: 
+210: 1. **Current fix** — what's in place now and why it's suboptimal
+211: 2. **Proposed optimal fix** — what you would change instead
+212: 3. **Trade-off** — scope increase, risk, and benefit of the deeper fix
+213: 4. **Recommendation** — your honest take on whether it's worth it
+214: 
+215: The user may:
+216: - **Approve** → undo the Phase 5 fix, implement the optimal fix
+217: - **Keep current** → skip to Phase 8, the Phase 5 fix stands
+218: - **Modify** → adjust based on feedback, re-propose
+219: 
+220: If approved:
+221: 
+222: 1. **Undo the Phase 5 fix**: `git checkout -- <files>` to restore the
+223:    buggy state. The failing tests are still in place.
+224: 
+225: 2. **Implement the optimal fix.** This may be a broader refactor — that's
+226:    fine, as long as it's motivated by the bug and makes the system genuinely
+227:    simpler or more correct.
+228: 
+229: 3. **Run the same failing tests** from Phase 2. Iterate until they pass
+230:    (same 5.1→5.3 loop, same 4-iteration hard limit).
+231: 
+232: If no better fix exists, skip this phase — the Phase 5 fix stands.
+233: 
+234: ---
+235: 
+236: ## Phase 8: Full Suite Validation
+237: 
+238: The failing tests pass with the optimal fix. Now verify nothing else broke.
+239: 
+240: ```bash
+241: # Framework unit tests
+242: cd /workspace/src/n3tx/core && python3 -m pytest tests/unit/ -v
+243: 
+244: # Integration tests (run whichever are relevant)
+245: cd /workspace && python3 -m pytest example_api/tests/ -v
+246: cd /workspace && python3 -m pytest example_actor/tests/ -v
+247: ```
+248: 
+249: If any unrelated test fails:
+250: - Investigate whether it's a real regression from the fix or a pre-existing flake
+251: - If it's a regression, go back to Phase 7 and adjust
+252: - If it's a flake, note it but don't let it block the fix
+253: 
+254: ---
+255: 
+256: ## Phase 9: Summary
+257: 
+258: Present a concise summary:
+259: 
+260: ```
+
+### .agents/prompts/bugfix.md (300 total lines)
+261: Bug: <one-line description>
+262: Root cause: <category> — <explanation>
+263: Fix: <what changed and why>
+264: Tests added: <list of test files/functions>
+265: Files modified: <list>
+266: Regression: none | <description>
+267: ```
+268: 
+269: Do **not** commit. The user decides when to commit (they may use `/commit`
+270: or `/git-smart`).
+271: 
+272: ---
+273: 
+274: ## Safety Rails
+275: 
+276: - **NEVER** commit during this skill — diagnosis and fix only
+277: - **NEVER** run the full test suite before the targeted tests pass (Phase 2-7)
+278: - **NEVER** iterate on a broken fix — always revert and rethink
+279: - **NEVER** modify tests to make them pass — tests are the spec, code is the fix
+280: - **NEVER** skip Phase 6 — understanding "why" prevents the next bug
+281: - **NEVER** implement a fix without user approval (Phase 4 and Phase 7 gates)
+282: - **ALWAYS** undo failed fix attempts before trying a new theory
+283: - **ALWAYS** use the exact same test command throughout the session
+284: - **ALWAYS** use `AskUserQuestion` for the Phase 4 and Phase 7 review gates
+285: 
+286: ---
+287: 
+288: ## Quick Reference — Execution Checklist
+289: 
+290: Re-read this before each action to stay on track:
+291: 
+292: 1. **WRITE TESTS FIRST** — 3+ failing tests, no source code analysis yet
+293: 2. **RUN TESTS** — confirm they all fail for the right reason
+294: 3. **DIAGNOSE** — analyze and validate theory, read-only investigation
+295: 4. **PROPOSE FIX → USER REVIEW** — present findings, wait for approval
+296: 5. **APPLY FIX → VERIFY** — implement approved fix, loop until green, revert on failure
+297: 6. **ROOT CAUSE** — categorize why the bug existed
+298: 7. **OPTIMAL FIX → USER REVIEW** — propose deeper fix if one exists, wait for approval
+299: 8. **FULL SUITE** — run all tests to catch regressions
+300: 9. **SUMMARY** — report results, do not commit
+
+### .agents/prompts/build-feature.md (400 total lines)
+1: ---
+2: description: Decomposes a feature plan into a JSONL PRD of self-contained tasks, then executes them via parallel subagents. Takes a plan from .traces/features/, generates <plan-name>.jsonl, and builds the feature wave by wave.
+3: argument-hint: "<plan-name> [execute:yes|no] [parallel:yes|no]  e.g. 'debug-mode', 'streaming execute:no', 'module-split parallel:yes'"
+4: ---
+5: # Build Feature: Plan-to-PRD-to-Implementation Pipeline
+6: 
+7: You are a feature decomposition and execution engine. Your job is to take a
+8: human-written feature plan, break it into atomic self-contained tasks that a
+9: memoryless subagent can implement, write those tasks as a JSONL PRD file,
+10: and then orchestrate execution. You are an experienced, competent engine 
+11: that is correct, thoughtful rigorous and creative.
+12: 
+13: **Raw arguments:** $ARGUMENTS
+14: 
+15: ---
+16: 
+17: ## Argument Parsing
+18: 
+19: Parse `$ARGUMENTS` to extract:
+20: - **Plan name**: The feature plan to build (matches a directory or file in
+21:   `.traces/features/`)
+22: - **Execute** (optional): `execute:yes` (default) or `execute:no`
+23:   - `yes` — generate JSONL then execute tasks via subagents
+24:   - `no` — generate JSONL only (dry run, for review)
+25: - **Parallel** (optional): `parallel:yes` (default) or `parallel:no`
+26:   - `yes` — run tasks within the same wave in parallel (using worktree
+27:     isolation)
+28:   - `no` — run all tasks sequentially regardless of wave
+29: 
+30: If no plan name is provided, list available plans from `.traces/features/`
+31: and ask the user to pick one using AskUserQuestion.
+32: 
+33: ---
+34: 
+35: ## Phase 1: Plan Discovery
+36: 
+37: Find and read the plan files:
+38: 
+39: ### Step 1: Locate the plan
+40: 
+41: Search for the plan in `.traces/features/`:
+42: 
+43: 1. **Directory match**: `.traces/features/<plan-name>/` — read ALL `.md`
+44:    files in the directory, sorted by filename (numbered files first:
+45:    `1-backend.md`, `2-frontend.md`, etc., then the main plan file)
+46: 2. **File match**: `.traces/features/<plan-name>.md` — single file plan
+47: 3. **Done directory**: `.traces/features/done/<plan-name>/` — completed
+48:    features (warn user these are already implemented)
+49: 
+50: If no match, search for partial matches and suggest alternatives.
+51: 
+52: ### Step 2: Read the plan
+53: 
+54: Read ALL plan files found. For multi-file plans, read them in this order:
+55: 1. The overview/main file (usually `<plan-name>.md` or the unnumbered file)
+56: 2. Numbered implementation files in order (`1-*.md`, `2-*.md`, etc.)
+57: 
+58: ### Step 3: Read referenced source files
+59: 
+60: Plans reference source files with specific paths and line numbers. Read
+61: the KEY source files referenced in the plan (the ones that will be modified).
+62: This is essential — you need to see the CURRENT state of the code, not just
+63: what the plan describes (the code may have changed since the plan was written).
+64: 
+65: Limit to the 10-15 most important files. Read them in parallel.
+66: 
+67: ### Step 4: Read project context
+68: 
+69: Read `CLAUDE.md` and — based on whether this is backend, frontend, or
+70: full-stack work — read `claude-back.md` and/or `claude-front.md`. These
+71: contain conventions and patterns that every task must reference.
+72: 
+73: ---
+74: 
+75: ## Phase 2: Decomposition
+76: 
+77: Break the plan into atomic, self-contained tasks. This is the critical phase.
+78: Each task must contain EVERYTHING a memoryless agent needs to implement it.
+79: 
+80: ### Decomposition Rules
+81: 
+82: 1. **Atomic scope**: Each task modifies 1-3 files. If a plan section touches
+83:    more, split it into multiple tasks.
+84: 
+85: 2. **Self-contained context**: Each task includes:
+86:    - The architectural context (what system this belongs to, how it works)
+87:    - Project conventions (import style, naming, patterns)
+88:    - The exact code to change (current state and target state)
+89:    - Why the change exists (not just what)
+90:    - How to verify it works
+91: 
+92: 3. **Clear dependencies**: If task B needs task A's output to work, mark the
+93:    dependency. Tasks without dependencies can run in parallel.
+94: 
+95: 4. **Wave assignment**: Group tasks into waves based on dependencies:
+96:    - Wave 1: Tasks with no dependencies (can all run in parallel)
+97:    - Wave 2: Tasks that depend on wave 1 tasks
+98:    - Wave N: Tasks that depend on wave N-1 tasks
+99:    Minimize the number of waves — more parallelism = faster execution.
+100: 
+101: 5. **Test tasks are separate**: Writing tests is its own task, typically in
+102:    a later wave (after the code it tests exists).
+103: 
+104: 6. **One concern per task**: Don't combine "add the config option" with
+105:    "update the UI to show it". These are separate tasks even if the plan
+106:    groups them.
+107: 
+108: ### JSONL Format
+109: 
+110: Write each task as a single JSON line. The file format is:
+111: 
+112: ```
+113: {"id":"task-01","wave":1,"title":"...","intent":"...","context":"...","instructions":"...","files":{"read":[],"modify":[],"create":[]},"conventions":"...","verification":{"commands":[],"checks":[]},"depends_on":[]}
+114: {"id":"task-02","wave":1,"title":"...","intent":"...","context":"...","instructions":"...","files":{"read":[],"modify":[],"create":[]},"conventions":"...","verification":{"commands":[],"checks":[]},"depends_on":[]}
+115: ``` 
+116: Once the tasks are created, we can create a human readable version in a .md 
+117: file <plan-name>-prd.md with all the tasks (a jsonl on one line is hard to 
+118: proofreadd)
+119: 
+120: **Field definitions:**
+121: 
+122: | Field | Type | Description |
+123: |-------|------|-------------|
+124: | `id` | string | Unique task ID: `task-01`, `task-02`, etc. |
+125: | `wave` | int | Execution wave (1 = first, no dependencies) |
+126: | `title` | string | Short imperative title: "Add debug flag to /_meta endpoint" |
+127: | `intent` | string | WHY this change exists. Business/technical motivation. 2-3 sentences. |
+128: | `context` | string | Architectural context the agent needs. How this fits the system, what patterns to follow, what other components interact with this. Include relevant excerpts from CLAUDE.md. 1-2 paragraphs. |
+129: | `instructions` | string | Step-by-step implementation guide. Include EXACT code snippets showing what to add/change. Reference specific functions, line patterns (not numbers — they drift). Use markdown formatting within the string. |
+130: | `files.read` | string[] | Absolute paths the agent MUST read before implementing. Include the files being modified plus any files needed for understanding context. |
+
+### .agents/prompts/build-feature.md (400 total lines)
+131: | `files.modify` | string[] | Absolute paths that will be changed. |
+132: | `files.create` | string[] | Absolute paths of new files to create. |
+133: | `conventions` | string | Project-specific patterns to follow: import style, naming conventions, test patterns, code organization. Extract from CLAUDE.md and existing code. |
+134: | `verification.commands` | string[] | Shell commands to verify the change works. Typically pytest commands. Use absolute paths from `/workspace`. |
+135: | `verification.checks` | string[] | Human-readable acceptance criteria. Each one should be independently verifiable. |
+136: | `depends_on` | string[] | IDs of tasks that must complete before this one can start. Empty array for wave-1 tasks. |
+137: 
+138: ### Context Embedding Strategy
+139: 
+140: For the `context` field, include:
+141: - What the file/module does and its role in the system
+142: - What patterns the surrounding code uses
+143: - Key imports and class hierarchies relevant to the change
+144: - Any gotchas from CLAUDE.md (e.g., "Pydantic mock patching requires
+145:   object.__setattr__", "SQLite :memory: creates separate connections")
+146: 
+147: For the `instructions` field, include:
+148: - The CURRENT code at the modification point (copy from the source file you
+149:   read — this serves as the agent's "old_string" for Edit tool)
+150: - The TARGET code after modification
+151: - Step-by-step narrative connecting the changes
+152: - Any imports to add
+153: - Any error handling patterns to follow
+154: 
+155: For the `conventions` field, include relevant entries from CLAUDE.md such as:
+156: - Commit message format (though agents don't commit)
+157: - Test naming patterns (`test_{function}_{scenario}`)
+158: - Marker usage (`pytestmark = pytest.mark.unit`)
+159: - Fixture patterns from conftest.py
+160: - Import ordering
+161: 
+162: ### Writing the JSONL
+163: 
+164: Write the JSONL file to: `.traces/features/<plan-name>/<plan-name>.jsonl`
+165: (for directory-based plans) or `.traces/features/<plan-name>.jsonl` (for
+166: single-file plans).
+167: 
+168: Use the Write tool. Each line must be valid JSON (use `json.dumps()` style —
+169: no trailing commas, proper escaping of quotes and newlines in strings).
+170: 
+171: ---
+172: 
+173: ## Phase 3: Review
+174: 
+175: Present the task breakdown to the user:
+176: 
+177: > **Feature PRD: `<plan-name>`**
+178: >
+179: > Generated `<N>` tasks in `<W>` waves:
+180: >
+181: > **Wave 1** (no dependencies — can run in parallel):
+182: > | ID | Title | Files | Verification |
+183: > |----|-------|-------|-------------|
+184: > | task-01 | Add X to Y | `file.py` | pytest test_x.py |
+185: > | task-02 | Update Z | `file2.py` | pytest test_z.py |
+186: >
+187: > **Wave 2** (depends on wave 1):
+188: > | ID | Title | Depends On | Files |
+189: > |----|-------|-----------|-------|
+190: > | task-03 | Wire X to Z | task-01, task-02 | `file3.py` |
+191: >
+192: > **Wave 3** (tests):
+193: > | ID | Title | Depends On | Files |
+194: > |----|-------|-----------|-------|
+195: > | task-04 | Unit tests for X | task-01 | `test_x.py` (new) |
+196: >
+197: > PRD written to: `.traces/features/<plan-name>/<plan-name>.jsonl`
+198: >
+199: > Mode: **execute** / **dry run (JSONL only)**
+200: 
+201: If `execute:no`, stop here.
+202: 
+203: If `execute:yes`, ask for confirmation before proceeding:
+204: 
+205: Use AskUserQuestion:
+206: - "Ready to execute <N> tasks in <W> waves?"
+207: - Options: "Execute all", "Execute wave 1 only", "Review JSONL first"
+208: 
+209: ---
+210: 
+211: ## Phase 4: Execution
+212: 
+213: Process tasks wave by wave. Within each wave, the execution strategy depends
+214: on the `parallel` flag.
+215: 
+216: ### Sequential Mode (`parallel:no`)
+217: 
+218: For each wave (1, 2, 3, ...):
+219: 1. For each task in the wave (in ID order):
+220:    a. Read the task from the JSONL file
+221:    b. Launch a **single agent** using `subagent_type: "feature-task-executor"`
+222:    c. Pass the full JSON task as the agent's prompt (stringify the JSON object)
+223:    d. Wait for the agent to complete
+224:    e. Check the agent's report for SUCCESS/PARTIAL/FAILED
+225:    f. If FAILED, stop and report to the user. Ask whether to continue,
+226:       retry, or abort.
+227: 2. After the wave completes, report wave status to the user
+228: 3. Move to the next wave
+229: 
+230: ### Parallel Mode (`parallel:yes` — default)
+231: 
+232: For each wave (1, 2, 3, ...):
+233: 1. Identify all tasks in this wave
+234: 2. Check for file conflicts — if two tasks modify the same file, they
+235:    CANNOT run in parallel. Split into sub-waves if needed:
+236:    - Sub-wave A: tasks with no file overlap (run in parallel with worktrees)
+237:    - Sub-wave B: remaining tasks (run sequentially after sub-wave A)
+238: 3. For each sub-wave:
+239:    a. Launch all tasks as parallel agents using
+240:       `subagent_type: "feature-task-executor"` with `isolation: "worktree"`
+241:    b. Send ALL agent launches in a **single message** (parallel tool calls)
+242:    c. Wait for all agents to complete
+243:    d. For each agent result:
+244:       - Check for SUCCESS/PARTIAL/FAILED
+245:       - If worktree has changes, note the branch name for integration
+246: 4. After parallel tasks complete, handle results:
+247:    - If all SUCCESS: merge worktree branches (or apply changes)
+248:    - If any FAILED: report failures, ask user whether to continue
+249: 5. Run sequential sub-wave tasks (file-conflict tasks)
+250: 6. Report wave status to the user
+251: 7. Move to the next wave
+252: 
+253: ### Agent Prompt Format
+254: 
+255: When launching a feature-task-executor agent, pass the task as follows:
+256: 
+257: ```
+258: Implement this task from the feature PRD:
+259: 
+260: {full JSON task object, pretty-printed}

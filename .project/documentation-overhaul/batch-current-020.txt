@@ -1,0 +1,758 @@
+
+### docs/API_REFERENCE.md (1136 total lines)
+651: ```
+652: 
+653: ---
+654: 
+655: ## Decorators
+656: 
+657: ### @expose_route
+658: 
+659: Decorator to expose model methods as API endpoints.
+660: 
+661: **Module**: `utils.decorators`
+662: 
+663: #### Signature
+664: 
+665: ```python
+666: @expose_route(route: str, methods: List[str] = ["POST"])
+667: ```
+668: 
+669: **Parameters**:
+670: - `route`: Relative route path (e.g., '/login')
+671: - `methods`: HTTP methods (e.g., ['GET', 'POST'])
+672: 
+673: #### Usage
+674: 
+675: ##### Static Method
+676: 
+677: ```python
+678: class User(ProtoModel):
+679:     @staticmethod
+680:     @expose_route('/login', methods=['POST'])
+681:     def login(email: str, password: str) -> User:
+682:         # Creates: POST /users/login
+683:         pass
+684: ```
+685: 
+686: ##### Class Method
+687: 
+688: ```python
+689: class User(ProtoModel):
+690:     @classmethod
+691:     @expose_route('/search', methods=['GET'])
+692:     def search(cls, query: str) -> List[User]:
+693:         # Creates: GET /users/search
+694:         pass
+695: ```
+696: 
+697: ##### Instance Method
+698: 
+699: ```python
+700: class Product(ProtoModel):
+701:     @expose_route('/discount', methods=['POST'])
+702:     def apply_discount(self, percentage: float) -> Product:
+703:         # Creates: POST /products/{id}/discount
+704:         self.price *= (1 - percentage / 100)
+705:         self.save()
+706:         return self
+707: ```
+708: 
+709: #### Route Resolution
+710: 
+711: | Method Type | Route Pattern | Example |
+712: |-------------|---------------|---------|
+713: | Static | `/{table}{route}` | `/users/login` |
+714: | Class | `/{table}{route}` | `/users/search` |
+715: | Instance | `/{table}/{id}{route}` | `/products/1/discount` |
+716: 
+717: ---
+718: 
+719: ## Agents
+720: 
+721: LLM-powered reasoning via the actor system. See [`packages/n3tx-agents/README.md`](../../../packages/n3tx-agents/README.md) for full documentation.
+722: 
+723: ### AgentMixin
+724: 
+725: **Module**: `n3tx_agents.mixin`
+726: 
+727: Injected into any model with `__agent__ = True` via `ProtoModel.__init_subclass__`. All methods use `@fullmethod` (unified class/instance dispatch).
+728: 
+729: #### `agentic(target, task: str, **kwargs) -> dict`
+730: 
+731: Policy layer. Resolves config via 3-tier cascade, delegates to `run()`.
+732: 
+733: | Parameter | Type | Description |
+734: |-----------|------|-------------|
+735: | `task` | `str` | The user task / query to execute |
+736: | `prompt` | `str` | Override system prompt (kwarg) |
+737: | `tools` | `list[str]` | Override actor addresses (kwarg) |
+738: | `user` | `dict` | JWT user dict for auth context (kwarg) |
+739: | `llm` | `str \| Model` | Override LLM model (kwarg) |
+740: | `constraints` | `dict` | Override constraints (kwarg) |
+741: | `message_history` | `list` | Previous messages for multi-turn (kwarg) |
+742: | `result_type` | `type` | Pydantic model for structured output (kwarg) |
+743: 
+744: **Returns**: `{"answer": str, "usage": {"input_tokens", "output_tokens", "requests"}, "messages": list, "message_count": int}`
+745: 
+746: #### `run(target, task, prompt, tools, ...) -> dict`
+747: 
+748: Engine. No config resolution. Receives fully resolved params. Same return shape as `agentic()`.
+749: 
+750: #### `agentic_stream(target, task, **kwargs)` -> async generator
+751: 
+752: Streaming policy layer. Same config cascade as `agentic()`. Yields TX-aligned chunks.
+753: 
+754: #### `run_stream(target, task, prompt, tools, ...)` -> async generator
+755: 
+756: Streaming engine. Yields `{"name": "text"|"done"|"error", "data": {...}, "meta": {...}}`.
+757: 
+758: ### AgentActor
+759: 
+760: **Module**: `n3tx_agents.actor`
+761: 
+762: Concrete `ActorModel` whose instances ARE agents. Configuration lives in fields (DB-storable).
+763: 
+764: | Field | Type | Default | Description |
+765: |-------|------|---------|-------------|
+766: | `name` | `str` | (required) | Human-readable agent name |
+767: | `prompt` | `str` | `''` | System prompt for the LLM |
+768: | `tools` | `list[AgentTool]` | `[]` | Ordered hydrated tool records |
+769: | `llm` | `str` | `'ollama:llama3.1'` | Pydantic AI `provider:model` string |
+770: | `constraints` | `dict` | `{}` | Budget/safety limits |
+771: 
+772: #### `agentic(self, task: str, **kwargs) -> str`
+773: 
+774: Execute the agent's reasoning loop. Exposed as `POST /agents/{id}/agentic`. Returns JSON string.
+775: 
+776: ### AgentDeps
+777: 
+778: **Module**: `agents.deps`
+779: 
+780: Dataclass passed to Pydantic AI tool functions via `RunContext[AgentDeps]`.
+
+### docs/API_REFERENCE.md (1136 total lines)
+781: 
+782: | Field | Type | Description |
+783: |-------|------|-------------|
+784: | `adapter` | `NetworkAdapter` | For request/response correlation |
+785: | `user` | `dict \| None` | JWT user dict for auth context |
+786: | `agent_addr` | `str` | Agent's actor address (TX.source) |
+787: 
+788: ### ToolSpec
+789: 
+790: **Module**: `agents.tools`
+791: 
+792: Specification for a single discovered tool.
+793: 
+794: | Field | Type | Description |
+795: |-------|------|-------------|
+796: | `actor_addr` | `str` | Target actor address |
+797: | `method_name` | `str` | Method/action name |
+798: | `tool_name` | `str` | LLM-facing name (e.g., `grants_create`) |
+799: | `description` | `str` | Human-readable description |
+800: | `parameters` | `dict` | JSON Schema for parameters |
+801: 
+802: #### Related Functions
+803: 
+804: - `discover_tools(actor_addrs, root, caller_addr=None) -> list[ToolSpec]` — Discover tools from actor addresses
+805: - `create_tool_function(spec) -> async function` — Create typed async function from ToolSpec
+806: - `make_tool(spec) -> pydantic_ai.Tool` — Create Pydantic AI Tool wrapper
+807: 
+808: ---
+809: 
+810: ## Backends
+811: 
+812: ### BaseBackend
+813: 
+814: Abstract base class for web framework adapters.
+815: 
+816: **Module**: `api.backend`
+817: 
+818: #### Fields
+819: 
+820: ```python
+821: name: str         # Backend name
+822: description: str  # Backend description
+823: version: str      # API version
+824: port: int = 8000  # Server port
+825: app: Any = None   # Framework-specific app instance
+826: ```
+827: 
+828: #### Abstract Methods
+829: 
+830: ##### `register_routes(registered_models: Dict[str, Type])`
+831: 
+832: Registers all routes from registered models.
+833: 
+834: **Parameters**:
+835: - `registered_models`: Dictionary of model name -> model class
+836: 
+837: ---
+838: 
+839: ### FastAPIBackend
+840: 
+841: FastAPI adapter with CORS support.
+842: 
+843: **Module**: `api.backend`
+844: 
+845: #### Constructor
+846: 
+847: ```python
+848: FastAPIBackend(
+849:     name: str,
+850:     version: str,
+851:     description: str,
+852:     port: int = 8000
+853: )
+854: ```
+855: 
+856: #### Configuration
+857: 
+858: Automatically adds:
+859: - CORS middleware (all origins allowed)
+860: - OpenAPI/Swagger documentation
+861: - Automatic JSON serialization
+862: 
+863: #### Route Handlers
+864: 
+865: All CRUD route handlers in `routes_fastapi.py` call `.model_response()` instead of `.model_dump()` or returning instances directly. This runs the dump pipeline and ensures every response includes `$schema` and `$id` metadata.
+866: 
+867: #### Example
+868: 
+869: ```python
+870: backend = FastAPIBackend(
+871:     name="My API",
+872:     version="1.0.0",
+873:     description="API built with N3TX",
+874:     port=8000
+875: )
+876: backend.register_routes(registered_models)
+877: app = backend.get_app()
+878: ```
+879: 
+880: ---
+881: 
+882: ### FlaskBackend
+883: 
+884: Flask adapter with Flasgger (Swagger) support.
+885: 
+886: **Module**: `api.backend`
+887: 
+888: #### Constructor
+889: 
+890: ```python
+891: FlaskBackend(
+892:     name: str,
+893:     version: str,
+894:     description: str,
+895:     port: int = 8000
+896: )
+897: ```
+898: 
+899: #### Configuration
+900: 
+901: Includes:
+902: - Flask app with static/template folders
+903: - Flasgger for Swagger UI
+904: - WSGI to ASGI adapter
+905: 
+906: #### Example
+907: 
+908: ```python
+909: backend = FlaskBackend(
+910:     name="My API",
+
+### docs/API_REFERENCE.md (1136 total lines)
+911:     version="1.0.0",
+912:     description="API built with N3TX",
+913:     port=8000
+914: )
+915: backend.register_routes(registered_models)
+916: app = backend.get_app()  # Returns WsgiToAsgi wrapped app
+917: ```
+918: 
+919: ---
+920: 
+921: ## Utilities
+922: 
+923: ### register_model
+924: 
+925: Registers a model with N3TX's system.
+926: 
+927: **Module**: `utils.registrar`
+928: 
+929: **Signature**:
+930: ```python
+931: register_model(
+932:     model_class: Type[Any],
+933:     storage: AbstractStorage = None
+934: )
+935: ```
+936: 
+937: **Parameters**:
+938: - `model_class`: Model to register
+939: - `storage`: Storage backend (required if `__storable__` is True)
+940: 
+941: **Actions**:
+942: 1. Sets storage backend
+943: 2. Creates table
+944: 3. Runs auto-migration
+945: 4. Adds to global registry
+946: 
+947: **Example**:
+948: ```python
+949: from utils.registrar import register_model
+950: from storage.sqlite_storage import SQLiteStorage
+951: 
+952: storage = SQLiteStorage('database.db')
+953: register_model(User, storage=storage)
+954: register_model(Product, storage=storage)
+955: ```
+956: 
+957: ### Local model collections
+958: 
+959: Owned child collections are declared directly on the parent model:
+960: 
+961: ```python
+962: class Product(ProtoModel):
+963:     __tablename__ = 'products'
+964:     __storable__ = True
+965: 
+966:     comments: list[Comment] = Field(default=[])
+967: ```
+968: 
+969: `list[T]` stores an ordered JSON list of local child ids and hydrates those ids
+970: into self-describing child objects in responses. Updates replace the ordered
+971: list; child records keep their own flat class-name CRUD routes.
+972: 
+973: For shared relationship data, prefer an explicit link model. `ManyToMany[T]` is
+974: a legacy helper for existing shared-link cases rather than the default
+975: relationship primitive.
+976: 
+977: ### get_traceback_info
+978: 
+979: Extracts structured error information from exceptions.
+980: 
+981: **Module**: `utils.erroring`
+982: 
+983: **Signature**:
+984: ```python
+985: get_traceback_info(e: Exception) -> List[Dict]
+986: ```
+987: 
+988: **Parameters**:
+989: - `e`: Exception to analyze
+990: 
+991: **Returns**: List of dictionaries with:
+992: - `file`: Source file path
+993: - `line`: Line number
+994: - `function`: Function name
+995: - `code`: Source code line
+996: - `error`: Error message (last frame only)
+997: 
+998: **Example**:
+999: ```python
+1000: try:
+1001:     user = User.get(999)
+1002: except Exception as e:
+1003:     trace = get_traceback_info(e)
+1004:     # [
+1005:     #   {"file": "models.py", "line": 42, "function": "get", "code": "..."},
+1006:     #   {"file": "storage.py", "line": 100, "function": "query", "code": "..."},
+1007:     #   {"file": "main.py", "line": 10, "function": "main", "code": "...", "error": "Not found"}
+1008:     # ]
+1009: ```
+1010: 
+1011: ---
+1012: 
+1013: ## Type Hints
+1014: 
+1015: N3TX provides type hints for all public APIs. Use with mypy or pyright for static type checking:
+1016: 
+1017: ```python
+1018: from typing import ClassVar, Optional, List
+1019: from models.proto_model import ProtoModel
+1020: from storage.abstract_storage import AbstractStorage
+1021: from utils.typer import Ref
+1022: 
+1023: # All types are properly annotated
+1024: storage: AbstractStorage = SQLiteStorage('db.db')
+1025: user: User = User.get(1)
+1026: users: List[User] = User.list()
+1027: ```
+1028: 
+1029: ---
+1030: 
+1031: ## Configuration
+1032: 
+1033: All configuration is in `config.py`:
+1034: 
+1035: ```python
+1036: BACKEND = "fastapi"  # or "flask"
+1037: VERSION = "0.5.0"
+1038: HOST = "0.0.0.0"
+1039: PORT = 8000
+1040: SQLITE_DB_FILE = "n3tx.db"
+
+### docs/API_REFERENCE.md (1136 total lines)
+1041: ```
+1042: 
+1043: ---
+1044: 
+1045: ## Error Handling
+1046: 
+1047: All route handlers automatically catch exceptions and return structured errors:
+1048: 
+1049: ```python
+1050: # On error, returns:
+1051: {
+1052:   "status": 400,
+1053:   "detail": [
+1054:     {
+1055:       "file": "...",
+1056:       "line": ...,
+1057:       "function": "...",
+1058:       "code": "...",
+1059:       "error": "Error message"
+1060:     }
+1061:   ]
+1062: }
+1063: ```
+1064: 
+1065: ---
+1066: 
+1067: ## Examples
+1068: 
+1069: ### Complete API Example
+1070: 
+1071: ```python
+1072: from models.proto_model import ProtoModel
+1073: from utils.decorators import expose_route
+1074: from utils.typer import Ref
+1075: from typing import ClassVar, Optional, List
+1076: 
+1077: class Author(ProtoModel):
+1078:     __storable__: ClassVar[bool] = True
+1079:     __tablename__: ClassVar[str] = 'authors'
+1080:     
+1081:     id: Optional[int] = None
+1082:     name: str
+1083:     email: str
+1084: 
+1085: class Book(ProtoModel):
+1086:     __storable__: ClassVar[bool] = True
+1087:     __tablename__: ClassVar[str] = 'books'
+1088:     
+1089:     id: Optional[int] = None
+1090:     title: str
+1091:     isbn: str
+1092:     author: Ref[Author]
+1093:     
+1094:     @expose_route('/publish', methods=['POST'])
+1095:     def publish(self) -> Book:
+1096:         self.published = True
+1097:         self.save()
+1098:         return self
+1099:     
+1100:     @classmethod
+1101:     @expose_route('/search', methods=['GET'])
+1102:     def search(cls, query: str) -> List[Book]:
+1103:         # Custom search logic
+1104:         return [b for b in cls.list() if query in b.title]
+1105: ```
+1106: 
+1107: ### Register and Run
+1108: 
+1109: ```python
+1110: from storage.sqlite_storage import SQLiteStorage
+1111: from utils.registrar import register_model
+1112: from api.backend import FastAPIBackend
+1113: 
+1114: storage = SQLiteStorage('library.db')
+1115: register_model(Author, storage=storage)
+1116: register_model(Book, storage=storage)
+1117: 
+1118: backend = FastAPIBackend(name="Library API", version="1.0.0")
+1119: backend.register_routes(registered_models)
+1120: app = backend.get_app()
+1121: 
+1122: # Now available:
+1123: # GET/POST /authors
+1124: # GET/POST /books
+1125: # POST /books/{id}/publish
+1126: # GET /books/search?query=Python
+1127: # All GET responses include $schema and $id metadata
+1128: ```
+1129: 
+1130: ---
+1131: 
+1132: ## See Also
+1133: 
+1134: - [README.md](./README.md) - Getting started guide
+1135: - [ARCHITECTURE.md](./ARCHITECTURE.md) - Architecture overview
+1136: - [EXAMPLES.md](./EXAMPLES.md) - More examples
+
+### docs/ARCHITECTURE.md (1052 total lines)
+1: # N3TX Architecture Overview
+2: 
+3: This document provides a detailed explanation of N3TX's internal architecture, design patterns, and component interactions.
+4: 
+5: ## Table of Contents
+6: 
+7: - [High-Level Architecture](#high-level-architecture)
+8: - [Core Components](#core-components)
+9: - [Data Flow](#data-flow)
+10: - [Design Patterns](#design-patterns)
+11: - [Extension Points](#extension-points)
+12: 
+13: ## High-Level Architecture
+14: 
+15: N3TX follows a layered architecture with dependency injection for maximum flexibility:
+16: 
+17: ```
+18: ┌─────────────────────────────────────────────────────────────────┐
+19: │                        Client Layer                             │
+20: │       HTTP    │    MCP (AI)    │  ActivityPub  │  WebSocket     │
+21: └───────┬───────┴───────┬────────┴──────┬────────┴───────┬────────┘
+22:         │               │               │                │
+23: ┌───────▼───────────────▼───────────────▼────────────────▼────────┐
+24: │                   Network Adapter Layer                          │
+25: │          (Protocol → TX → Matrix → TX → Protocol)               │
+26: │  • NetworkAPI (HTTP)    • NetworkMCP (JSON-RPC 2.0)             │
+27: │  • NetworkAP (ActivityPub)  • NetworkWebSocket (WS)             │
+28: └────────────────────────────┬────────────────────────────────────┘
+29:                              │  TX messages
+30: ┌────────────────────────────▼────────────────────────────────────┐
+31: │                     Actor System (Matrix)                        │
+32: │              Message routing, Actor dispatch                     │
+33: │  • Actor / ActorModel     • Handler dispatch                    │
+34: │  • Class + Instance actors  • Lifecycle events                  │
+35: └────────┬───────────────────────────────────────┬────────────────┘
+36:          │                                       │
+37: ┌────────▼────────────────────────┐  ┌───────────▼───────────────┐
+38: │      Business Logic Layer       │  │       Agent Layer          │
+39: │      (Model Definitions)        │  │    (LLM-powered reasoning) │
+40: │  • ProtoModel (Base)            │  │  • AgentMixin (agent_run)  │
+41: │  • Schema Generation            │  │  • AgentActor (data agents)│
+42: │  • Custom Methods               │  │  • Tool Discovery          │
+43: │  • Validation / Foreign Keys    │  │  • Pydantic AI binding     │
+44: └────────────────┬────────────────┘  └───────────┬───────────────┘
+45:                  │                                │
+46:                  └──────────────┬─────────────────┘
+47:                                 │
+48: ┌───────────────────────────────▼─────────────────────────────────┐
+49: │                      Persistence Layer                          │
+50: │              (StorableMixin + Storage Backends)                 │
+51: │  • CRUD Operations          • Transaction Management            │
+52: │  • Auto-Migration           • Query Execution                   │
+53: └────────────────────────────┬────────────────────────────────────┘
+54:                              │
+55: ┌────────────────────────────▼────────────────────────────────────┐
+56: │                         Data Layer                              │
+57: │                  (SQLite / JSON / Custom)                       │
+58: │  • Physical Storage         • Data Persistence                  │
+59: └─────────────────────────────────────────────────────────────────┘
+60: ```
+61: 
+62: ### Optional File Capability (`n3tx-files`)
+63: 
+64: N3TX file handling is packaged as an optional capability, not as core blob
+65: storage. Apps opt in by importing/registering `File` from `n3tx_files`:
+66: 
+67: ```python
+68: from n3tx_files import File, LocalFileStore, configure_file_store
+69: 
+70: configure_file_store(LocalFileStore('./file-blobs'))
+71: app = create_app(models=[File, Job], storage='sqlite:///app.db')
+72: ```
+73: 
+74: `File(ActorModel)` is the single public primitive:
+75: 
+76: ```text
+77: File metadata row       -> normal N3TX storage, schema, auth, actor tools
+78: File bytes              -> FileStore provider (LocalFileStore by default)
+79: Upload/download bytes   -> package-owned explicit routes, not static assets
+80: File-typed method args  -> type-driven materialization via File.resolve()
+81: ```
+82: 
+83: This preserves the framework boundary: core does not import `n3tx_files`, blob
+84: bytes are not stored in SQLite, and dynamic user files are not served through the
+85: static asset catch-all.
+86: 
+87: ## Core Components
+88: 
+89: ### 1. ProtoModel
+90: 
+91: **Location**: `models/proto_model.py`
+92: 
+93: The foundation of N3TX's model system. All models inherit from `ProtoModel`.
+94: 
+95: **Responsibilities**:
+96: - Base class for all data models
+97: - Schema generation and introspection
+98: - Optional storage injection via `__storable__` flag
+99: - Foreign key field transformation
+100: - Method signature collection for API documentation
+101: 
+102: **Key Features**:
+103: 
+104: ```python
+105: class ProtoModel(PydanticBaseModel):
+106:     class Config:
+107:         extra = 'allow'  # Allow $schema and $id to survive FastAPI validation
+108:     
+109:     # Automatic storage injection
+110:     def __init_subclass__(cls, **kwargs):
+111:         if cls.__storable__:
+112:             # Inject StorableMixin
+113:             cls.__bases__ = (StorableMixin,) + cls.__bases__
+114:             # Transform Pydantic models to Ref
+115:             # Register with storage backend
+116:     
+117:     # Schema generation via composable pipeline (proto_schema)
+118:     @classmethod
+119:     def schema(cls) -> Dict[str, Any]:
+120:         # Runs proto_schema.run_pipeline(cls) — 8 composable stages:
+121:         # base -> strip_hidden -> methods -> agent -> defs -> access -> ui -> metadata
+122:         # Extensions add stages via @schema_extension
+123:         # Returns complete JSON schema including:
+124:         # - $schema (pointing to {API_URL}/Schema)
+125:         # - $id (pointing to {API_URL}/{ClassName})
+126:         # - Fields (from Pydantic)
+127:         # - Methods (from @expose_route)
+128:         # - Referenced models in $defs (each with $id)
+129: 
+130:     # Enriched serialization via composable pipeline (proto_dump)
+
+### docs/ARCHITECTURE.md (1052 total lines)
+131:     def model_response(self, **kwargs) -> dict:
+132:         # Runs proto_dump.run_pipeline(self) — stages:
+133:         # base -> relationships -> schema_url -> instance_url -> populate
+134:         # Extensions add stages via @dump_extension
+135:         # Injects:
+136:         # - $schema: URL to model's JSON Schema
+137:         # - $id: URL to this specific instance using the class-name API path
+138: ```
+139: 
+140: **Design Decisions**:
+141: - Uses `__init_subclass__` for automatic mixin injection
+142: - Leverages Pydantic for validation and schema generation
+143: - Separate `schema()` from `referenced_json_schema()` to avoid circular references
+144: - Config `extra='allow'` permits `$schema` and `$id` metadata fields to pass through FastAPI response validation
+145: - `model_response()` provides JSON-LD style self-describing responses via the composable dump pipeline (`proto_dump`)
+146: 
+147: **Route grammar** is additive and preserves the original API split:
+148: 
+149: ```text
+150: /{tablename}/...       JSON data API and custom methods
+151: /{ClassName}           schema endpoint
+152: /{ClassName}/_         JSON collection mirror of /{tablename}
+153: /{ClassName}/{id:int}  JSON read/update/delete mirror of /{tablename}/{id:int}
+154: /{ClassName}/{id:int}/{method}
+155:                        literal custom method mirror, no generic catch-all
+156: /{ClassName}/@...      HTML/view shell entrypoints
+157: #{ClassName}/@...      frontend hash-router view routes
+158: ```
+159: 
+160: The `@` segment always means view/html/component routing. It never invokes a
+161: method. Entity `$id` values use class-name routes while table-name routes remain
+162: available as compatibility API paths.
+163: 
+164: ### 2. StorableMixin
+165: 
+166: **Location**: `models/storable_mixin.py`
+167: 
+168: Provides CRUD operations through dependency injection.
+169: 
+170: **Pattern**: Strategy Pattern (storage backend is injected)
+171: 
+172: ```python
+173: class StorableMixin:
+174:     storage: ClassVar[StorageInterface] = None  # Injected
+175: 
+176:     @classmethod
+177:     def create(cls, data: Any) -> Any:
+178:         return cls.storage.create(cls, data)
+179: 
+180:     @classmethod
+181:     def list(cls, sql_filter=None, limit=None, offset=None):
+182:         return cls.storage.list(cls, sql_filter=sql_filter, limit=limit, offset=offset)
+183: 
+184:     # ... other CRUD methods
+185: ```
+186: 
+187: **Pagination**: When `limit` is provided, `list()` returns `{"data": [...], "meta": {"total", "limit", "offset", "has_more"}}`. When omitted, returns a plain list (backward compatible).
+188: 
+189: **Key Features**:
+190: - Storage backend agnostic
+191: - Automatic join model support
+192: - Foreign key unwrapping before persistence
+193: - Lazy loading optimization
+194: - Optional pagination with total count
+195: 
+196: ### 3. AbstractStorage
+197: 
+198: **Location**: `storage/abstract_storage.py`
+199: 
+200: Interface for storage backends (Strategy Pattern).
+201: 
+202: ```python
+203: class AbstractStorage(ABC):
+204:     @abstractmethod
+205:     def create_table(self, model_class: Type[Any]): pass
+206:     
+207:     @abstractmethod
+208:     def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any: pass
+209:     
+210:     @abstractmethod
+211:     def list(self, model_class: Type[Any]) -> List[Any]: pass
+212:     
+213:     # ... other CRUD operations
+214: ```
+215: 
+216: **Implementations**:
+217: 
+218: #### SQLiteStorage
+219: - Automatic schema migration
+220: - Foreign key handling
+221: - JSON TEXT serialization for embedded `dict`, primitive lists, `list[T]`, and
+222:   `list[Ref[T]]`; local model collections store ordered child ids and hydrate
+223:   to child objects. See [JSON Fields](JSON_FIELDS.md).
+224: 
+225: #### JSONStorage
+226: - File-based storage
+227: - Auto-incrementing IDs
+228: - Human-readable format
+229: 
+230: ### 4. Ref Type
+231: 
+232: **Location**: `models/ref.py` (`utils/typer.py` remains a compatibility import surface)
+233: 
+234: Type-safe model/actor identity pointer with JSON Schema generation and local or
+235: distributed address parsing.
+236: 
+237: ```python
+238: class Ref(Generic[T]):
+239:     def __init__(self, value: Optional[Any] = None):
+240:         if isinstance(value, BaseModel):
+241:             self.id = value.id
+242:             self._model = value
+243:         elif isinstance(value, int):
+244:             self.id = value
+245:             self._model = None
+246:         elif isinstance(value, str):
+247:             self.id = canonicalize_ref(value)
+248:     
+249:     # Custom Pydantic schema for OpenAPI
+250:     @classmethod
+251:     def __get_pydantic_json_schema__(cls, ...):
+252:         # Outputs $schema and $id instead of the old __url__ and __type__
+253:         return {
+254:             "type": "$ref",
+255:             "$ref": f"#/$defs/{target.__name__}"
+256:         }
+257: ```
+258: 
+259: **Purpose**:
+260: - Maintains type safety in the model layer

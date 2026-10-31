@@ -1,0 +1,458 @@
+
+### .project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md (165 total lines)
+1: # PRD: Hypermedia Route Grammar
+2: 
+3: ## Problem Statement
+4: 
+5: N3TX currently gives developers a working schema-driven application from model definitions, but its route grammar is split and increasingly overloaded. Schema endpoints use model class names, while data endpoints use table names, and frontend navigation encodes renderer selection through query parameters or positional route segments. This works for the existing CRUD and method flows, but it becomes fragile when N3TX needs richer model-centric hypermedia entrypoints that can render collection and member views directly.
+6: 
+7: The immediate user-facing problem is that developers cannot express “show this model/member using this semantic view” with a clear, stable, schema-driven route. A route such as a model plus a table view can be misread as a member ID; a member route plus a view name can be misread as a method/action; and direct browser refreshes of view-specific routes require a backend route that does not yet exist. This ambiguity makes the framework harder to teach, harder to test, and riskier to extend toward hypertext-oriented applications.
+8: 
+9: The product problem is therefore not just a missing route form. It is a missing grammar boundary between data, schema, action, and presentation. N3TX needs an additive route architecture that preserves every existing app contract while introducing an explicit view namespace for model-centric HTML and component routes.
+10: 
+163: The second most important regression surface is route shadowing. Backend route order and constrained instance parameters must make it impossible for a view route to be captured as an ID route.
+164: 
+165: The recommended build order is test-first by layer: add failing frontend grammar tests, implement frontend grammar, add failing backend direct route tests, implement direct routes, add failing actor parity tests, implement actor parity, then add browser-level refresh and navigation tests.
+
+### .project/refactor/1-routes-grammar/3-phase-by-phase-implementation-plan.md (509 total lines)
+1: # Hypermedia Route Grammar — Phase-by-Phase Implementation Plan
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Implement the route grammar refactor as an additive, test-first migration. Land the frontend `@` grammar first, then direct backend read mirrors, then HTML entrypoints, then actor parity, and only then migrate first-party navigation links.
+6: 
+7: Default path:
+8: 
+9: ```text
+10: Phase 0  Freeze decisions + legacy regression tests
+507: ## Saved Plan
+508: 
+509: - `.project/refactor/1-routes-grammar/3-phase-by-phase-implementation-plan.md`
+
+### .project/refactor/1-routes-grammar/4-class-name-identity-api-migration-plan.md (457 total lines)
+1: # Class-Name Identity and API Migration Plan
+2: 
+3: ## 0. Executive Summary
+4: 
+5: This phase updates the work intentionally deferred by the first hypermedia route
+6: grammar refactor, with one simplification: **flip `$id` directly to class-name
+7: identity** instead of introducing `$href` or `links` as intermediate metadata.
+8: 
+9: ```text
+10: 1. migrate $id to /ClassName/id immediately
+455: Do not add `$href` or `links` until a concrete consumer requires them. The
+456: migration cost moves to route availability and tests, which is easier to reason
+457: about than carrying parallel identity fields across the stack.
+
+### .project/refactor/1-routes-grammar/5-completion-gap-review-plan.md (452 total lines)
+1: # Hypermedia Route Grammar — Completion Gap Review Plan
+2: 
+3: ## ✅ Executive Summary
+4: 
+5: Issues `001` through `009` are mostly implemented. The remaining work is not a broad architecture rebuild; it is a focused closure pass around **proof, parity, browser coverage, and status documentation**.
+6: 
+7: The main implementation risk is actor-mode parity in the real example app:
+8: 
+9: ```text
+10: NetworkAPI route parity exists and is unit-tested,
+450: - custom renderer browser/integration proof if practical
+451: - missing-id shell docs
+452: - status pointer in historical plan
+
+### .project/refactor/1-routes-grammar/issues/001-collection-default-view.md (753 total lines)
+1: # Issue 001 Plan: Collection Default View Route
+2: 
+3: ## Goal
+4: 
+5: Build the first end-to-end tracer bullet for the hypermedia route grammar:
+6: 
+7: ```text
+8: #Product/@   -> frontend collection default view route
+9: /Product/@   -> backend HTML collection default view route
+10: ```
+751: - [ ] `/Product/@` returns `text/html` for viewable models.
+752: - [ ] `/Product` remains the schema endpoint.
+753: - [ ] Legacy `#Product` and `/products` behavior remains unchanged.
+
+### .project/refactor/1-routes-grammar/issues/002-named-collection-view.md (757 total lines)
+1: # Issue 002 Plan: Named Collection View Route
+2: 
+3: ## Goal
+4: 
+5: Extend the collection view route tracer bullet from issue 001 to named
+6: collection views:
+7: 
+8: ```text
+9: #Product/@table       -> frontend named collection view route
+10: #Product/@list        -> frontend named collection view route
+755: - [ ] `/Product/@table` returns `text/html`.
+756: - [ ] `/Product/@table` does not shadow `/Product` schema.
+757: - [ ] Legacy `/products` data routes remain unchanged.
+
+### .project/refactor/1-routes-grammar/issues/003-member-default-and-class-read.md (820 total lines)
+1: # Issue 003 Plan: Member Default View and Class-Name Read Mirror
+2: 
+3: ## Goal
+4: 
+5: Deliver the first complete member route path in the new hypermedia grammar:
+6: 
+7: ```text
+8: #Product/1/@  -> frontend member default view route
+9: /Product/1    -> backend class-name read mirror for /products/1
+10: /Product/1/@  -> backend HTML member default view route
+818: - [ ] `/Product/1/@` returns `text/html`.
+819: - [ ] `/Product/1/@` does not shadow `/Product/1`.
+820: - [ ] `/Product/@table` and `/Product` still route correctly.
+
+### .project/refactor/1-routes-grammar/issues/004-named-member-view-collision.md (778 total lines)
+1: # Issue 004 Plan: Named Member Views and Method/View Collision
+2: 
+3: ## Goal
+4: 
+5: Complete the member view grammar by adding named member views and locking the
+6: critical method-vs-view distinction:
+7: 
+8: ```text
+9: #Product/1/@item   -> member view named "item"
+10: #Product/1/@detail -> member view named "detail"
+776: - [ ] `/Product/1/run` is not added as a class-name method mirror.
+777: - [ ] Legacy `/products/1/run` method behavior remains unchanged.
+778: - [ ] Member view routes do not shadow `/Product/1` read mirror.
+
+### .project/refactor/1-routes-grammar/issues/005-view-token-hardening.md (640 total lines)
+1: # Issue 005 Plan: View Token Validation and Unsafe Route Hardening
+2: 
+3: ## Goal
+4: 
+5: Finalize and implement the safety policy for view route tokens and malformed
+6: route shapes introduced by issues 001–004.
+7: 
+8: This issue hardens both sides of the hypermedia route grammar:
+9: 
+10: ```text
+638: - [ ] Backend escapes generated HTML attrs.
+639: - [ ] Safe unknown views still use deterministic fallback.
+640: - [ ] Existing schema, data, class-read, and table-name method routes still work.
+
+### .project/refactor/1-routes-grammar/issues/006-actor-route-parity.md (591 total lines)
+1: # Issue 006 Plan: Actor Routing Parity for Class-Name Mirrors and HTML View Routes
+2: 
+3: ## Goal
+4: 
+5: Bring Level 3 actor-routed HTTP APIs to parity with the direct FastAPI route
+6: grammar introduced by issues 001–004.
+7: 
+8: Direct routing now supports:
+9: 
+10: ```text
+589: - [ ] `/MockModel/5/custom` is not added as a class-name method mirror.
+590: - [ ] Existing `/mock_models/...` CRUD and custom method routes remain unchanged.
+591: - [ ] Parent-child actor routes remain unchanged.
+
+### .project/refactor/1-routes-grammar/issues/009-standalone-view-shell-component-imports.md (27 total lines)
+1: # 009 — Standalone view shell imports resolved renderer modules
+2: 
+3: ## Problem
+4: 
+5: Backend HTML/view routes can mount schema-resolved custom elements, such as
+6: `<ntx-grant-item ref="Grant/6">`, while only importing the first-party base
+7: component module. In a standalone backend response, the app shell has not loaded
+8: Veille's custom component bundle, so the browser leaves the custom element
+9: unupgraded and the page appears empty.
+10: 
+25:   their module scripts.
+26: - Default `ntx-list` / `ntx-item` shell imports remain de-duplicated.
+27: - Veille `/Grant/6/@` includes `/components/ntx-grant-item.js`.
+
+### .project/refactor/1-routes-grammar/issues/010-dual-link-response-metadata.md (277 total lines)
+1: # 010 — Flip response `$id` to class-name identity
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Use the route grammar migration to make `$id` the class-name identity directly.
+6: Do **not** add `$href`, `links.canonical`, or `links.legacy` as intermediate
+7: response complexity.
+8: 
+9: ```json
+10: {
+275: - `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py`
+276: - `packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_dump_stages.py`
+277: - `packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py`
+
+### .project/refactor/1-routes-grammar/issues/011-frontend-identity-transport-split.md (471 total lines)
+1: # 011 — Frontend Class-Name Response Identity Audit
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Treat issue 011 as a **frontend audit and regression-test slice**, not a new
+6: identity abstraction. After issue 010, backend responses advertise class-name
+7: identity directly through `$id`:
+8: 
+9: ```json
+10: {
+469: - `tests/frontend/tests/components/ntx-list-field.test.js`
+470: - `tests/frontend/tests/components/ntx-ref-picker.test.js`
+471: - production runtime files only if tests reveal a real issue
+
+### .project/refactor/1-routes-grammar/issues/013-direct-class-name-method-mirrors-plan.md (398 total lines)
+1: # Issue 013 Plan — Direct FastAPI Class-Name Method Mirrors
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Complete issue `013` as a focused hardening slice, not a broad route rewrite.
+6: 
+7: The current direct FastAPI route layer already registers class-name custom method mirrors for root models in `routes_fastapi.py`, and unit coverage includes a basic `POST /ClassName/{id}/method` parity test. The remaining work should close the acceptance gaps: route-generation proof, access/user-injection parity, async/SSE behavior, `MethodError` parity, GET/class-level behavior, and method-vs-view collision protection.
+8: 
+9: ```text
+10: Existing table route:      POST /products/1/run
+396: - `examples/core/tests/test_custom_methods.py`
+397: - `packages/n3tx-ui/src/n3tx_ui/tests/test_viewable_mixin.py`
+398: - `packages/n3tx-core/src/n3tx_core/utils/decorators.py`
+
+### .project/refactor/1-routes-grammar/issues/014-actor-class-name-crud-method-parity-plan.md (518 total lines)
+1: # Issue 014 Plan — Actor Class-Name CRUD and Method Parity
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Treat issue `014` as a **parity closure and hardening slice** for Level 3 actor routing.
+6: 
+7: The current `NetworkAPI` implementation already shows the desired shape in several places:
+8: 
+9: - class-name collection/write mirrors are registered for root storable models:
+10:   - `POST /{ClassName}`
+516: - `examples/actors/tests/test_class_name_actor_parity.py`
+517: - `packages/n3tx-actors/docs/network-adapters.md`
+518: - `BACKEND.md`
+
+### .project/refactor/1-routes-grammar/issues/015-nested-class-name-grammar-decision-plan.md (546 total lines)
+1: # Issue 015 Plan — Nested Class-Name Route Grammar Decision
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Adopt the nested class-name grammar already proposed in issue `015`:
+6: 
+7: ```text
+8: /{ParentClass}/{parent_id}/{ChildClass}/{child_id}
+9: ```
+10: 
+544: - `packages/n3tx-core/src/n3tx_core/static/core/Router.js`
+545: - `packages/n3tx-core/src/n3tx_core/models/proto_dump.py`
+546: - `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py`
+
+### .project/refactor/1-routes-grammar/issues/016-nested-class-name-backend-mirrors-plan.md (481 total lines)
+1: # Issue 016 Plan — Nested Class-Name Backend Mirrors
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Implement issue `016` as a focused backend parity slice: add nested class-name routes that reuse the existing parent-scoped join handlers/dispatch paths instead of creating a new nested-resource subsystem.
+6: 
+7: Target grammar from issue `015`:
+8: 
+9: ```text
+10: /{ParentClass}/{parent_id}/{ChildClass}/{child_id}
+479: - `packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py`
+480: - `packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py`
+481: - `examples/core/tests/test_cross_model_workflows.py`
+
+### .project/refactor/1-routes-grammar/issues/017-frontend-nested-class-route-support-plan.md (421 total lines)
+1: # Issue 017 Plan — Frontend Nested Class Route Support
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Treat issue `017` as a **frontend completion and hardening slice**. The core parser/resolver already has substantial nested class-name route support in `Router.js`, and route-function tests already cover the main parse/build/resolve paths. The remaining work is to close the acceptance gaps around router state, DOM mounting, ref transport behavior, invalid-route boundaries, and documentation/status alignment.
+6: 
+7: Target grammar:
+8: 
+9: ```text
+10: #Product/1/Comment/2          -> nested child detail
+419: - `packages/n3tx-core/src/n3tx_core/static/core/Component.js`
+420: - `tests/frontend/tests/core/route-functions.test.js`
+421: - `tests/frontend/tests/components/ntx-router.test.js`
+
+### .project/refactor/1-routes-grammar/issues/018-flip-id-to-class-name-identity.md (363 total lines)
+1: # 018 — `$id` Identity Compatibility and Migration Notes
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Treat issue `018` as a **documentation, release-policy, and compatibility review**.
+6: 
+7: Do **not** implement new response metadata. Issue `010` already made the core identity decision:
+8: 
+9: ```text
+10: $schema -> /ClassName
+361: - `docs/API_DATA_MODELS.md`
+362: - `CHANGELOG.md`
+363: - `.project/refactor/1-routes-grammar/issues/018-flip-id-to-class-name-identity.yaml`
+
+### .project/refactor/1-routes-grammar/issues/019-backend-route-aliases-plan.md (661 total lines)
+1: # Issue 019 Plan — Backend-Authoritative Route Aliases
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Implement backend route aliases as a **strict, additive model-name lookup layer**.
+6: 
+7: Aliases should create alternate public routes such as `/Agent` for a canonical
+8: model class like `AgentActor`, but they must not create new model identities,
+9: actor addresses, storage tables, schemas, or frontend DynamicClasses.
+10: 
+659: - `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py`
+660: - `packages/n3tx-actors/src/n3tx_actors/api/network_api.py`
+661: - `packages/n3tx-ui/src/n3tx_ui/mixin.py`
+
+### .project/refactor/1-routes-grammar/issues/020-frontend-alias-resolution-plan.md (631 total lines)
+1: # Issue 020 Plan — Frontend Route Alias Resolution
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Implement frontend aliases as a **canonicalization layer inside `NTT`**, with the
+6: router remaining a pure route-string parser/resolver.
+7: 
+8: Backend issue 019 owns alias truth:
+9: 
+10: ```json
+629: - `tests/frontend/tests/core/NTT.test.js`
+630: - `tests/frontend/tests/core/route-functions.test.js`
+631: - `tests/frontend/tests/components/ntx-router.test.js`
+
+### .project/refactor/2-agents/0-ntx-agent-deep-refactor-plan.md (414 total lines)
+1: # Deep Refactor Plan for `n3tx_agents`
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Refactor `n3tx_agents` around one shared execution core.
+6: 
+7: Default path:
+8: 
+9: 1. keep the public API stable
+10: 2. extract shared policy resolution from `agentic()` / `agentic_stream()`
+412: ### Saved Plan
+413: 
+414: - `.project/refactor/2-agents/0-ntx-agent-deep-refactor-plan.md`
+
+### .project/refactor/2-agents/1-ntx-agent-phase-1-runtime-refactor-plan.md (429 total lines)
+1: # Phase 1 Plan — `n3tx_agents` Runtime Refactor
+2: 
+3: ## ✅ Recommendation
+4: 
+5: Phase 1 should be a **behavior-preserving internal refactor** focused on findings **2, 3, 4, 6, and 8** from the audit.
+6: 
+7: Default path:
+8: 
+9: 1. freeze current behavior with focused tests
+10: 2. extract shared call/config resolution from `agentic()` / `agentic_stream()`
+427: ## Saved plan
+428: 
+429: - `.project/refactor/2-agents/1-ntx-agent-phase-1-runtime-refactor-plan.md`
+
+### .project/refactor/2-agents/10-agents-refactor-audit.md (849 total lines)
+1: ## ✅ Verdict
+2: 
+3: `n3tx_agents` has a strong core idea, but the implementation carries too much mixed responsibility, duplicated orchestration, and boundary leakage.
+4: 
+5: The right refactor is not a rewrite. It is a **shape correction**:
+6: 
+7: - one shared runtime core
+8: - thin adapters at the edges
+9: - fewer internal representations
+10: - clearer ownership boundaries
+847: 3. a merged design note combining this audit with the execution slices from the existing plan
+848: 
+849: Default recommendation: **produce the merged design + execution note next**.
+
+### .project/refactor/2-agents/2-phase-1-prd.md (116 total lines)
+1: ## Problem Statement
+2: 
+3: The `n3tx_agents` package currently makes it too hard to safely evolve agent behavior because the implementation mixes too many responsibilities in the same places. Runtime orchestration is duplicated between sync and streaming flows, `AgentActor` has to reach into `AgentMixin` internals to reuse execution behavior, and the boundary between policy, runtime assembly, execution, persistence, and transport formatting is blurry.
+4: 
+5: From the developer's perspective, this creates a system that works but is costly to reason about. Changes that should be local frequently require understanding multiple overlapping code paths. Bug fixes risk drifting between sync and stream behavior. The current structure also makes it harder to test the important behaviors in isolation and harder to extend the package safely in later phases.
+6: 
+7: The immediate problem to solve is not missing end-user functionality. It is that the current implementation shape creates unnecessary complexity and risk for developers maintaining or extending `n3tx_agents`.
+8: 
+9: ## Solution
+10: 
+114: - The broader refactor roadmap and audit findings should continue to guide later phases, especially around tools, threads, bootstrap behavior, and package boundaries.
+115: - This phase should optimize for architectural clarity without sacrificing compatibility.
+116: - The success condition for Phase 1 is that the code becomes easier to reason about and safer to extend, while tests continue to validate the same external behavior.
+
+### .project/refactor/2-agents/3-phase-1-issues.jsonl (6 total lines)
+1: {"title":"Freeze Phase 1 compatibility with regression fences","type":"AFK","blocked_by":[],"user_stories":[7,9,10,17,18,19,25,26],"parent_prd":".project/refactor/2-agents/2-phase-1-prd.md","what_to_build":"Add and expand regression coverage that pins the current external behavior Phase 1 must preserve. Cover sync and stream config parity, thread and create-thread parity, AgentActor JSON-string behavior, class-level agentic_stream behavior, and stream ordering / first-token behavior so later refactor slices can proceed safely.","acceptance_criteria":["Regression tests explicitly cover sync and stream config cascade parity for current public entrypoints.","Regression tests explicitly cover thread and create-thread behavior for sync and stream execution paths.","Regression tests explicitly cover AgentActor.agentic() JSON-string output, class-level agentic_stream behavior, and stream ordering / first-token behavior."]}
+2: {"title":"Introduce ResolvedAgentCall and unify mixin call normalization","type":"AFK","blocked_by":["Freeze Phase 1 compatibility with regression fences"],"user_stories":[2,4,11,23,25,28],"parent_prd":".project/refactor/2-agents/2-phase-1-prd.md","what_to_build":"Create a shared resolved call object for AgentMixin entrypoints and route both agentic() and agentic_stream() through one call-normalization path. Normalize prompt, tools, constraints, user, thread, create-thread, and result-type behavior without changing externally visible semantics.","acceptance_criteria":["AgentMixin.agentic() and AgentMixin.agentic_stream() share one call-normalization path via ResolvedAgentCall.","Prompt, tools, constraints, user, thread, create-thread, and result-type behavior remain externally unchanged.","Existing and newly added regression tests pass without adapter-visible behavior changes."]}
+3: {"title":"Introduce Agent runtime preparation for sync execution","type":"AFK","blocked_by":["Freeze Phase 1 compatibility with regression fences","Introduce ResolvedAgentCall and unify mixin call normalization"],"user_stories":[1,5,6,12,13,14,15,16,17,21,28,29,30],"parent_prd":".project/refactor/2-agents/2-phase-1-prd.md","what_to_build":"Add the internal Agent runtime seam for sync execution. Move llm override handling, llm resolution, root lookup, thread preload/create behavior, tool wrapping, deps creation, usage limits, and runnable agent construction behind Agent.prepare(...), then route AgentMixin.agentic() through Agent.prepare(...) and Agent.run(...).","acceptance_criteria":["A dedicated internal Agent abstraction owns sync runtime preparation and sync execution entry from the mixin path.","Sync execution no longer rebuilds runtime setup ad hoc inside AgentMixin.","All sync behavior remains compatible with existing regression tests, including thread and result behavior."]}
+4: {"title":"Move streaming execution behind the shared Agent runtime","type":"AFK","blocked_by":["Freeze Phase 1 compatibility with regression fences","Introduce ResolvedAgentCall and unify mixin call normalization","Introduce Agent runtime preparation for sync execution"],"user_stories":[1,5,7,9,10,17,18,21,25,28,29],"parent_prd":".project/refactor/2-agents/2-phase-1-prd.md","what_to_build":"Route AgentMixin.agentic_stream() through the same resolved-call and runtime-preparation seam, and move streaming execution behind Agent.run_stream(...). Preserve stream chunk names, payload shapes, ordering, done/error behavior, and first-token behavior.","acceptance_criteria":["Streaming entrypoints use the same resolved-call and Agent.prepare(...) path as sync entrypoints.","Agent.run_stream(...) owns terminal streaming execution while preserving existing chunk shapes and ordering.","Stream regression tests pass unchanged, including first-token and class-level streaming coverage."]}
+5: {"title":"Rewire AgentActor onto the explicit Agent runtime seam","type":"AFK","blocked_by":["Freeze Phase 1 compatibility with regression fences","Introduce ResolvedAgentCall and unify mixin call normalization","Introduce Agent runtime preparation for sync execution","Move streaming execution behind the shared Agent runtime"],"user_stories":[3,7,8,19,20,23,25,28,30],"parent_prd":".project/refactor/2-agents/2-phase-1-prd.md","what_to_build":"Replace AgentActor’s descriptor-internal reach-in with a thin DB-backed adapter path that resolves into the same Agent runtime seam used by AgentMixin. Preserve AgentActor JSON-string output for sync calls, current stream behavior, and current config merge semantics.","acceptance_criteria":["AgentActor no longer calls AgentMixin descriptor internals to reach execution behavior.","AgentActor uses a thin adapter helper to resolve DB-backed configuration into the shared runtime path.","AgentActor sync and stream regression tests pass with preserved JSON-string sync output and preserved config merge semantics."]}
+6: {"title":"Normalize sync result shape internally while preserving external contracts","type":"AFK","blocked_by":["Rewire AgentActor onto the explicit Agent runtime seam"],"user_stories":[7,8,20,25,30],"parent_prd":".project/refactor/2-agents/2-phase-1-prd.md","what_to_build":"Establish one internal Python result shape for successful sync execution. Have AgentMixin.agentic() return that Python result directly, and have AgentActor.agentic() serialize the same result to JSON for compatibility so result handling no longer duplicates execution logic.","acceptance_criteria":["Agent.run(...) produces one internal Python sync-result shape used by both adapters.","AgentMixin.agentic() returns the Python result shape without changing externally expected behavior.","AgentActor.agentic() serializes the same internal result to JSON and preserves compatibility for existing callers."]}
+
+### .project/refactor/2-agents/4-phase-1-issues-plans.md (1380 total lines)
+1: # 🧭 Phase 1 Issue Implementation Plans
+2: 
+3: This document captures issue-by-issue implementation plans for Phase 1 of the
+4: `n3tx_agents` runtime refactor.
+5: 
+6: ## 📚 Primary references
+7: 
+8: - `.project/refactor/2-agents/2-phase-1-prd.md`
+9: - `.project/refactor/2-agents/3-phase-1-issues.jsonl`
+10: - `.project/refactor/2-agents/1-ntx-agent-phase-1-runtime-refactor-plan.md`
+1378: - External result contracts remain unchanged.
+1379: - Result-shape tests pass.
+1380: - Docs clearly explain the internal dict vs public JSON wrapper distinction.
+
+### .project/refactor/backend-architecture-deepening-opportunities.md (1439 total lines)
+1: # Backend Architecture Deepening Opportunities
+2: 
+3: Date: 2026-04-30  
+4: Scope: N3TX backend architecture and backend tests  
+5: Status: candidate RFC material, no implementation yet
+6: 
+7: ## Executive Summary
+8: 
+9: This report expands the initial architecture exploration into a more complete
+10: set of refactor candidates. The lens is **module deepening**: create smaller,
+1437: Pick one candidate to explore with competing interface designs. My recommended
+1438: first pick is **Candidate 1: Route Contract Parity**, because it protects the
+1439: public API contract and will also clarify authorization parity requirements.
+
+### .project/refactor/frontend-test-architecture-deepening-candidates.md (1271 total lines)
+1: # Frontend Test Architecture Deepening Candidates
+2: 
+3: Date: 2026-04-30  
+4: Scope: `tests/frontend`, frontend runtime in `packages/n3tx-core`, visual layer in `packages/n3tx-ui`, agent UI test seams where they touch frontend tests.
+5: 
+6: ## Executive Summary
+7: 
+8: The frontend test suite has strong coverage, but its architecture currently exposes too much coordination detail to individual tests. Tests often need to know how to:
+9: 
+10: - build backend-shaped JSON Schemas by hand
+1269: ```
+1270: 
+1271: The goal is not to add helpers for their own sake. The goal is to move tests from "assembling the framework by hand" to "exercising the framework contract at the boundary."
+
+### .project/reports/audits/agentic-flow/01-architecture-api.md (582 total lines)
+1: # Agentic Flow Subsystem -- Deep Audit Report
+2: 
+3: **Scope**: `src/n3tx/core/agents/` + integration points
+4: **Branch**: v0.9 (commits through 0.10 agent features)
+5: **Date**: 2026-03-09
+6: 
+7: ---
+8: 
+9: ## PART 1: Architecture & Design Patterns
+10: 
+580: 6. **`_route_tool_call()` ctx parameter is untyped** -- works via duck typing on `ctx.deps`. Static analysis cannot verify correctness.
+581: 
+582: 7. **No timeout configuration for tool calls** -- The `NetworkAdapter.request()` timeout is hardcoded to `30.0s`. Long-running tools (e.g., web scraping, large DB queries) may timeout. No way to configure this from the agent layer.
+
+### .project/reports/audits/agentic-flow/02-quality-extensibility.md (615 total lines)
+1: # Agentic Flow: Quality & Extensibility Audit
+2: 
+3: **Scope**: `src/n3tx/core/agents/` (mixin.py, actor.py, deps.py, tools.py, schema_ext.py, tool_model.py), config.py, and integration boundaries.
+4: **Branch**: v0.9 | **Date**: 2026-03-09
+5: 
+6: ---
+7: 
+8: ## PART 1: Quality & Risk Assessment
+9: 
+10: ### 1.1 Potential Bugs
+613: | 3 | Implement `neighbor_depth` or remove it from config + docs | 1 hr |
+614: | 4 | Add structured logging to `run()`/`agentic()` (start, end, usage, run_id) | 30 min |
+615: | 5 | Cache `discover_tools()` + `create_tool_function()` results per tool address set | 1 hr |

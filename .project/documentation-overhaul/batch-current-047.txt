@@ -1,0 +1,556 @@
+
+### packages/n3tx/README.md (646 total lines)
+261: 
+262: ```
+263: GET /Product -> JSON Schema
+264: |-- $schema         -> meta-schema URL
+265: |-- $id             -> this schema's URL (http://localhost:5000/Product)
+266: |-- __name__        -> "Product" (class name)
+267: |-- __tablename__   -> "products" (API collection path)
+268: |-- properties      -> field definitions
+269: |   +-- each field:
+270: |       |-- type, format, validation constraints (Pydantic standard)
+271: |       |-- ui.widget       -> rendering hint (currency, textarea, ...)
+272: |       |-- ui.placeholder  -> input placeholder text
+273: |       |-- ui.display      -> false to hide from UI
+274: |       +-- access          -> field-level permission rules
+275: |-- ui              -> model-level UI configuration
+276: |   |-- field_order -> render fields in this sequence
+277: |   |-- groups      -> group fields into fieldsets
+278: |   +-- renderer    -> { item, list, detail } component tags
+279: |-- access          -> model-level ABAC rules (serialized to JSON)
+280: |-- methods         -> callable endpoints with signatures, access rules, and UI hints
+281: |-- $defs           -> nested/related model schemas (each with $id, methods, ui, access)
+282: +-- required        -> required field names
+283: ```
+284: 
+285: ### How it flows through the stack
+286: 
+287: Follow the data from model to pixel:
+288: 
+289: ```
+290: 1. Model Definition (Python)
+291:    Product(ProtoModel) with fields, __ui__, __access__, @expose_route
+292:                     |
+293: 2. Schema Generation (Backend)
+294:    ProtoModel.schema() -> Pydantic JSON Schema + methods + access + ui + $defs
+295:                     |
+296: 3. Schema Endpoint
+297:    GET /Product -> JSON response (public, no auth required)
+298:                     |
+299: 4. Frontend Bootstrap
+300:    N3TX.SCHEMA(data) -> prototype() -> DynamicClass
+301:    |  Creates typed class with getters, setters, callable methods
+302:    |  Registers nested $defs as additional DynamicClasses
+303:                     |
+304: 5. Component Rendering
+305:    |  form.js reads schema.properties -> builds form HTML
+306:    |  Permissions.js reads schema.access -> shows/hides controls
+307:    |  <ntx-method> reads schema.methods -> renders action buttons
+308:    |  ntx-router reads schema.ui.renderer -> resolves navigation targets
+309:                     |
+310: 6. Entity Responses
+311:    model_response() injects $schema + $id per record (via proto_dump pipeline)
+312:    |  Every entity is self-describing and independently resolvable
+313:    |  Local collection fields return hydrated child objects with `$schema`/`$id`
+314: ```
+315: 
+316: ---
+317: 
+318: ## ⚙️ Configuration
+319: 
+320: You've got options. Environment variables or programmatic -- your call:
+321: 
+322: ```env
+323: BACKEND=fastapi
+324: STORAGE_BACKEND=sqlite
+325: ```
+326: 
+327: Programmatic configuration:
+328: 
+329: ```python
+330: from n3tx_core.storage.sqlite_storage import SQLiteStorage
+331: from n3tx_core.storage.json_storage import JSONStorage
+332: 
+333: storage_backend = SQLiteStorage("database.db")
+334: # or
+335: storage_backend = JSONStorage(directory="data")
+336: ```
+337: 
+338: Register models with `create_app()` (recommended) or manually:
+339: 
+340: ```python
+341: # Recommended: one-liner
+342: app = create_app(
+343:     models=[User, Product],
+344:     storage="sqlite:///app.db",
+345: )
+346: 
+347: # Or manual registration (Level 3):
+348: from n3tx_core import register_model
+349: 
+350: register_model(Product, storage=storage_backend)
+351: register_model(User, storage=storage_backend)
+352: register_model(Comment, storage=storage_backend)
+353: ```
+354: 
+355: ---
+356: 
+357: ## 🏃 Running the Application
+358: 
+359: Pick your favorite way to start the server:
+360: 
+361: ```bash
+362: # Run the example app
+363: cd src/n3tx/example && python3 main.py
+364: 
+365: # Or as a module
+366: python3 -m n3tx.example.main
+367: 
+368: # Or with uvicorn directly
+369: uvicorn n3tx.example.main:app --reload
+370: 
+371: # Or with Docker
+372: docker-compose up --build
+373: ```
+374: 
+375: API documentation is available at:
+376: - FastAPI: `http://localhost:5000/docs`
+377: - Flask: `http://localhost:5000/apidocs/`
+378: 
+379: ---
+380: 
+381: ## 🔗 Model Relationships
+382: 
+383: N3TX handles common relationships from model fields:
+384: 
+385: - `list[T]` for local owned collections (stored as ordered child ids, hydrated as objects)
+386: - `Ref[T]` for single local or distributed references
+387: - `list[Ref[T]]` for distributed pointer arrays
+388: 
+389: ```python
+390: class Product(ProtoModel):
+
+### packages/n3tx/README.md (646 total lines)
+391:     __storable__ = True
+392:     __tablename__ = 'products'
+393:     comments: list[Comment] = Field(default=[])
+394: 
+395: class Comment(ProtoModel):
+396:     __storable__ = True
+397:     __tablename__ = 'comments'
+398:     text: str = Field(min_length=1)
+399: 
+400: register_model(Product, storage=backend)
+401: register_model(Comment, storage=backend)
+402: ```
+403: 
+404: That's it -- your products now have comments. The framework stores the ordered child id list and hydrates self-describing comment objects in API responses.
+405: 
+406: ---
+407: 
+408: ## 📡 Usage Examples
+409: 
+410: Here's what your API looks like once it's running:
+411: 
+412: ```http
+413: POST /users                              # Create a user
+414: POST /users/login                        # Login (returns JWT token)
+415: GET  /products                           # List products (paginated)
+416: GET  /products/1                         # Get product by ID
+417: POST /products                           # Create product (auth required)
+418: POST /products/1/comment                 # Comment on product
+419: POST /products/1/favorite                # Toggle favorite
+420: POST /products/1/comments/3/like         # Toggle like on comment
+421: POST /products/1/comments/3/reply        # Reply to comment
+422: GET  /products/comments                  # Collection route: all comments across products
+423: GET  /Product                            # Schema endpoint (no auth)
+424: ```
+425: 
+426: Toggle endpoints return `{"action": "favorited"}` or `{"action": "unfavorited"}`.
+427: 
+428: Pagination: `GET /products?limit=20&offset=0` returns `{data: [...], meta: {total, limit, offset, has_more}}`.
+429: 
+430: ---
+431: 
+432: ## 🤖 Agents
+433: 
+434: Here's where things get really interesting. N3TX includes an LLM-powered agent system built on [Pydantic AI](https://ai.pydantic.dev/). Every Actor with `@expose_route` methods is a tool collection, and an Agent is an Actor that reasons.
+435: 
+436: ### Dynamic Agents (primary path)
+437: 
+438: Agents are instances of `AgentActor` -- configuration is data, not code. You define them like any other model instance:
+439: 
+440: ```python
+441: from n3tx_agents import AgentActor
+442: 
+443: scanner = AgentActor(
+444:     name="Grant Scanner",
+445:     prompt="You find government grants...",
+446:     tools=["grants", "web_tools"],
+447:     llm="anthropic:claude-sonnet-4-5-20250929",
+448:     constraints={"max_iterations": 30},
+449: )
+450: 
+451: result = await scanner.agentic(task="Find grants about renewable energy")
+452: ```
+453: 
+454: Agents can be created via API (`POST /agents`), stored in the database, and triggered via `POST /agents/{id}/agentic`. Yeah, your agents are just data -- create, update, and delete them like any other resource.
+455: 
+456: ### Agentic Model Methods (secondary path)
+457: 
+458: Any model with `__agent__ = True` gains LLM reasoning capabilities. One flag, and your model can think:
+459: 
+460: ```python
+461: class Product(ActorModel):
+462:     __agent__ = True
+463: 
+464: # Class-level: reasons about the schema
+465: result = await Product.agentic(task='What fields does Product have?')
+466: 
+467: # Instance-level: reasons about schema + this specific record
+468: product = Product.get(1)
+469: result = await product.agentic(task='Is this product priced competitively?')
+470: 
+471: # Streaming
+472: async for chunk in product.agentic_stream(task='Describe this product'):
+473:     print(chunk['data'], end='', flush=True)
+474: ```
+475: 
+476: Tool calls route through Matrix as TX messages, preserving auth and interceptors.
+477: 
+478: ---
+479: 
+480: ## 🗺️ Re-export Map
+481: 
+482: The meta-package's `n3tx_meta` module re-exports from all sub-packages via star-import, so you can grab everything from one place:
+483: 
+484: ```python
+485: from n3tx_core import *      # always
+486: from n3tx_actors import *    # always
+487: from n3tx_files import *     # always
+488: from n3tx_agents import *    # optional (skipped if pydantic-ai not installed)
+489: ```
+490: 
+491: ### Directly available via `from n3tx_meta import ...`
+492: 
+493: | Export | Source | Type | Purpose |
+494: |--------|--------|------|---------|
+495: | `ProtoModel` | n3tx-core | class | Base model class, schema pipeline, dump pipeline |
+496: | `BaseUser` | n3tx-core | class | User model with auth (login, register, JWT) |
+497: | `StorableMixin` | n3tx-core | class | Injected when `__storable__ = True` (save/get/list/delete) |
+498: | `ViewableMixin` | n3tx-core | class | View count tracking mixin |
+499: | `Ref` | n3tx-core | type | Single FK reference type |
+500: | `expose_route` | n3tx-core | decorator | Declare custom API endpoints on models |
+501: | `register_model` | n3tx-core | function | Register model with storage and route generation |
+502: | `registered_models` | n3tx-core | dict | Global registry of all registered models |
+503: | `AbstractStorage` | n3tx-core | class | Storage backend interface |
+504: | `SQLiteStorage` | n3tx-core | class | SQLite storage with auto-migration |
+505: | `JSONStorage` | n3tx-core | class | JSON file storage backend |
+506: | `FastAPIBackend` | n3tx-core | class | FastAPI application wrapper |
+507: | `TX` | n3tx-actors | dataclass | Message envelope (name, source, target, data, meta) |
+508: | `Actor` | n3tx-actors | class | Base actor with inbox/handler/send/register/spawn |
+509: | `Matrix` | n3tx-actors | class | Root actor and message router |
+510: | `matrix` | n3tx-actors | instance | Module-level Matrix singleton |
+511: | `ActorProxy` | n3tx-actors | class | Actor interface wrapper (no inheritance required) |
+512: | `File` | n3tx-files | class | Actor-backed file metadata model with byte-store methods |
+513: | `FileStore` | n3tx-files | protocol | Byte storage provider contract |
+514: | `FileStat` | n3tx-files | dataclass | Provider byte metadata such as size, checksum, and MIME type |
+515: | `LocalFileStore` | n3tx-files | class | Local filesystem byte provider |
+516: | `configure_file_store` | n3tx-files | function | Set the process-wide file byte provider |
+517: | `get_file_store` | n3tx-files | function | Resolve the active file byte provider |
+518: | `AgentMixin` | n3tx-agents | class | Injected via `__agent__ = True` (ctx/tools/agentic/run) |
+519: | `AgentActor` | n3tx-agents | class | Concrete agent model (config in DB fields) |
+520: | `AgentTool` | n3tx-agents | class | Tool registration model |
+
+### packages/n3tx/README.md (646 total lines)
+521: | `AgentDeps` | n3tx-agents | dataclass | Dependency injection for pydantic-ai RunContext |
+522: | `ToolSpec` | n3tx-agents | dataclass | Specification for a discovered tool |
+523: | `discover_tools` | n3tx-agents | function | Build tool set from actor addresses |
+524: | `make_tool` | n3tx-agents | function | Create a pydantic-ai tool from a ToolSpec |
+525: 
+526: ### Requires sub-package import
+527: 
+528: These are not star-exported. Import them from the sub-package directly:
+529: 
+530: ```python
+531: from n3tx_core.app import create_app, N3TXApp
+532: from n3tx_core import config
+533: from n3tx_core import authorize
+534: from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+535: from n3tx_core.widgets import CurrencyField, TextareaField, UrlField, DateField
+536: from n3tx_actors.models.actor_model import ActorModel
+537: from n3tx_actors.api.network_api import NetworkAPI
+538: ```
+539: 
+540: ---
+541: 
+542: ## 🧰 Extending the Application
+543: 
+544: N3TX is designed to get out of your way when you want to customize.
+545: 
+546: ### Add a New Model
+547: 
+548: 1. Subclass `ProtoModel` (or `ActorModel` for actor capabilities)
+549: 2. Set `__storable__ = True` for persistence
+550: 3. Use `@expose_route()` for custom API endpoints
+551: 4. Register with `register_model(...)` or pass to `create_app(models=[...])`
+552: 
+553: ### Add Relationships
+554: 
+555: ```python
+556: class OwnerModel(ProtoModel):
+557:     __tablename__ = 'owners'
+558:     __storable__ = True
+559:     children: list[SubModel] = Field(default=[])
+560: 
+561: register_model(OwnerModel, storage=backend)
+562: register_model(SubModel, storage=backend)
+563: ```
+564: 
+565: ### Update Safety
+566: 
+567: Generated direct and actor HTTP `PUT` routes, direct `Model.update(id, patch)`,
+568: raw actor TX updates, and agent update tools share one partial-update contract.
+569: Omitted fields remain unchanged. Supplied collections are complete replacements
+570: and writes are last-write-wins; prefer domain methods for append/remove/toggle
+571: operations.
+572: See [CRUD update semantics](../../docs/API_CRUD_ENDPOINTS.md#update-resource).
+573: 
+574: ### Add a Storage Backend
+575: 
+576: 1. Implement `AbstractStorage` methods (`create_table`, `create`, `get`, `list`, `update`, `delete`)
+577: 2. Inject via `set_storage()` or pass to `register_model()`
+578: 
+579: Want something beyond SQLite and JSON? The interface is simple -- implement six methods and you're in business.
+580: 
+581: ---
+582: 
+583: ## 🧪 Testing
+584: 
+585: N3TX takes testing seriously. Here's how to run the full suite:
+586: 
+587: ```bash
+588: # Framework unit tests
+589: cd packages/n3tx-core && python3 -m pytest src/n3tx_core/tests/unit/
+590: 
+591: # Integration tests (Level 1/2 direct routes)
+592: python3 -m pytest example_api/tests/
+593: 
+594: # Integration tests (Level 3 actor routing)
+595: python3 -m pytest example_actor/tests/
+596: 
+597: # Integration tests (agents/grants app)
+598: python3 -m pytest example_grants/tests/
+599: 
+600: # Frontend tests
+601: cd src/n3tx/static && npm test
+602: ```
+603: 
+604: Test coverage includes: CRUD APIs, schema endpoints, storage backends, custom methods, authorization, social features (like/favorite/toggle), pagination, collection routes, agent system (mixin, tool discovery, CRUD, LLM execution), and frontend components.
+605: 
+606: ---
+607: 
+608: ## 🧭 Key Patterns
+609: 
+610: These are the principles that make N3TX click. Keep them in mind and everything will feel natural:
+611: 
+612: 1. **The model is the app.** Define a `ProtoModel` subclass with `__tablename__`, `__storable__`, fields, and `@expose_route` methods. The framework derives CRUD endpoints, JSON Schema, DB tables, forms, and permissions automatically.
+613: 
+614: 2. **Schema is the contract.** `GET /ClassName` returns a JSON Schema carrying types, validation, UI hints, access rules, and method signatures. The frontend reads this at runtime and adapts -- no frontend code changes needed.
+615: 
+616: 3. **Incremental adoption.** Start with `n3tx-core` alone (models + direct routes). Add `n3tx-actors` when you need messaging. Add `n3tx-agents` when you need LLM reasoning. Add `n3tx-ui` when you want the auto-generated frontend. Add `n3tx-files` when your app needs uploaded documents, media, or artifacts.
+617: 
+618: 4. **Access control propagates.** Set `__access__` on a model, and the rules flow through schema to the frontend. Edit/delete buttons appear or disappear based on the authenticated user's permissions.
+619: 
+620: 5. **`create_app` and `N3TXApp` live in `n3tx_core.app`.** They are not star-exported from the meta-package. Always import them explicitly: `from n3tx_core.app import create_app`.
+621: 
+622: ---
+623: 
+624: ## 📖 Per-Package Documentation
+625: 
+626: Each sub-package has its own README with API reference, patterns, and deep-dive links:
+627: 
+628: | Package | README | Focus |
+629: |---------|--------|-------|
+630: | n3tx-core | [packages/n3tx-core/README.md](../n3tx-core/README.md) | Models, storage, schema pipeline, auth, app bootstrap |
+631: | n3tx-actors | [packages/n3tx-actors/README.md](../n3tx-actors/README.md) | Actor/Matrix/TX, ActorModel, interceptors, network adapters |
+632: | n3tx-agents | [packages/n3tx-agents/README.md](../n3tx-agents/README.md) | AgentMixin, AgentActor, tool discovery, LLM integration |
+633: | n3tx-ui | [packages/n3tx-ui/README.md](../n3tx-ui/README.md) | Web Components, form generators, widgets, themes |
+634: | n3tx-files | [packages/n3tx-files/README.md](../n3tx-files/README.md) | File metadata, byte stores, upload/download, typed materialization |
+635: 
+636: For project-level architecture, conventions, and development workflow, see [CLAUDE.md](../../CLAUDE.md) at the repository root.
+637: 
+638: ---
+639: 
+640: ## 📜 License
+641: 
+642: MIT
+643: 
+644: ---
+645: 
+646: Now go build something cool. Your models are waiting. 🛠️
+
+### requirements.txt (160 total lines)
+1: ag-ui-protocol==0.1.13
+2: aiofile==3.9.0
+3: aiohappyeyeballs==2.6.1
+4: aiohttp==3.13.3
+5: aiosignal==1.4.0
+6: annotated-doc==0.0.4
+7: annotated-types==0.7.0
+8: anthropic==0.84.0
+9: anyio==4.12.1
+10: argcomplete==3.6.3
+11: attrs==25.4.0
+12: Authlib==1.6.9
+13: backports.tarfile==1.2.0
+14: bcrypt==5.0.0
+15: beartype==0.22.9
+16: blinker==1.9.0
+17: boto3==1.42.61
+18: botocore==1.42.61
+19: cachetools==7.0.2
+20: caio==0.9.25
+21: certifi==2026.2.25
+22: cffi==2.0.0
+23: charset-normalizer==3.4.4
+24: click==8.3.1
+25: cohere==5.20.7
+26: coverage==7.13.4
+27: cryptography==46.0.5
+28: cyclopts==4.7.0
+29: distro==1.9.0
+30: dnspython==2.8.0
+31: docstring_parser==0.17.0
+32: docutils==0.22.4
+33: email-validator==2.3.0
+34: eval_type_backport==0.3.1
+35: exceptiongroup==1.3.1
+36: executing==2.2.1
+37: fastapi==0.135.1
+38: fastavro==1.12.1
+39: fastmcp==3.1.0
+40: filelock==3.25.0
+41: flasgger==0.9.7.1
+42: Flask==3.1.3
+43: frozenlist==1.8.0
+44: fsspec==2026.2.0
+45: genai-prices==0.0.55
+46: google-auth==2.48.0
+47: google-genai==1.66.0
+48: googleapis-common-protos==1.72.0
+49: griffelib==2.0.0
+50: groq==1.0.0
+51: grpcio==1.78.0
+52: h11==0.16.0
+53: hf-xet==1.3.2
+54: httpcore==1.0.9
+55: httpx==0.28.1
+56: httpx-sse==0.4.3
+57: huggingface_hub==1.5.0
+58: idna==3.11
+59: importlib_metadata==8.7.1
+60: iniconfig==2.3.0
+61: invoke==2.2.1
+62: itsdangerous==2.2.0
+63: jaraco.classes==3.4.0
+64: jaraco.context==6.1.0
+65: jaraco.functools==4.4.0
+66: jeepney==0.9.0
+67: Jinja2==3.1.6
+68: jiter==0.13.0
+69: jmespath==1.1.0
+70: jsonref==1.1.0
+71: jsonschema==4.26.0
+72: jsonschema-path==0.4.5
+73: jsonschema-specifications==2025.9.1
+74: keyring==25.7.0
+75: logfire==4.25.0
+76: logfire-api==4.25.0
+77: markdown-it-py==4.0.0
+78: MarkupSafe==3.0.3
+79: mcp==1.26.0
+80: mdurl==0.1.2
+81: mistralai==1.12.4
+82: mistune==3.2.0
+83: more-itertools==10.8.0
+84: multidict==6.7.1
+85: -e git+ssh://git@github.com/matthieupi/pybend.git@1b0c9d303aa32864913c8bdea96daf24cbe1831b#egg=n3tx
+86: nexus-rpc==1.2.0
+87: openai==2.24.0
+88: openapi-pydantic==0.5.1
+89: opentelemetry-api==1.39.1
+90: opentelemetry-exporter-otlp-proto-common==1.39.1
+91: opentelemetry-exporter-otlp-proto-http==1.39.1
+92: opentelemetry-instrumentation==0.60b1
+93: opentelemetry-instrumentation-httpx==0.60b1
+94: opentelemetry-proto==1.39.1
+95: opentelemetry-sdk==1.39.1
+96: opentelemetry-semantic-conventions==0.60b1
+97: opentelemetry-util-http==0.60b1
+98: packaging==25.0
+99: pathable==0.5.0
+100: platformdirs==4.9.2
+101: pluggy==1.6.0
+102: prompt_toolkit==3.0.52
+103: propcache==0.4.1
+104: protobuf==6.33.5
+105: py-key-value-aio==0.4.4
+106: pyasn1==0.6.2
+107: pyasn1_modules==0.4.2
+108: pycparser==3.0
+109: pydantic==2.12.5
+110: pydantic-ai==1.66.0
+111: pydantic-ai-slim==1.66.0
+112: pydantic-evals==1.66.0
+113: pydantic-graph==1.66.0
+114: pydantic-settings==2.13.1
+115: pydantic_core==2.41.5
+116: Pygments==2.19.2
+117: pyinstrument==5.1.2
+118: PyJWT==2.11.0
+119: pyperclip==1.11.0
+120: pytest==9.0.2
+121: pytest-cov==7.0.0
+122: python-dateutil==2.9.0.post0
+123: python-dotenv==1.2.2
+124: python-multipart==0.0.22
+125: PyYAML==6.0.3
+126: referencing==0.37.0
+127: regex==2026.2.28
+128: requests==2.32.5
+129: rich==14.3.3
+130: rich-rst==1.3.2
+
+### requirements.txt (160 total lines)
+131: rpds-py==0.30.0
+132: rsa==4.9.1
+133: s3transfer==0.16.0
+134: SecretStorage==3.5.0
+135: shellingham==1.5.4
+136: six==1.17.0
+137: sniffio==1.3.1
+138: sse-starlette==3.3.2
+139: starlette==0.52.1
+140: temporalio==1.20.0
+141: tenacity==9.1.4
+142: tiktoken==0.12.0
+143: tokenizers==0.22.2
+144: tqdm==4.67.3
+145: typer==0.24.1
+146: types-protobuf==6.32.1.20260221
+147: types-requests==2.32.4.20260107
+148: typing-inspection==0.4.2
+149: typing_extensions==4.15.0
+150: uncalled-for==0.2.0
+151: urllib3==2.6.3
+152: uvicorn==0.41.0
+153: watchfiles==1.1.1
+154: wcwidth==0.6.0
+155: websockets==16.0
+156: Werkzeug==3.1.6
+157: wrapt==1.17.3
+158: xai-sdk==1.8.0
+159: yarl==1.23.0
+160: zipp==3.23.0

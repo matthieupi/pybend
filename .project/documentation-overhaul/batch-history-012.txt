@@ -1,0 +1,390 @@
+
+### .project/reports/research/tx-sagas/01-technical-deep-dive.md (793 total lines)
+1: # Transaction Composition, Causal Tracing & Saga Patterns for Actor Systems
+2: 
+3: **A Technical Deep Dive for Engineering Leadership**
+4: 
+5: > This document examines how production systems implement multi-step TX workflows,
+6: > transaction lineage, and replay capabilities -- and what these patterns mean for
+7: > an actor-based messaging framework. Every pattern is grounded in real production
+8: > data from companies operating at scale.
+9: 
+10: ---
+791: 28. [The $100B Bull Case for Temporal - Swyx](https://www.swyx.io/temporal-centicorn)
+792: 29. [EventStore Optimization - Moose Code Blog](https://moosecode.nl/blog/event_store_optimized)
+793: 30. [Axon Framework + JobRunr: Saga Deadlines](https://www.jobrunr.io/en/blog/axon-framework-jobrunr-pro/)
+
+### .project/reports/research/tx-sagas/02-our-stack-relevance.md (926 total lines)
+1: # TX Sagas & Causal Tracing: Relevance to Our Stack
+2: 
+3: **How N3TX's TX/Actor/Matrix system compares to saga/workflow patterns, what primitives already exist, and what gaps need filling for multi-step composition and causal history tracking.**
+4: 
+5: ---
+6: 
+7: ## Executive Summary
+8: 
+9: N3TX's actor system already contains **more saga infrastructure than it realizes**. The TX envelope, `reply()`/`error()` chaining, `meta` dict for correlation, interceptors for cross-cutting concerns, and lifecycle events for pub/sub -- these are the raw building blocks that systems like Akka, Orleans, and Temporal use for multi-step workflows. What we lack is not new primitives, but **composition of existing ones**: a way to chain TXs into workflows, trace causal lineage, and record history for replay and audit.
+10: 
+924: 18. [Microservices.io: Saga Pattern](https://microservices.io/patterns/data/saga.html) -- Chris Richardson's canonical definition
+925: 19. [Petabridge: Process Managers in Akka.NET](https://petabridge.com/blog/akkadotnet-clusters-sagas/) -- Real-world Akka.NET clustering with sagas
+926: 20. [Andy Potts: Correlation ID vs Causation ID](https://blog.andypotts.com/2022/04/correlation-id-vs-causation-id.html) -- Clear explanation of the distinction
+
+### .project/reports/research/tx-sagas/03-composition-ergonomics.md (997 total lines)
+1: # Composition Patterns & Developer Ergonomics for Multi-Step TX Workflows
+2: 
+3: > How to design multi-step TX APIs that feel natural to developers: DSL approaches,
+4: > fluent builders, decorator patterns, async pipelines, and lessons from real-world
+5: > workflow libraries on what makes a great DX.
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+995: 22. [Temporal DX tips (Symphony.is)](https://medium.com/symphonyis/tips-for-a-better-developer-experience-with-temporal-9b2205ee0563) -- Practical Temporal developer experience advice
+996: 23. [AnyIO structured concurrency](https://mattwestcott.org/blog/structured-concurrency-in-python-with-anyio) -- TaskGroup patterns for async pipelines
+997: 24. [F# Railway-Oriented Programming](https://fsharpforfunandprofit.com/posts/recipe-part2/) -- Original ROP concept by Scott Wlaschin
+
+### .project/reports/research/webassembly/01-industry-landscape.md (739 total lines)
+1: # WebAssembly for Compute-Heavy Web Applications
+2: ## 🏢 Industry Landscape: Who Ships Wasm to Production, and What Were the Results?
+3: 
+4: **Date:** February 2026
+5: **Audience:** Technical CEOs & Engineering Leadership
+6: **Reading time:** ~25 minutes
+7: 
+8: ---
+9: 
+10: > 💡 **Key Insight:** WebAssembly has crossed the adoption threshold from experimental to production-critical. As of 2025, **96.14% of browsers globally** support Wasm, the **W3C ratified Wasm 3.0** in September 2025, and the WebAssembly cloud platform market is valued at **$1.82 billion** with a projected **33.3% CAGR** through 2029. Companies like Google, Adobe, Figma, eBay, and American Express now run Wasm in production at scale — this is no longer a bet on the future, it is the present.
+737: ---
+738: 
+739: *This report was compiled in February 2026. WebAssembly is evolving rapidly — WASI 0.3 and 1.0 milestones in 2026-2027 may significantly shift the landscape. Verify current browser support percentages at [caniuse.com](https://caniuse.com/wasm) before making deployment decisions.*
+
+### .project/reports/research/webassembly/02-technical-deep-dive.md (1097 total lines)
+1: # WebAssembly for Compute-Heavy Web Applications
+2: ## Technical Deep Dive: Architecture, Runtimes, Toolchains & Performance
+3: 
+4: **Date:** February 2026 | **Audience:** Technical CEOs & Engineering Leadership
+5: **Scope:** Browser-side Wasm for compute-intensive operations
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1095: browser support tables against [caniuse.com](https://caniuse.com) and
+1096: [webassembly.org/features](https://webassembly.org/features/) before
+1097: architectural decisions.*
+
+### .project/reports/research/webassembly/03-decision-framework.md (766 total lines)
+1: # 🗺️ WebAssembly Decision Framework
+2: 
+3: **When Wasm Makes Sense, When It Doesn't, and What Else to Consider**
+4: 
+5: *Research Date: February 2026 | Target Audience: Technical CEOs & Engineering Leadership*
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+764: - [Rust vs JavaScript & TypeScript: Performance and WebAssembly](https://blog.jetbrains.com/rust/2026/01/27/rust-vs-javascript-typescript/) - JetBrains
+765: - [Flattening Rust's Learning Curve](https://corrode.dev/blog/flattening-rusts-learning-curve/) - corrode Rust Consulting
+766: - [WebAssembly Is Still Waiting for Its Moment](https://leaddev.com/technical-direction/webassembly-still-waiting-its-moment) - LeadDev
+
+### .project/reports/research/webassembly/04-our-stack-relevance.md (721 total lines)
+1: # WebAssembly for Compute-Heavy Operations: Relevance to N3TX's Architecture
+2: 
+3: **Research Brief** | February 2026
+4: **Audience:** Technical CEOs, Engineering Leadership
+5: **Status:** Analysis complete -- actionable recommendations included
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+719: ---
+720: 
+721: *Research compiled February 2026. All performance figures are approximate and based on published benchmarks applied to N3TX's measured codebase characteristics. Actual performance should be validated with instrumentation before making architectural decisions.*
+
+### .project/reports/research/webassembly/06-webassembly-analysis.md (1751 total lines)
+1: # 📋 WebAssembly for Compute-Heavy Operations: Strategic Analysis Report
+2: 
+3: ## For: Technical Leadership & Engineering Teams
+4: ## Date: February 2026
+5: ## Prepared by: Engineering Strategy
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+1749: *This report was compiled in February 2026 based on four research documents totaling 3,323 lines of analysis. WebAssembly is evolving rapidly -- WASI 1.0 and ESM Integration milestones in 2026-2027 may shift the landscape. The triggers defined in Section 7 ensure we re-evaluate when circumstances change rather than on an arbitrary schedule.*
+1750: 
+1751: *For questions about this analysis, refer to the research documents indexed in Appendix I or contact the Engineering Strategy team.*
+
+### .project/reports/vision/01-00-html-compiler-summary.md (236 total lines)
+1: # HTML Compiler for N3TX: Executive Summary
+2: 
+3: > *Standalone summary. Full analysis: [../research/html-compiler/html-compiler-analysis.md](../research/html-compiler/06-html-compiler-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: **Should N3TX build a system that pre-compiles JSON Schema definitions into static HTML, eliminating the runtime overhead of constructing UI from schema on every page load?**
+10: 
+234: ---
+235: 
+236: *Summary prepared February 2026. Based on analysis of 4 research documents, 70+ external sources, and direct codebase review. Full analysis available in [html-compiler-analysis.md](../research/html-compiler/06-html-compiler-analysis.md).*
+
+### .project/reports/vision/02-00-ssr-summary.md (228 total lines)
+1: # 📋 SSR for N3TX: Executive Summary
+2: 
+3: > *Full analysis: [ssr-analysis.md](../research/ssr/ssr-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## 🎯 The Question
+8: 
+9: Should N3TX adopt server-side rendering, and if so, how?
+10: 
+226: ---
+227: 
+228: *Summary prepared February 2026. Full analysis with technical depth, risk register (9 risks), codebase references, and 25+ industry sources available in [ssr-analysis.md](../research/ssr/ssr-analysis.md).*
+
+### .project/reports/vision/03-00-static-site-summary.md (218 total lines)
+1: # Static Site Generation for N3TX: Executive Summary
+2: 
+3: > *Full analysis: [static-site-analysis.md](../research/html-compiler/static-site-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: Should N3TX offer a `n3tx export` command that generates a complete, deployable static website -- HTML pages, CSS, pagination, navigation -- directly from schema-driven model definitions, with near-zero JavaScript?
+10: 
+216: > *This summary covers findings from 10 research documents, two research syntheses, and direct codebase analysis. Full technical details, risk register, implementation blueprints, and source references are in the [complete analysis](../research/html-compiler/static-site-analysis.md).*
+217: >
+218: > *Compiled February 2026.*
+
+### .project/reports/vision/04-00-ai-agents-summary.md (217 total lines)
+1: # N3TX as Schema-Driven AI Agent Orchestration: Executive Summary
+2: 
+3: > *Standalone summary. Full analysis: [../research/ai-agents/ai-agents-analysis.md](../research/ai-agents/ai-agents-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: **Should N3TX evolve into a schema-driven AI agent orchestration platform, and if so, how?**
+10: 
+215: ---
+216: 
+217: *Summary prepared February 2026. Based on analysis of 5 research documents, 7 codebase source files, and 50+ external sources. Full analysis available in [ai-agents-analysis.md](../research/ai-agents/ai-agents-analysis.md).*
+
+### .project/reports/vision/05-00-graphql-summary.md (143 total lines)
+1: # GraphQL for N3TX: Executive Summary
+2: 
+3: > *This is a standalone summary of the full strategic analysis report.*
+4: > *For the complete analysis with technical details, case studies, and*
+5: > *appendices, see [graphql-analysis.md](../research/graphql/graphql-analysis.md).*
+6: 
+7: ---
+8: 
+9: ## The Question
+10: 
+141: ---
+142: 
+143: *Summary compiled February 26, 2026. Based on 5 specialist research documents, N3TX v0.7.0 codebase analysis, and current industry data. For the complete analysis with detailed case studies, technical architecture assessment, code-level analysis, and full source references, see [graphql-analysis.md](../research/graphql/graphql-analysis.md).*
+
+### .project/reports/vision/06-00-microservices-summary.md (248 total lines)
+1: # N3TX as a Microservice Backbone: Executive Summary
+2: 
+3: > *Standalone summary for leadership. Full analysis: [microservices-analysis.md](../research/microservices/microservices-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: Should N3TX evolve toward a microservice architecture? If so, when, and at what cost?
+10: 
+246: ---
+247: 
+248: *This executive summary distills a 900+ line strategic analysis. For detailed cost breakdowns, code-level evidence, risk matrices, and the full decision framework, see the [complete report](../research/microservices/microservices-analysis.md).*
+
+### .project/reports/vision/07-00-polymorphic-system-summary.md (207 total lines)
+1: # Polymorphic Systems for N3TX: Executive Summary
+2: 
+3: > *Standalone summary. Full analysis: [polymorphic-system-analysis.md](../research/polymorphic-system/polymorphic-system-analysis.md)*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: **Should N3TX add first-class support for polymorphic data models -- where multiple specialized types (Article, Video, Podcast) share a common base (Content) with automatic storage discrimination, schema union generation, and type-aware rendering?**
+10: 
+205: ---
+206: 
+207: *Summary based on analysis of 5 research documents, 25+ primary sources, and direct codebase audit of 8 key framework files. Full analysis: [polymorphic-system-analysis.md](../research/polymorphic-system/polymorphic-system-analysis.md)*
+
+### .project/reports/vision/08-00-schema-agentic-system-summary.md (201 total lines)
+1: # Schema-Driven Agentic Systems: Executive Summary
+2: 
+3: > *This is a standalone summary of the full strategic analysis report.*
+4: > *For the complete analysis with technical details, case studies, and*
+5: > *appendices, see [schema-agentic-system-analysis.md](../research/schema-agentic-system/schema-agentic-system-analysis.md).*
+6: 
+7: **Date:** February 26, 2026
+8: **Prepared by:** Architecture Team
+9: 
+10: ---
+199: ---
+200: 
+201: *The model is the app. The schema is the agent. We already built the schema engine -- now we connect it to the agent ecosystem.*
+
+### .project/reports/vision/08-01-schema-agentic-system-propositions.md (424 total lines)
+1: # 🔧 Schema-Driven Agentic Systems x Our System: Technical Propositions
+2: 
+3: > *How schema-as-agent-protocol principles can improve our architecture.*
+4: > *Based on research in `.traces/research/schema-agentic-system/` and codebase analysis.*
+5: 
+6: ---
+7: 
+8: ## 🎯 The Bridge
+9: 
+10: N3TX's fundamental axiom -- **the model is the app** -- maps onto an insight the entire AI agent industry arrived at independently between 2023 and 2026: **the schema is the agent**. OpenAI, Anthropic, Google, and Microsoft all converged on JSON Schema as the universal contract for defining what an agent can do, what inputs it accepts, and what outputs it produces. N3TX already generates rich, typed, access-controlled JSON Schema from Python model definitions. The structural alignment is not a metaphor -- it is architectural isomorphism.
+422: 4. If successful: proceed to Proposition 4 (agent ABAC rules) and Proposition 7 (guardrails) to harden the foundation before adding LLM-powered agents in Proposition 5
+423: 
+424: **Decision gate:** If MCP tool exposure does not achieve >90% tool call accuracy after prompt tuning, investigate whether the issue is schema quality (fix descriptions) or architectural (reassess approach). Do not proceed to Proposition 5 until Propositions 1-4 are validated.
+
+### .project/reports/vision/08-02-schema-agentic-system-whitepaper.md (401 total lines)
+1: # 📄 Schema-Driven Agentic Systems Applied: A Technical Whitepaper
+2: 
+3: > *How principles from schema-driven agent architectures can reshape our system -- and where they can't.*
+4: > *Companion to the [propositions document](schema-agentic-system-propositions.md).*
+5: 
+6: ---
+7: 
+8: ## Abstract
+9: 
+10: Between 2023 and 2026, the AI agent industry converged on a single architectural insight: JSON Schema is the universal contract for defining what agents can do, what data they accept, and how they communicate. OpenAI's function calling, Anthropic's Model Context Protocol (97M+ monthly SDK downloads), Google's Agent-to-Agent protocol (150+ organizations), and Microsoft's declarative agent manifests all use JSON Schema as their interface layer. N3TX's architecture -- where a Python model definition generates the entire application stack via JSON Schema -- is structurally isomorphic to what the agent ecosystem is independently building. This whitepaper examines that alignment in detail, identifies where our existing primitives (`ProtoModel.schema()`, `@expose_route`, `Actor/Matrix/TX`, ABAC authorization, `DynamicClass` via `prototype()`) directly map onto agent system requirements, and proposes a phased integration path. The core argument: we should not become an agent framework. We should recognize that our schema pipeline -- the most expensive piece of infrastructure in the agent ecosystem -- already exists, and make it accessible to the agents that need it. The estimated gap is 35% additive infrastructure (LLM integration, planning loops, memory management), achievable in 10-14 weeks, layered on top of an architecture that does not need to change.
+399: The path forward is not to pivot toward agents. It is to recognize the structural alignment, make our schemas accessible through standard protocols, and let the agent ecosystem come to us. Phase 0 costs 2-4 weeks and zero LLM spend. It creates permanent optionality. If the agent ecosystem delivers on its trajectory -- and with $690B in hyperscaler AI capex committed for 2026, the infrastructure investment is real -- our schema pipeline becomes exponentially more valuable with each new MCP client, each new A2A-compatible orchestrator, and each new agent that discovers our capabilities through a published schema.
+400: 
+401: The model is the app. The schema is the agent. The bridge is within reach.
+
+### .project/reports/vision/09-00-decentralized-protocols-summary.md (215 total lines)
+1: # 📋 Decentralized Protocols for N3TX: Executive Summary
+2: 
+3: > *Full analysis: [decentralized-protocols-analysis.md](../research/decentralized-protocols/decentralized-protocols-analysis.md)*
+4: 
+5: ---
+6: 
+7: **For:** CEO & Engineering Team
+8: **Date:** February 2026
+9: **Read time:** 10 minutes
+10: 
+213: ---
+214: 
+215: *This summary synthesizes five research documents (4,700+ lines) into actionable findings. For technical depth, protocol comparisons, implementation code, and the full risk register, see the [complete analysis](../research/decentralized-protocols/decentralized-protocols-analysis.md).*
+
+### .project/reports/vision/09-01-decentralized-protocols-propositions.md (451 total lines)
+1: # 🔧 Decentralized Protocols × Our System: Technical Propositions
+2: 
+3: > *How decentralized protocol principles can improve our architecture.*
+4: > *Based on research in `.traces/research/decentralized-protocols/` and codebase analysis.*
+5: 
+6: ---
+7: 
+8: ## 🎯 The Bridge
+9: 
+10: N3TX and decentralized protocols are solving the same problem from opposite ends. N3TX says: "Define a model once, derive the entire stack." Decentralized protocols say: "Carry a schema everywhere, and any node can participate." Both are schema-driven, self-describing, and derive behavior from data definitions. The difference is scope: N3TX operates within a single deployment; decentralized protocols operate across trust boundaries.
+449: **Validation approach:** Deploy a N3TX instance with WebFinger enabled. Search for a N3TX user from a Mastodon instance. If the discovery resolves correctly, the interoperability path is validated. Measure: can a Mastodon user find a N3TX user without knowing the URL structure?
+450: 
+451: Total investment: **~1 week**. Total risk: **near zero** (all changes are additive). Signal strength: **high** (real interoperability test with real Fediverse servers).
+
+### .project/reports/vision/09-02-decentralized-protocols-whitepaper.md (306 total lines)
+1: # The Self-Describing Stack: How Decentralized Protocol Principles Can Transform Schema-Driven Architecture
+2: 
+3: > *A whitepaper on importing the right ideas from the federated web into a centralized framework -- without importing the complexity.*
+4: 
+5: ---
+6: 
+7: ## Abstract
+8: 
+9: Schema-driven frameworks and decentralized protocols are converging on the same architectural insight: when data describes itself completely -- its type, its identity, its access rules, its relationships -- systems that consume it can adapt at runtime instead of being configured at build time. N3TX's model-driven architecture, where a Python class definition generates a full-stack application, shares deep structural DNA with the protocols powering the federated web. ActivityPub's self-describing JSON-LD objects, AT Protocol's content-addressed repositories, and Nostr's cryptographically signed events all embody the same principle that N3TX applies locally: derive behavior from data definitions. This whitepaper examines which principles from decentralized systems strengthen a centralized framework, where the two worlds naturally meet, and where forcing convergence would do more harm than good. The argument is not that N3TX should become a federation framework. It is that the ideas that make federation possible -- portable identity, content integrity, composable trust, and event-driven mutation -- are independently valuable, and our architecture is uniquely positioned to absorb them.
+10: 
+304: ---
+305: 
+306: *This whitepaper was produced as part of a research series on decentralized protocols and their relevance to N3TX's schema-driven architecture. It reflects information available as of February 2026. Standards, market data, and protocol specifications are evolving rapidly. Key review dates: May 2026 (DMA social network interoperability review), November 2026 (eIDAS wallet deadline), Q3 2026 (W3C spec updates).*
+
+### .project/reports/vision/10-00-category-theory-summary.md (220 total lines)
+1: # Category Theory & N3TX: Executive Summary
+2: 
+3: > *Standalone summary. For the full analysis, see [category-theory-analysis.md](../research/category-theory/category-theory-analysis.md).*
+4: 
+5: ---
+6: 
+7: ## The Question
+8: 
+9: **How does N3TX relate to category theory? Where are our abstractions impure, and what can we improve?**
+10: 
+218: ---
+219: 
+220: *Summary based on 5 research documents (5,491 lines), 30+ external sources, and audit of 7 key framework files. Full analysis: [category-theory-analysis.md](../research/category-theory/category-theory-analysis.md). N3TX at commit `7550aeb`, February 2026.*
+
+### .project/reports/vision/10-01-category-theory-propositions.md (319 total lines)
+1: # Category Theory x Our System: Technical Propositions
+2: 
+3: > *How categorical abstractions can improve our architecture.*
+4: > *Based on research in `.traces/research/category-theory/` and codebase analysis.*
+5: 
+6: ---
+7: 
+8: ## The Bridge
+9: 
+10: N3TX's core promise -- "the model is the app" -- is a categorical claim. It asserts the existence of a structure-preserving transformation (a functor) from the category of Python model definitions to the category of working full-stack applications. Every field, every constraint, every access rule, every method signature must survive the journey from `ProtoModel` subclass through JSON Schema, across the network, into a JavaScript DynamicClass, and finally into rendered HTML -- without losing information, without gaining phantom state, and without contradicting itself at any layer.
+317: **Then proceed to Proposition 1 (2-3 days).** The `model_dump()` decomposition is a small, well-scoped refactor that makes the principle visible: separate concerns, name the morphisms, test them independently. It touches only `proto_model.py` and 6 call sites in the route/storage layer.
+318: 
+319: **Validation approach:** Before and after each change, run snapshot tests comparing the output of `schema()`, `model_dump()`, and `model_dump(response=True)` for every model in the example app. The output must be byte-identical (or semantically equivalent where key ordering differs). If a snapshot changes unexpectedly, the refactor has introduced a regression. This is the functor law test in practice: the same input must produce the same output, regardless of how the internals are structured.
+
+### .project/reports/vision/10-02-category-theory-whitepaper.md (431 total lines)
+1: # Category Theory Applied: A Technical Whitepaper
+2: 
+3: > *How categorical principles can reshape our architecture -- and where they can't.*
+4: > *Companion to the [propositions document](category-theory-propositions.md).*
+5: 
+6: ---
+7: 
+8: ## Abstract
+9: 
+10: N3TX's architecture -- where a Python model definition generates an API, schema, storage, access control, and a runtime frontend -- is a composition of functors in disguise. This paper argues that recognizing and formalizing these implicit categorical structures is the highest-leverage improvement available to the framework, not because category theory is fashionable, but because it provides the exact vocabulary and laws needed to detect, prevent, and diagnose the hardest class of bugs in a schema-driven system: silent failures at layer boundaries. We trace the full-stack pipeline from `ProtoModel` through JSON Schema to `DynamicClass` to rendered HTML, mapping each transformation to its categorical structure. We identify eight specific points where the pipeline's algebraic laws break, correlate three of those with documented bug classes (including the "200-OK error" case study), and propose a phased remediation that costs 12-19 engineering days and eliminates an entire category of silent-failure bugs. We also draw clear boundaries: where categorical formalism helps (composable pipelines, algebraic rule systems, round-trip contracts) and where it hurts (dynamic typing, actor state, simple CRUD). The conclusion is pragmatic: use the structure, not the vocabulary. Fix the laws, not the names.
+429: The path forward is conservative: test the laws we already obey, fix the three impurities that cause real bugs, decompose the monoliths into composable pipelines. The total investment is 12-19 engineering days for Phases 0-1. The return is the elimination of an entire bug category (silent layer-boundary failures), a 40-60% reduction in integration test surface area (functor law tests replace many scenario tests), and a schema pipeline that any developer can extend by adding one function to a list.
+430: 
+431: Category theory did not design this architecture. Good engineering intuition did. But category theory provides the vocabulary to name what we built, the laws to test whether it is consistent, and the diagnostics to find where it leaks. The value is not in the abstraction. It is in the confidence that when a developer changes a model, the change propagates faithfully through every layer -- because we tested the laws that guarantee it.
+
+### .project/reports/vision/11-00-cli-tui-summary.md (117 total lines)
+1: # CLI and TUI for N3TX: Executive Summary
+2: 
+3: > *This is a standalone summary of the full strategic analysis report.*
+4: > *For the complete analysis, see [cli-tui-analysis.md](../research/cli-tui/cli-tui-analysis.md).*
+5: > *See also: [propositions](12-01-cli-tui-propositions.md) | [whitepaper](12-02-cli-tui-whitepaper.md)*
+6: 
+7: ---
+8: 
+9: ## The Question
+10: 
+115: ---
+116: 
+117: *Analysis based on 5 research documents comprising ~4,500 lines of technical research with 80+ cited sources, cross-referenced against N3TX v0.7.0 codebase architecture. All statistics reflect data available as of February 2026.*
+
+### .project/reports/vision/11-01-cli-tui-propositions.md (499 total lines)
+1: # CLI & TUI x N3TX: Technical Propositions
+2: 
+3: > *How CLI/TUI principles can improve our architecture.*
+4: > *Based on research in .traces/research/cli-tui/ and codebase analysis.*
+5: > *Companion to the [whitepaper](12-02-cli-tui-whitepaper.md).*
+6: 
+7: ---
+8: 
+9: ## The Bridge
+10: 
+497: 3. **P3 (inspect command, 8-12 hours):** This is the *signature* command -- the one that makes a developer say "wow, this framework understands itself." No other framework CLI can show you a model's fields, validation constraints, access rules, routes, methods, and UI configuration in one command. It is the CLI manifestation of N3TX's "the model is the app" philosophy.
+498: 
+499: Total: **18-32 hours of work** to deliver a CLI that matches Django's `manage.py` functionality and surpasses it with schema-aware inspection. This is achievable in a single focused week and immediately improves the developer experience for every N3TX user.

@@ -1,0 +1,594 @@
+
+### packages/n3tx-agents/README.md (270 total lines)
+131: 
+132: | Tier | Source | Example |
+133: |------|--------|---------|
+134: | 1 | `config.AGENT_DEFAULTS` | Global defaults from env/config |
+135: | 2 | `__agent__` dict | Per-model config in class definition |
+136: | 3 | `agentic()` kwargs | Per-call overrides at runtime |
+137: 
+138: ---
+139: 
+140: ## 📖 API Reference
+141: 
+142: Everything you can import from the package, at a glance:
+143: 
+144: | Export | Type | Purpose |
+145: |--------|------|---------|
+146: | `AgentMixin` | class | Injected mixin providing agent methods |
+147: | `AgentActor` | class | Storable model whose instances are agents |
+148: | `AgentTool` | class | Tool reference record (actor address + description) |
+149: | `AgentDeps` | dataclass | Dependency context for Pydantic AI RunContext |
+150: | `ToolSpec` | dataclass | Specification for a discovered tool |
+151: | `discover_tools` | function | Discover ToolSpecs from actor addresses |
+152: | `make_tool` | function | Create a Pydantic AI Tool from a ToolSpec |
+153: 
+154: ### `AgentMixin`
+155: 
+156: All methods use `@fullmethod` (unified class/instance dispatch), so you call them the same way on a class or an instance:
+157: 
+158: ```python
+159: class AgentMixin:
+160:     def ctx(target) -> str: ...
+161:     def tools(target) -> list[str]: ...
+162:     async def agentic(target, task: str, **kwargs) -> dict: ...
+163:     async def run(target, task: str, prompt: str, tools: list,
+164:                   user: dict = None, constraints: dict = None,
+165:                   thread_id=None, result_type=None,
+166:                   **kwargs) -> dict: ...
+167:     async def agentic_stream(target, task: str, **kwargs): ...  # async gen
+168:     async def run_stream(target, task: str, prompt: str, tools: list,
+169:                          ...) -> AsyncGenerator[dict, None]: ...
+170: ```
+171: 
+172: `agentic()`/`run()` return: `{"answer": str, "usage": {"input_tokens", "output_tokens", "requests"}, "messages": list, "message_count": int}`
+173: 
+174: `run_stream()` yields: `{"name": "text"|"done"|"error", "data": {...}, "meta": {"stream": True, "seq": N}}`
+175: 
+176: See [docs/mixin.md](docs/mixin.md) for full method documentation.
+177: 
+178: ### `AgentActor`
+179: 
+180: ```python
+181: class AgentActor(ActorModel):
+182:     __tablename__ = 'agents'
+183:     __storable__ = True
+184:     __agent__ = True
+185: 
+186:     name: str           # Human-readable name
+187:     prompt: str         # System prompt for the LLM
+188:     tools: list[AgentTool]     # Ordered hydrated tool records
+189:     llm: str            # Provider:model string (default: 'ollama:llama3.1')
+190:     constraints: dict   # Budget/safety limits
+191: 
+192:     async def agentic(self, task: str, **kwargs) -> str: ...  # @expose_route
+193: ```
+194: 
+195: See [docs/agent-actor.md](docs/agent-actor.md) for full documentation.
+196: 
+197: ### `discover_tools` / `make_tool`
+198: 
+199: ```python
+200: def discover_tools(actor_addrs: list, root, caller_addr: str = None) -> list[ToolSpec]: ...
+201: def make_tool(spec: ToolSpec) -> pydantic_ai.Tool: ...
+202: ```
+203: 
+204: See [docs/tool-discovery.md](docs/tool-discovery.md) for the full pipeline.
+205: 
+206: ---
+207: 
+208: ## 📏 Patterns and Conventions
+209: 
+210: A few things to keep in mind as you build with agents:
+211: 
+212: 1. **Always use `agentic()` for HTTP-exposed agent calls**, never `run()`.
+213:    `agentic()` handles config resolution. `run()` is the raw engine for
+214:    testing and internal pipelines.
+215: 
+216: 2. **A Matrix must exist before running agents.** Both `agentic()` and
+217:    `run()` require `Actor.root()` to return a Matrix. Without it, a
+218:    `RuntimeError("No Matrix root")` is raised.
+219: 
+220: 3. **Tool calls route through Matrix as TX messages.** Error TXs from
+221:    tools raise `pydantic_ai.ModelRetry`, causing the LLM to retry. The
+222:    agent never sees raw exceptions.
+223: 
+224: 4. **Self-exclusion prevents loops.** `discover_tools()` automatically
+225:    excludes the caller's own address via `caller_addr`. AgentActor
+226:    subclasses also exclude `run` and `stream_run` methods from tools.
+227: 
+228: 5. **Use `pydantic_ai.models.test.TestModel` in tests**, not real LLMs.
+229:    Pass `TestModel(call_tools=[])` for no tool calls, or
+230:    `TestModel(call_tools=['tool_name'])` to simulate specific tool calls.
+231: 
+232: ---
+233: 
+234: ## 🏗️ Package Ecosystem
+235: 
+236: Here's where n3tx-agents sits in the bigger picture:
+237: 
+238: ```
+239: n3tx (meta-package)
+240:   |
+241:   +-- n3tx-core        Models, schema, storage, config
+242:   |     ^
+243:   |     |
+244:   +-- n3tx-actors      Actor, Matrix, TX, NetworkAdapter
+245:   |     ^
+246:   |     |
+247:   +-- n3tx-agents  <-- THIS PACKAGE (AgentMixin, tool discovery, LLM)
+248:   |
+249:   +-- n3tx-ui          Frontend web components
+250: ```
+251: 
+252: n3tx-agents depends on both n3tx-core (for models, config, introspection)
+253: and n3tx-actors (for Actor, Matrix, TX, NetworkAdapter). It does not
+254: depend on n3tx-ui. The LLM integration uses pydantic-ai.
+255: 
+256: ---
+257: 
+258: ## 📚 Deep Dives
+259: 
+260: When you're ready to go deeper, these docs have your back:
+
+### packages/n3tx-agents/README.md (270 total lines)
+261: 
+262: | Topic | File | When to read |
+263: |-------|------|--------------|
+264: | AgentMixin Methods | [docs/mixin.md](docs/mixin.md) | Working with ctx/tools/agentic/run |
+265: | AgentActor | [docs/agent-actor.md](docs/agent-actor.md) | Dynamic agents stored in DB |
+266: | Tool Discovery | [docs/tool-discovery.md](docs/tool-discovery.md) | Understanding tool generation pipeline |
+267: 
+268: ---
+269: 
+270: Now go give your models a brain. They've been waiting for this. 🧠
+
+### packages/n3tx-agents/docs/agent-actor.md (205 total lines)
+1: # AgentActor
+2: 
+3: > Part of [n3tx-agents](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: `AgentActor` -- the concrete model whose instances ARE agents. Covers
+8: field definitions, the `agentic()` override, tool resolution from DB
+9: records, and CRUD lifecycle. Does not cover AgentMixin methods in general
+10: (see [mixin.md](mixin.md)).
+11: 
+12: ## Architecture
+13: 
+14: AgentActor is a standard storable ActorModel with `__agent__ = True`.
+15: Its config lives in DB fields, not code. Agents are data.
+16: 
+17: On the frontend, `AgentActor.__ui__.renderer` defaults both `item` and
+18: `detail` to `ntx-agent`, so routed agent lists render custom agent cards and
+19: agent detail routes mount the same rich component automatically once the shell
+20: imports `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js`.
+21: 
+22: Apps that need a broader agents surface can also opt into
+23: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agents.js`. That
+24: component extends `NTTList`, keeps the normal stored `AgentActor` collection
+25: flow, and can merge those real DB rows with app-supplied built-in workflow
+26: entries from `window.NTX_AGENT_CATALOGS[catalog]`. Those built-ins are launch
+27: cards, not fake `AgentActor` records.
+28: 
+29: ```
+30: AgentActor (DB record)
+31:     |
+32:     +-- name, prompt, llm, constraints  (DB fields)
+33:     +-- tools: list[AgentTool]          (ordered local id list)
+34:     |
+35:     +-- agentic(task)          @expose_route('/agentic', POST)
+36:     |      |
+37:     |      | tool_addrs()  -- hydrated AgentTool records to actor addresses
+38:     |      v
+39:     |   CallConfig  -- DB-backed adapter input (mixin.py)
+40:     |      |
+41:     |      v
+42:     |   Agent.prepare(...) -> Agent.run(...)  (agent.py)
+43:     |
+44:     +-- agentic_stream(task)   @expose_route('/agentic_stream', POST, stream=True, events={...})
+45:            |
+46:            | tool_addrs()  -- same hydrated record handling
+47:            v
+48:         CallConfig -> Agent.prepare(...) -> Agent.run_stream(...)  (agent.py)
+49: ```
+50: 
+51: AgentActor's `agentic()` and `agentic_stream()` override the mixin's
+52: versions. They read config from DB fields instead of using the 3-tier
+53: cascade, then delegate into the shared internal runtime seam.
+54: 
+55: ### Stream Event Models
+56: 
+57: `actor.py` defines five non-storable `ProtoModel` subclasses used by
+58: `agentic_stream()` via the `events=` parameter:
+59: 
+60: | Model | Fields | Purpose |
+61: |-------|--------|---------|
+62: | `TextChunk` | `text` | Progressive text output from the LLM |
+63: | `ToolCallEvent` | `tool`, `args`, `call_id` | Agent is calling a tool |
+64: | `ToolResultEvent` | `tool`, `result`, `call_id` | Result from a tool call |
+65: | `ThinkingChunk` | `text` | Agent is in a thinking/reasoning phase |
+66: | `DoneChunk` | `answer`, `usage`, `tool_calls` | Terminal event — task complete |
+67: 
+68: These models exist purely for validation and JSON Schema generation. They
+69: are not storable. The schema pipeline serializes them into
+70: `schema.methods.agentic_stream.events` so the frontend knows the exact
+71: shape of each event type.
+72: 
+73: ## Interface
+74: 
+75: ### Fields
+76: 
+77: | Field | Type | Default | Storage |
+78: |-------|------|---------|---------|
+79: | `system_key` | str | `''` | TEXT |
+80: | `name` | str | required | TEXT |
+81: | `prompt` | str | `''` | TEXT |
+82: | `llm` | str | `'ollama:llama3.1'` | TEXT |
+83: | `constraints` | dict | `{}` | TEXT (JSON serialized) |
+84: | `tools` | list[AgentTool] | `[]` | TEXT (ordered local ids, hydrated records) |
+85: 
+86: `system_key` is a stable machine identifier for framework-provisioned app
+87: agents. It allows bootstrap code to create or update a static Assistant
+88: idempotently across reloads and restarts without relying on the display name.
+89: 
+90: ### `AgentTool` (tool reference model)
+91: 
+92: ```python
+93: class AgentTool(ActorModel):
+94:     __tablename__ = 'agent_tools'
+95:     __storable__ = True
+96:     target: str       # Actor address (e.g. 'grants', 'web_tools')
+97:     description: str  # Human-readable description
+98: ```
+99: 
+100: Linked to AgentActor through `tools: list[AgentTool]`.
+101: 
+102: ### `agentic(self, task: str, **kwargs) -> str`
+103: 
+104: Exposed as `POST /agents/{id}/agentic`. Returns a JSON string (not dict)
+105: containing `{answer, usage, messages, message_count}`.
+106: 
+107: Internally, `AgentActor.agentic()` delegates to the shared runtime and then
+108: serializes the same sync result dict used by `AgentMixin.agentic()` with
+109: `json.dumps(result, default=str)`. `message_count` therefore always matches
+110: `len(messages)`, and `thread_id` is included when a thread is used or created.
+111: 
+112: **kwargs accepted**: `llm`, `constraints`, `user`, `thread_id`,
+113: `result_type`.
+114: 
+115: **Tool resolution**: Calls `tool_addrs()` which handles hydrated `AgentTool`
+116: records, dicts with `target`, and plain actor-address strings.
+117: 
+118: ### `tool_addrs(self) -> list[str]`
+119: 
+120: Internal. Resolves actor addresses from the `tools: list[AgentTool]` field.
+121: 
+122: ## Usage Patterns
+123: 
+124: ### Create agent via API
+125: 
+126: ```bash
+127: # Create agent
+128: curl -X POST /agents -d '{"name": "Scanner", "prompt": "Find grants.", "llm": "anthropic:claude-sonnet-4-5-20250929"}'
+129: 
+130: # Generated HTTP PUT accepts a partial writable AgentActor representation.
+
+### packages/n3tx-agents/docs/agent-actor.md (205 total lines)
+131: curl -X PUT /agents/1 -d '{
+132:   "prompt": "Find current grants."
+133: }'
+134: 
+135: # Trigger reasoning
+136: curl -X POST /agents/1/agentic -d '{"task": "Find new grants"}'
+137: ```
+138: 
+139: By contrast, `AgentActor.update(id, {"tools": [1, 2]})` and generated agent
+140: update tools are patch-oriented. Supplied `tools` replaces the complete ordered
+141: relationship list; omission from a Python/TX patch leaves it unchanged.
+142: 
+143: ### Create agent in code
+144: 
+145: ```python
+146: from n3tx_agents import AgentActor, AgentTool
+147: 
+148: agent = AgentActor.create(AgentActor(
+149:     name='Grant Scanner',
+150:     prompt='You find government grants for nonprofits.',
+151:     tools=[AgentTool(target='grants'), AgentTool(target='web_tools')],
+152:     llm='anthropic:claude-sonnet-4-5-20250929',
+153:     constraints={'max_iterations': 20},
+154: ))
+155: 
+156: result_str = await agent.agentic(task='Scan for new grants')
+157: result = json.loads(result_str)
+158: print(result['answer'])
+159: ```
+160: 
+161: ### App setup
+162: 
+163: ```python
+164: from n3tx_core.utils.registrar import register_model
+165: 
+166: register_model(AgentTool, storage=storage)
+167: register_model(AgentActor, storage=storage)
+168: ```
+169: 
+170: ## Gotchas
+171: 
+172: - `agentic()` returns a JSON **string**, not a dict. This is because it
+173:   is decorated with `@expose_route` (HTTP endpoint returns text). Parse
+174:   with `json.loads()` in code. The decoded payload is the same sync result
+175:   dict produced internally by the shared runtime.
+176: - AgentActor's `agentic()` uses DB-backed configuration rather than the
+177:   mixin's class-config cascade. It reads `self.prompt`, `self.llm`,
+178:   `self.constraints`, and tool refs from stored fields, then delegates to
+179:   the shared runtime. kwargs override DB values (`constraints` are merged,
+180:   not replaced).
+181: - Tool addresses must match actor addresses registered in the Matrix.
+182:   If a tool address has no corresponding actor, `discover_tools()` logs
+183:   a warning and skips it.
+184: - `AgentActor.run` and `AgentActor.stream_run` are auto-excluded from
+185:   tool discovery to prevent recursive agent invocation loops.
+186: - When loaded from DB, `tools` is an ordered list of hydrated `AgentTool`
+187:   records. The frontend renders `target` and `description` directly without a
+188:   second fetch, while `tool_addrs()` extracts actor addresses for execution.
+189: 
+190: ## Schema Extension
+191: 
+192: The `agent` stage in the schema pipeline adds metadata to AgentActor schemas:
+193: 
+194: ```json
+195: {
+196:   "agent": {
+197:     "enabled": true,
+198:     "agentic_endpoint": "/agents/{id}/agentic",
+199:     "methods": ["agentic", "agentic_stream", "ctx", "tools"]
+200:   }
+201: }
+202: ```
+203: 
+204: Non-AgentActor models with `__agent__ = True` get `enabled: true` but
+205: no `agentic_endpoint`.
+
+### packages/n3tx-agents/docs/mixin.md (237 total lines)
+1: # AgentMixin Methods
+2: 
+3: > Part of [n3tx-agents](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The six `@fullmethod` methods injected by `AgentMixin` into any model
+8: with `__agent__ = True`. Covers `ctx()`, `tools()`, `agentic()`, `run()`,
+9: `agentic_stream()`, and `run_stream()`. Does not cover AgentActor's
+10: `agentic()` override (see [agent-actor.md](agent-actor.md)).
+11: 
+12: ## Architecture
+13: 
+14: All methods use `@fullmethod` from `n3tx_core.utils.descriptors` -- they
+15: work identically on classes and instances. The first parameter `target`
+16: receives either the class or the instance.
+17: 
+18: ```
+19: agentic(task)                    agentic_stream(task)
+20:     |                                |
+21:     | shared call normalization      | same resolver
+22:     |                                |
+23:     v                                v
+24: CallConfig                CallConfig
+25:     |                                |
+26:     v                                v
+27: run(...)                         run_stream(...)
+28:     |                                |
+29:     +------------+-------------------+
+30:                  |
+31:                  v
+32:           Agent.prepare(...)
+33:                  |
+34:                  v
+35:           PreparedCall
+36:                  |
+37:        +---------+---------+
+38:        |                   |
+39:        v                   v
+40: Agent.run(...)       Agent.run_stream(...)
+41:        |                   |
+42:        v                   v
+43: {answer, usage, messages}        yields {name, data, meta} chunks
+44: ```
+45: 
+46: `Agent.prepare(...)` in `agent.py` owns runtime assembly for both sync and streaming calls:
+47: LLM resolution, Matrix root lookup, thread preload/create, tool discovery,
+48: Pydantic AI agent construction, dependency creation, and usage limits. Terminal
+49: execution then lives in `Agent.run(...)` or `Agent.run_stream(...)`.
+50: 
+51: Tool calls and thread operations route through `Actor.root().request()` (Matrix
+52: request-response) — no transient adapters needed.
+53: 
+54: ## Interface
+55: 
+56: ### `ctx(target) -> str`
+57: 
+58: Builds LLM context string from the model schema.
+59: 
+60: - **Class call** (`Product.ctx()`): Returns schema text with fields, types,
+61:   and methods. If `__agent__['prompt']` is set, it is prepended.
+62: - **Instance call** (`product.ctx()`): Same as class, plus appends current
+63:   instance data (field values, truncated at 200 chars each).
+64: 
+65: ### `tools(target) -> list[str]`
+66: 
+67: Returns actor addresses for tool discovery. Same result for class and instance.
+68: 
+69: - `self_tools` (default `True`): includes own `__tablename__`
+70: - `neighbors` (default `True`): includes local `list[T]` relationship tablenames
+71: - `__agent__['tools']`: appends extra addresses
+72: - Deduplicates, preserves order
+73: 
+74: ### `agentic(target, task: str, **kwargs) -> dict`
+75: 
+76: Policy layer. Resolves config, delegates to `run()`.
+77: 
+78: **kwargs accepted**: `prompt`, `tools`, `llm`, `constraints`, `user`,
+79: `thread_id`, `create_thread`, `result_type`.
+80: 
+81: **Config cascade**: `config.AGENT_DEFAULTS` < `__agent__` dict < kwargs.
+82: The `tools` kwarg uses `in` check (passing `tools=[]` is valid and means
+83: "no tools", distinct from omitting it which triggers auto-discovery).
+84: 
+85: **Returns**: a Python dict representing the shared internal sync result shape:
+86: 
+87: `{"answer": str|structured, "usage": {"input_tokens": int, "output_tokens": int, "requests": int}, "messages": list, "message_count": int, "thread_id": int?}`
+88: 
+89: `AgentMixin.agentic()` returns this dict directly. `message_count` always matches
+90: `len(messages)`. When a thread is used or created, `thread_id` is included.
+91: 
+92: ### `run(target, task, prompt, tools, ...) -> dict`
+93: 
+94: Thin engine adapter. No policy config resolution. Receives fully resolved params,
+95: wraps them in a `CallConfig`, delegates runtime assembly to
+96: `Agent.prepare(...)` in `agent.py`, then executes via `Agent.run(...)`.
+97: 
+98: `Agent.run(...)` is the single source of truth for the sync result dict consumed
+99: by both adapters:
+100: 
+101: - `AgentMixin.agentic()` returns the dict directly
+102: - `AgentActor.agentic()` JSON-serializes the same dict for compatibility
+103: 
+104: **Parameters**:
+105: 
+106: | Param | Type | Purpose |
+107: |-------|------|---------|
+108: | `task` | str | User query |
+109: | `prompt` | str | System prompt |
+110: | `tools` | list[str] | Actor addresses |
+111: | `user` | dict | JWT user context (injected into tool TX meta) |
+112: | `constraints` | dict | `{"max_iterations": N}` maps to UsageLimits |
+113: | `thread_id` | int | Thread ID for persistent conversation history |
+114: | `create_thread` | bool | Create a new `Thread` automatically when no `thread_id` is provided |
+115: | `result_type` | type | Pydantic model for structured output |
+116: | `**kwargs` | | Override `llm` (LLM model string or pydantic-ai Model) |
+117: 
+118: **LLM resolution** (3-tier cascade inside run): `kwargs['llm']` >
+119: `__agent__['llm']` > instance `llm` attr > `config.AGENT_DEFAULTS['llm']`.
+120: Raises `ValueError` if nothing resolves. `ollama:model` strings are
+121: converted to `OpenAIChatModel` with `OllamaProvider`.
+122: 
+123: ### `agentic_stream(target, task, **kwargs)` -> async generator
+124: 
+125: Same config cascade as `agentic()`, delegates to `run_stream()`.
+126: Yields the same chunk format.
+127: 
+128: ### `run_stream(target, task, prompt, tools, ...)` -> async generator
+129: 
+130: Thin streaming engine adapter. Same params as `run()`. It wraps explicit params
+
+### packages/n3tx-agents/docs/mixin.md (237 total lines)
+131: in a `CallConfig`, delegates runtime assembly to `Agent.prepare(...)` in
+132: `agent.py`, then yields terminal chunks from `Agent.run_stream(...)`:
+133: 
+134: | Chunk | `name` | `data` | `meta` |
+135: |-------|--------|--------|--------|
+136: | Text | `"text"` | `{"text": "..."}` | `{"stream": true, "seq": N}` |
+137: | Tool Call | `"tool_call"` | `{"tool": "...", "args": {...}, "call_id": "..."}` | `{"stream": true, "seq": N}` |
+138: | Tool Result | `"tool_result"` | `{"tool": "...", "result": "...", "call_id": "..."}` | `{"stream": true, "seq": N}` |
+139: | Thinking | `"thinking"` | `{"text": "..."}` | `{"stream": true, "seq": N}` |
+140: | Done | `"done"` | `{"answer": "...", "usage": {...}, "tool_calls": N, "thread_id": id?}` | `{"stream_end": true, "seq": N}` |
+141: | Error | `"error"` | `{"message": "...", "code": 500}` | `{"error": true, "seq": N}` |
+142: 
+143: Streaming errors are caught and yielded as error chunks rather than raised,
+144: including runtime-preparation failures such as a missing Matrix root.
+145: 
+146: Event schemas can be declared via `events=` on `@expose_route` (see
+147: [agent-actor.md](agent-actor.md) for the concrete event models). The
+148: `methods` stage in `proto_model.py` serializes these into the method
+149: schema as `events: {name: json_schema}`, enabling frontend validation
+150: and handler discovery.
+151: 
+152: ## Usage Patterns
+153: 
+154: ### Multi-turn conversation (via Thread)
+155: 
+156: ```python
+157: from n3tx_agents import Thread
+158: 
+159: # Create a thread for this conversation
+160: thread = Thread.create(Thread(agent_addr='products', user_owner=user_id))
+161: 
+162: # First turn
+163: result1 = await product.agentic(task='What fields do I have?', thread_id=thread.id)
+164: 
+165: # Second turn — thread carries history automatically
+166: result2 = await product.agentic(
+167:     task='Tell me more about the price field',
+168:     thread_id=thread.id,
+169: )
+170: ```
+171: 
+172: ### Auto-create a thread from chat UI
+173: 
+174: ```python
+175: result = await agent.call(
+176:     task='Hello',
+177:     prompt='You are helpful.',
+178:     tools=[],
+179:     create_thread=True,
+180:     user={'user_id': 1, 'role': 'user'},
+181: )
+182: 
+183: thread_id = result['thread_id']
+184: ```
+185: 
+186: When `create_thread=True`, `run()` / `run_stream()` create a new `Thread`,
+187: validate later reuse against the current agent address, and return the
+188: resulting `thread_id` so the frontend can continue the conversation.
+189: 
+190: Applications that register any agent-enabled model do not need to register
+191: `Thread` explicitly. `N3TXApp.build()` adds it as agents infrastructure so
+192: thread CRUD has storage and routes before agent execution begins. Route-injected
+193: user model instances are normalized to the JWT-shaped `{user_id, email, role}`
+194: metadata expected by `Thread` authorization before thread CRUD messages are
+195: sent through the actor root.
+196: 
+197: ### Structured output
+198: 
+199: ```python
+200: from pydantic import BaseModel
+201: 
+202: class Analysis(BaseModel):
+203:     summary: str
+204:     score: float
+205: 
+206: result = await product.agentic(
+207:     task='Analyze this product',
+208:     result_type=Analysis,
+209: )
+210: # result['answer'] is an Analysis instance
+211: ```
+212: 
+213: ### Testing with TestModel
+214: 
+215: ```python
+216: from pydantic_ai.models.test import TestModel
+217: 
+218: result = await Product.agentic(
+219:     task='Test',
+220:     llm=TestModel(call_tools=[]),         # no tool calls
+221: )
+222: result = await Product.agentic(
+223:     task='Test',
+224:     llm=TestModel(call_tools=['grants_list']),  # calls grants_list tool
+225: )
+226: ```
+227: 
+228: ## Gotchas
+229: 
+230: - The `tools` kwarg on `agentic()` uses `'tools' in kwargs` (not truthiness).
+231:   Passing `tools=[]` means "no tools". Omitting `tools` means "auto-discover".
+232: - No LLM default — `run()` raises `ValueError` if no LLM resolves from
+233:   the 3-tier cascade. In tests, always pass `llm=TestModel(call_tools=[])`.
+234: - `RuntimeError("No Matrix root")` means no `Matrix()` was instantiated.
+235:   Agent methods require a live Matrix for tool routing and request-response.
+236: - Tool calls route through `Actor.root().request()` (Matrix). No adapter
+237:   creation/teardown overhead.

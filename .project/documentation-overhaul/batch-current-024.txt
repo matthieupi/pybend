@@ -1,0 +1,882 @@
+
+### docs/EXAMPLES.md (738 total lines)
+131:     __tablename__: ClassVar[str] = 'order_items'
+132:     
+133:     id: Optional[int] = None
+134:     order: Ref[Order]
+135:     product: Ref[Product]
+136:     quantity: int
+137:     price: float  # Price at time of purchase
+138: ```
+139: 
+140: ### Setup
+141: 
+142: ```python
+143: # app.py
+144: from storage.sqlite_storage import SQLiteStorage
+145: from utils.registrar import register_model
+146: from api.backend import FastAPIBackend
+147: 
+148: storage = SQLiteStorage('ecommerce.db')
+149: 
+150: # Register all models
+151: register_model(Category, storage=storage)
+152: register_model(Product, storage=storage)
+153: register_model(Customer, storage=storage)
+154: register_model(Order, storage=storage)
+155: register_model(OrderItem, storage=storage)
+156: 
+157: backend = FastAPIBackend(name="E-commerce API", version="1.0.0")
+158: from utils.registrar import registered_models
+159: backend.register_routes(registered_models)
+160: app = backend.get_app()
+161: ```
+162: 
+163: ### Usage Examples
+164: 
+165: ```bash
+166: # Create category
+167: curl -X POST http://localhost:8000/categories \
+168:   -H "Content-Type: application/json" \
+169:   -d '{"name": "Electronics", "description": "Electronic devices", "slug": "electronics"}'
+170: 
+171: # Create product
+172: curl -X POST http://localhost:8000/products \
+173:   -H "Content-Type: application/json" \
+174:   -d '{
+175:     "name": "Laptop",
+176:     "description": "High-performance laptop",
+177:     "price": 999.99,
+178:     "stock": 50,
+179:     "category": 1,
+180:     "sku": "LAPTOP-001"
+181:   }'
+182: 
+183: # Check stock
+184: curl http://localhost:8000/products/1/check-stock
+185: 
+186: # Get low stock products
+187: curl http://localhost:8000/products/low-stock?threshold=10
+188: 
+189: # Create order
+190: curl -X POST http://localhost:8000/orders \
+191:   -H "Content-Type: application/json" \
+192:   -d '{
+193:     "customer": 1,
+194:     "total": 999.99,
+195:     "created_at": "2025-01-15T10:00:00Z"
+196:   }'
+197: 
+198: # Ship order
+199: curl -X POST http://localhost:8000/orders/1/ship \
+200:   -H "Content-Type: application/json" \
+201:   -d '{"tracking_number": "TRACK123"}'
+202: 
+203: # Get orders by status
+204: curl http://localhost:8000/orders/by-status?status=shipped
+205: ```
+206: 
+207: ---
+208: 
+209: ## Social Media API
+210: 
+211: A social network with users, posts, comments, and likes.
+212: 
+213: ### Models
+214: 
+215: ```python
+216: from datetime import datetime
+217: 
+218: class User(ProtoModel):
+219:     __storable__: ClassVar[bool] = True
+220:     __tablename__: ClassVar[str] = 'users'
+221:     
+222:     id: Optional[int] = None
+223:     username: str
+224:     email: str
+225:     bio: str = ''
+226:     avatar_url: str = ''
+227:     followers_count: int = 0
+228:     following_count: int = 0
+229:     
+230:     @expose_route('/follow', methods=['POST'])
+231:     def follow(self, target_user_id: int) -> dict:
+232:         """Follow another user"""
+233:         # Create follow relationship
+234:         Follow.create(Follow(
+235:             follower=self.id,
+236:             following=target_user_id
+237:         ))
+238:         
+239:         # Update counts
+240:         self.following_count += 1
+241:         self.save()
+242:         
+243:         target = User.get(target_user_id)
+244:         target.followers_count += 1
+245:         target.save()
+246:         
+247:         return {"message": "Followed successfully"}
+248:     
+249:     @expose_route('/posts', methods=['GET'])
+250:     def get_posts(self) -> List[Post]:
+251:         """Get user's posts"""
+252:         posts = Post.list()
+253:         return [p for p in posts if int(p.author) == self.id]
+254:     
+255:     @expose_route('/feed', methods=['GET'])
+256:     def get_feed(self, limit: int = 20) -> List[Post]:
+257:         """Get personalized feed"""
+258:         # Get users this user follows
+259:         follows = Follow.list()
+260:         following_ids = [f.following for f in follows if f.follower == self.id]
+
+### docs/EXAMPLES.md (738 total lines)
+261:         
+262:         # Get posts from followed users
+263:         posts = Post.list()
+264:         feed = [p for p in posts if int(p.author) in following_ids]
+265:         
+266:         # Sort by created_at (newest first)
+267:         feed.sort(key=lambda x: x.created_at, reverse=True)
+268:         return feed[:limit]
+269: 
+270: class Post(ProtoModel):
+271:     __storable__: ClassVar[bool] = True
+272:     __tablename__: ClassVar[str] = 'posts'
+273:     
+274:     id: Optional[int] = None
+275:     content: str
+276:     author: Ref[User]
+277:     created_at: str
+278:     likes_count: int = 0
+279:     comments_count: int = 0
+280:     
+281:     @expose_route('/like', methods=['POST'])
+282:     def like(self, user_id: int) -> dict:
+283:         """Like this post"""
+284:         # Check if already liked
+285:         likes = Like.list()
+286:         if any(l.user == user_id and l.post == self.id for l in likes):
+287:             return {"message": "Already liked"}
+288:         
+289:         # Create like
+290:         Like.create(Like(user=user_id, post=self.id))
+291:         self.likes_count += 1
+292:         self.save()
+293:         return {"message": "Liked successfully"}
+294:     
+295:     @expose_route('/comments', methods=['GET'])
+296:     def get_comments(self) -> List[Comment]:
+297:         """Get post comments"""
+298:         comments = Comment.list()
+299:         return [c for c in comments if int(c.post) == self.id]
+300: 
+301: class Comment(ProtoModel):
+302:     __storable__: ClassVar[bool] = True
+303:     __tablename__: ClassVar[str] = 'comments'
+304:     
+305:     id: Optional[int] = None
+306:     content: str
+307:     author: Ref[User]
+308:     post: Ref[Post]
+309:     created_at: str
+310: 
+311: class Follow(ProtoModel):
+312:     __storable__: ClassVar[bool] = True
+313:     __tablename__: ClassVar[str] = 'follows'
+314:     
+315:     id: Optional[int] = None
+316:     follower: int  # User ID
+317:     following: int  # User ID
+318: 
+319: class Like(ProtoModel):
+320:     __storable__: ClassVar[bool] = True
+321:     __tablename__: ClassVar[str] = 'likes'
+322:     
+323:     id: Optional[int] = None
+324:     user: int  # User ID
+325:     post: int  # Post ID
+326: ```
+327: 
+328: ### Usage
+329: 
+330: ```bash
+331: # Create users
+332: curl -X POST http://localhost:8000/users \
+333:   -d '{"username": "alice", "email": "alice@example.com"}'
+334: 
+335: curl -X POST http://localhost:8000/users \
+336:   -d '{"username": "bob", "email": "bob@example.com"}'
+337: 
+338: # Alice follows Bob
+339: curl -X POST http://localhost:8000/users/1/follow \
+340:   -d '{"target_user_id": 2}'
+341: 
+342: # Bob creates a post
+343: curl -X POST http://localhost:8000/posts \
+344:   -d '{"content": "Hello world!", "author": 2, "created_at": "2025-01-15T10:00:00Z"}'
+345: 
+346: # Alice likes Bob's post
+347: curl -X POST http://localhost:8000/posts/1/like \
+348:   -d '{"user_id": 1}'
+349: 
+350: # Alice views her feed
+351: curl http://localhost:8000/users/1/feed?limit=10
+352: ```
+353: 
+354: ---
+355: 
+356: ## Content Management System
+357: 
+358: A flexible CMS with pages, articles, and media.
+359: 
+360: ### Models
+361: 
+362: ```python
+363: from enum import Enum
+364: 
+365: class ContentStatus(str, Enum):
+366:     DRAFT = "draft"
+367:     PUBLISHED = "published"
+368:     ARCHIVED = "archived"
+369: 
+370: class Page(ProtoModel):
+371:     __storable__: ClassVar[bool] = True
+372:     __tablename__: ClassVar[str] = 'pages'
+373:     
+374:     id: Optional[int] = None
+375:     title: str
+376:     slug: str
+377:     content: str
+378:     status: ContentStatus = ContentStatus.DRAFT
+379:     author: Ref[User]
+380:     created_at: str
+381:     updated_at: str
+382:     meta_description: str = ''
+383:     
+384:     @expose_route('/publish', methods=['POST'])
+385:     def publish(self) -> Page:
+386:         """Publish this page"""
+387:         self.status = ContentStatus.PUBLISHED
+388:         self.updated_at = datetime.now().isoformat()
+389:         self.save()
+390:         return self
+
+### docs/EXAMPLES.md (738 total lines)
+391:     
+392:     @classmethod
+393:     @expose_route('/published', methods=['GET'])
+394:     def get_published(cls) -> List[Page]:
+395:         """Get all published pages"""
+396:         return [p for p in cls.list() if p.status == ContentStatus.PUBLISHED]
+397:     
+398:     @classmethod
+399:     @expose_route('/by-slug', methods=['GET'])
+400:     def get_by_slug(cls, slug: str) -> Optional[Page]:
+401:         """Get page by slug"""
+402:         pages = cls.list()
+403:         return next((p for p in pages if p.slug == slug), None)
+404: 
+405: class Article(ProtoModel):
+406:     __storable__: ClassVar[bool] = True
+407:     __tablename__: ClassVar[str] = 'articles'
+408:     
+409:     id: Optional[int] = None
+410:     title: str
+411:     slug: str
+412:     excerpt: str
+413:     content: str
+414:     featured_image: str = ''
+415:     status: ContentStatus = ContentStatus.DRAFT
+416:     author: Ref[User]
+417:     category: Ref[Category]
+418:     tags: str = ''  # Comma-separated
+419:     published_at: Optional[str] = None
+420:     
+421:     @expose_route('/schedule', methods=['POST'])
+422:     def schedule(self, publish_date: str) -> Article:
+423:         """Schedule article for publication"""
+424:         self.status = ContentStatus.DRAFT
+425:         self.published_at = publish_date
+426:         self.save()
+427:         return self
+428: 
+429: class Media(ProtoModel):
+430:     __storable__: ClassVar[bool] = True
+431:     __tablename__: ClassVar[str] = 'media'
+432:     
+433:     id: Optional[int] = None
+434:     filename: str
+435:     url: str
+436:     mime_type: str
+437:     size: int  # bytes
+438:     uploaded_by: Ref[User]
+439:     uploaded_at: str
+440: ```
+441: 
+442: ---
+443: 
+444: ## Task Management
+445: 
+446: Project management with tasks, boards, and assignments.
+447: 
+448: ### Models
+449: 
+450: ```python
+451: class TaskStatus(str, Enum):
+452:     TODO = "todo"
+453:     IN_PROGRESS = "in_progress"
+454:     REVIEW = "review"
+455:     DONE = "done"
+456: 
+457: class TaskPriority(str, Enum):
+458:     LOW = "low"
+459:     MEDIUM = "medium"
+460:     HIGH = "high"
+461:     URGENT = "urgent"
+462: 
+463: class Board(ProtoModel):
+464:     __storable__: ClassVar[bool] = True
+465:     __tablename__: ClassVar[str] = 'boards'
+466:     
+467:     id: Optional[int] = None
+468:     name: str
+469:     description: str
+470:     owner: Ref[User]
+471: 
+472: class Task(ProtoModel):
+473:     __storable__: ClassVar[bool] = True
+474:     __tablename__: ClassVar[str] = 'tasks'
+475:     
+476:     id: Optional[int] = None
+477:     title: str
+478:     description: str
+479:     status: TaskStatus = TaskStatus.TODO
+480:     priority: TaskPriority = TaskPriority.MEDIUM
+481:     board: Ref[Board]
+482:     assignee: Optional[Ref[User]] = None
+483:     due_date: Optional[str] = None
+484:     created_at: str
+485:     
+486:     @expose_route('/assign', methods=['POST'])
+487:     def assign(self, user_id: int) -> Task:
+488:         """Assign task to a user"""
+489:         self.assignee = user_id
+490:         self.save()
+491:         return self
+492:     
+493:     @expose_route('/move', methods=['POST'])
+494:     def move(self, new_status: str) -> Task:
+495:         """Move task to different status"""
+496:         self.status = TaskStatus(new_status)
+497:         self.save()
+498:         return self
+499:     
+500:     @classmethod
+501:     @expose_route('/overdue', methods=['GET'])
+502:     def get_overdue(cls) -> List[Task]:
+503:         """Get overdue tasks"""
+504:         now = datetime.now().isoformat()
+505:         tasks = cls.list()
+506:         return [
+507:             t for t in tasks
+508:             if t.due_date and t.due_date < now and t.status != TaskStatus.DONE
+509:         ]
+510: 
+511: class Comment(ProtoModel):
+512:     __storable__: ClassVar[bool] = True
+513:     __tablename__: ClassVar[str] = 'task_comments'
+514:     
+515:     id: Optional[int] = None
+516:     task: Ref[Task]
+517:     author: Ref[User]
+518:     content: str
+519:     created_at: str
+520: ```
+
+### docs/EXAMPLES.md (738 total lines)
+521: 
+522: ---
+523: 
+524: ## Authentication System
+525: 
+526: Secure authentication with JWT tokens.
+527: 
+528: ### Models
+529: 
+530: ```python
+531: import hashlib
+532: import secrets
+533: from datetime import datetime, timedelta
+534: 
+535: class User(ProtoModel):
+536:     __storable__: ClassVar[bool] = True
+537:     __tablename__: ClassVar[str] = 'users'
+538:     
+539:     id: Optional[int] = None
+540:     email: str
+541:     password_hash: str
+542:     is_active: bool = True
+543:     is_verified: bool = False
+544:     created_at: str
+545:     last_login: Optional[str] = None
+546:     
+547:     @staticmethod
+548:     def hash_password(password: str) -> str:
+549:         """Hash password with salt"""
+550:         salt = secrets.token_hex(16)
+551:         hash_obj = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+552:         return f"{salt}${hash_obj.hex()}"
+553:     
+554:     @staticmethod
+555:     def verify_password(password: str, password_hash: str) -> bool:
+556:         """Verify password against hash"""
+557:         salt, hash_hex = password_hash.split('$')
+558:         hash_obj = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+559:         return hash_obj.hex() == hash_hex
+560:     
+561:     @staticmethod
+562:     @expose_route('/register', methods=['POST'])
+563:     def register(email: str, password: str) -> dict:
+564:         """Register new user"""
+565:         # Check if email exists
+566:         users = User.list()
+567:         if any(u.email == email for u in users):
+568:             raise ValueError("Email already registered")
+569:         
+570:         # Create user
+571:         user = User.create(User(
+572:             email=email,
+573:             password_hash=User.hash_password(password),
+574:             created_at=datetime.now().isoformat()
+575:         ))
+576:         
+577:         return {"message": "Registration successful", "user_id": user.id}
+578:     
+579:     @staticmethod
+580:     @expose_route('/login', methods=['POST'])
+581:     def login(email: str, password: str) -> dict:
+582:         """Login user"""
+583:         users = User.list()
+584:         user = next((u for u in users if u.email == email), None)
+585:         
+586:         if not user or not User.verify_password(password, user.password_hash):
+587:             raise ValueError("Invalid credentials")
+588:         
+589:         if not user.is_active:
+590:             raise ValueError("Account is deactivated")
+591:         
+592:         # Update last login
+593:         user.last_login = datetime.now().isoformat()
+594:         user.save()
+595:         
+596:         # Generate session token
+597:         token = Session.create_session(user.id)
+598:         
+599:         return {
+600:             "token": token,
+601:             "user_id": user.id,
+602:             "email": user.email
+603:         }
+604: 
+605: class Session(ProtoModel):
+606:     __storable__: ClassVar[bool] = True
+607:     __tablename__: ClassVar[str] = 'sessions'
+608:     
+609:     id: Optional[int] = None
+610:     user: Ref[User]
+611:     token: str
+612:     expires_at: str
+613:     created_at: str
+614:     
+615:     @staticmethod
+616:     def create_session(user_id: int, duration_hours: int = 24) -> str:
+617:         """Create new session token"""
+618:         token = secrets.token_urlsafe(32)
+619:         expires_at = (datetime.now() + timedelta(hours=duration_hours)).isoformat()
+620:         
+621:         Session.create(Session(
+622:             user=user_id,
+623:             token=token,
+624:             expires_at=expires_at,
+625:             created_at=datetime.now().isoformat()
+626:         ))
+627:         
+628:         return token
+629:     
+630:     @staticmethod
+631:     @expose_route('/validate', methods=['POST'])
+632:     def validate_token(token: str) -> dict:
+633:         """Validate session token"""
+634:         sessions = Session.list()
+635:         session = next((s for s in sessions if s.token == token), None)
+636:         
+637:         if not session:
+638:             raise ValueError("Invalid token")
+639:         
+640:         if datetime.fromisoformat(session.expires_at) < datetime.now():
+641:             raise ValueError("Token expired")
+642:         
+643:         user = User.get(int(session.user))
+644:         return {"valid": True, "user_id": user.id, "email": user.email}
+645: ```
+646: 
+647: ### Usage
+648: 
+649: ```bash
+650: # Register
+
+### docs/EXAMPLES.md (738 total lines)
+651: curl -X POST http://localhost:8000/users/register \
+652:   -d '{"email": "user@example.com", "password": "SecurePass123"}'
+653: 
+654: # Login
+655: curl -X POST http://localhost:8000/users/login \
+656:   -d '{"email": "user@example.com", "password": "SecurePass123"}'
+657: # Response: {"token": "abc123...", "user_id": 1, ...}
+658: 
+659: # Validate token
+660: curl -X POST http://localhost:8000/sessions/validate \
+661:   -d '{"token": "abc123..."}'
+662: ```
+663: 
+664: ---
+665: 
+666: ## Tips for Building APIs
+667: 
+668: ### 1. Use Environment Variables
+669: 
+670: ```python
+671: import os
+672: 
+673: DATABASE_URL = os.getenv('DATABASE_URL', 'default.db')
+674: SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret')
+675: DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
+676: ```
+677: 
+678: ### 2. Add Logging
+679: 
+680: ```python
+681: import logging
+682: 
+683: logging.basicConfig(level=logging.INFO)
+684: logger = logging.getLogger(__name__)
+685: 
+686: class User(ProtoModel):
+687:     @staticmethod
+688:     @expose_route('/login', methods=['POST'])
+689:     def login(email: str, password: str):
+690:         logger.info(f"Login attempt for {email}")
+691:         # ... login logic
+692: ```
+693: 
+694: ### 3. Validation
+695: 
+696: ```python
+697: from pydantic import validator, EmailStr
+698: 
+699: class User(ProtoModel):
+700:     email: EmailStr  # Automatic email validation
+701:     
+702:     @validator('password')
+703:     def strong_password(cls, v):
+704:         if len(v) < 8:
+705:             raise ValueError('Password must be at least 8 characters')
+706:         return v
+707: ```
+708: 
+709: ### 4. Error Handling
+710: 
+711: ```python
+712: from fastapi import HTTPException
+713: 
+714: @expose_route('/protected', methods=['GET'])
+715: def protected_route(self):
+716:     if not self.is_verified:
+717:         raise HTTPException(status_code=403, detail="Email not verified")
+718:     return {"data": "secret"}
+719: ```
+720: 
+721: ### 5. Testing
+722: 
+723: ```python
+724: import pytest
+725: 
+726: def test_user_registration():
+727:     response = User.register_user("test@example.com", "password123")
+728:     assert "user_id" in response
+729: 
+730: def test_duplicate_email():
+731:     User.register_user("duplicate@example.com", "pass123")
+732:     with pytest.raises(ValueError):
+733:         User.register_user("duplicate@example.com", "pass123")
+734: ```
+735: 
+736: ---
+737: 
+738: All examples are production-ready patterns that can be adapted to your specific needs. See [API Reference](./API_REFERENCE.md) for complete documentation.
+
+### docs/GETTING_STARTED.md (726 total lines)
+1: # Getting Started with N3TX
+2: 
+3: This guide will walk you through building your first API with N3TX in under 10 minutes.
+4: 
+5: ## Prerequisites
+6: 
+7: - Python 3.8+
+8: - pip or poetry for package management
+9: - Basic understanding of REST APIs
+10: - Familiarity with Python type hints (helpful but not required)
+11: 
+12: ## Installation
+13: 
+14: ### 1. Clone the Repository
+15: 
+16: ```bash
+17: git clone https://github.com/yourusername/n3tx.git
+18: cd n3tx
+19: ```
+20: 
+21: ### 2. Install Dependencies
+22: 
+23: ```bash
+24: pip install pydantic fastapi uvicorn
+25: ```
+26: 
+27: **Optional dependencies**:
+28: ```bash
+29: # For Flask backend
+30: pip install flask flasgger asgiref
+31: 
+32: # For first-class file metadata + local byte storage
+33: pip install n3tx-files
+34: 
+35: # For development
+36: pip install pytest black mypy
+37: ```
+38: 
+39: ### 3. Verify Installation
+40: 
+41: ```bash
+42: python -c "from models.proto_model import ProtoModel; print('✓ N3TX installed')"
+43: ```
+44: 
+45: ## Your First API (5 minutes)
+46: 
+47: Let's build a simple blog API with users and posts.
+48: 
+49: ### Step 1: Define Your Models
+50: 
+51: Create `models/blog_models.py`:
+52: 
+53: ```python
+54: from models.proto_model import ProtoModel
+55: from utils.typer import Ref
+56: from typing import ClassVar, Optional, List
+57: 
+58: class User(ProtoModel):
+59:     __storable__: ClassVar[bool] = True
+60:     __tablename__: ClassVar[str] = 'users'
+61:     
+62:     id: Optional[int] = None
+63:     username: str
+64:     email: str
+65:     bio: Optional[str] = ''
+66: 
+67: class Post(ProtoModel):
+68:     __storable__: ClassVar[bool] = True
+69:     __tablename__: ClassVar[str] = 'posts'
+70:     
+71:     id: Optional[int] = None
+72:     title: str
+73:     content: str
+74:     published: bool = False
+75:     author: Ref[User]  # Foreign key to User
+76: ```
+77: 
+78: That's it! No manual SQL, no migrations scripts, no route definitions needed.
+79: 
+80: ### Step 2: Register Models and Start Server
+81: 
+82: Create `app.py`:
+83: 
+84: ```python
+85: from storage.sqlite_storage import SQLiteStorage
+86: from utils.registrar import register_model
+87: from api.backend import FastAPIBackend
+88: import config
+89: 
+90: # Import your models
+91: from models.blog_models import User, Post
+92: 
+93: # Create storage backend
+94: storage = SQLiteStorage('blog.db')
+95: 
+96: # Register models (automatic table creation + migration)
+97: register_model(User, storage=storage)
+98: register_model(Post, storage=storage)
+99: 
+100: # Create API backend
+101: backend = FastAPIBackend(
+102:     name="Blog API",
+103:     version="1.0.0",
+104:     description="A simple blog API built with N3TX",
+105:     port=8000
+106: )
+107: 
+108: # Register routes (automatic CRUD endpoints)
+109: from utils.registrar import registered_models
+110: backend.register_routes(registered_models)
+111: 
+112: # Get the app
+113: app = backend.get_app()
+114: 
+115: if __name__ == "__main__":
+116:     import uvicorn
+117:     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+118: ```
+119: 
+120: ### Step 3: Run Your API
+121: 
+122: ```bash
+123: python app.py
+124: ```
+125: 
+126: You should see:
+127: ```
+128: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+129: INFO:     Started reloader process
+130: INFO:     Started server process
+
+### docs/GETTING_STARTED.md (726 total lines)
+131: INFO:     Waiting for application startup.
+132: INFO:     Application startup complete.
+133: ```
+134: 
+135: ### Step 4: Test Your API
+136: 
+137: **View automatic documentation**:
+138: - Open http://localhost:8000/docs in your browser
+139: - You'll see interactive Swagger documentation
+140: 
+141: **Create a user** (using curl):
+142: ```bash
+143: curl -X POST http://localhost:8000/users \
+144:   -H "Content-Type: application/json" \
+145:   -d '{
+146:     "username": "alice",
+147:     "email": "alice@example.com",
+148:     "bio": "Software developer"
+149:   }'
+150: ```
+151: 
+152: Response:
+153: ```json
+154: {
+155:   "id": 1,
+156:   "username": "alice",
+157:   "email": "alice@example.com",
+158:   "bio": "Software developer"
+159: }
+160: ```
+161: 
+162: **List all users**:
+163: ```bash
+164: curl http://localhost:8000/users
+165: ```
+166: 
+167: **Create a post**:
+168: ```bash
+169: curl -X POST http://localhost:8000/posts \
+170:   -H "Content-Type: application/json" \
+171:   -d '{
+172:     "title": "My First Post",
+173:     "content": "Hello N3TX!",
+174:     "author": 1
+175:   }'
+176: ```
+177: 
+178: **Update a post**:
+179: ```bash
+180: curl -X PUT http://localhost:8000/posts/1 \
+181:   -H "Content-Type: application/json" \
+182:   -d '{
+183:     "title": "My First Post",
+184:     "content": "Hello N3TX!",
+185:     "published": true,
+186:     "author": 1
+187:   }'
+188: ```
+189: 
+190: Generated HTTP `PUT` routes are patch-oriented, like direct Python
+191: `Model.update(id, patch)` calls. Omitted fields remain unchanged. Explicit list
+192: and dictionary values replace the complete stored field. See
+193: [CRUD update semantics](API_CRUD_ENDPOINTS.md#update-resource).
+194: 
+195: **Delete a user**:
+196: ```bash
+197: curl -X DELETE http://localhost:8000/users/1
+198: ```
+199: 
+200: ## Optional: Add File Uploads
+201: 
+202: Install and import the optional `n3tx-files` package when your app needs user
+203: files, documents, audio, generated artifacts, or other byte resources.
+204: 
+205: ```python
+206: from n3tx_core.app import create_app
+207: from n3tx_files import File, LocalFileStore, configure_file_store
+208: 
+209: configure_file_store(LocalFileStore('./file-blobs'))
+210: 
+211: app = create_app(
+212:     models=[File],
+213:     storage='sqlite:///app.db',
+214: )
+215: ```
+216: 
+217: Upload a file:
+218: 
+219: ```bash
+220: curl -X POST http://localhost:5000/files/upload \
+221:   -H "x-access-token: $TOKEN" \
+222:   -F "upload=@./sample.txt;type=text/plain"
+223: ```
+224: 
+225: Download it:
+226: 
+227: ```bash
+228: curl http://localhost:5000/files/1/download -o sample.txt
+229: ```
+230: 
+231: Use it in a method by annotating a parameter as `File`:
+232: 
+233: ```python
+234: @expose_route('/process', methods=['POST'])
+235: async def process(file: File) -> dict:
+236:     local = await file.ensure_local()
+237:     return {'path': local['path']}
+238: ```
+239: 
+240: Then call the method with a file address:
+241: 
+242: ```json
+243: {"file": "/File/1"}
+244: ```
+245: 
+246: File metadata is stored in normal N3TX storage. Blob bytes are stored in the
+247: configured `FileStore` provider and are served through explicit authenticated
+248: download routes, not static file mounting.
+249: 
+250: ## What Just Happened?
+251: 
+252: N3TX automatically created:
+253: 
+254: ### For User Model:
+255: - ✅ `GET /users` - List all users
+256: - ✅ `POST /users` - Create a user
+257: - ✅ `GET /users/{id}` - Get user by ID
+258: - ✅ `PUT /users/{id}` - Update user
+259: - ✅ `DELETE /users/{id}` - Delete user
+260: - ✅ `GET /User` - Get JSON schema

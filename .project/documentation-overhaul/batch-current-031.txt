@@ -1,0 +1,517 @@
+
+### docs/frontend/03_SYSTEM_IMPROVEMENTS_REFACTOR.md (639 total lines)
+391: ### The Problem
+392: 
+393: This creates tight coupling between backend model definitions and frontend component names. Renaming `product-card` to `product-view` in the frontend requires updating the Python model. The backend must know which custom elements exist in the frontend — a knowledge direction that violates "backend is authoritative" (backend should push schema, not pull frontend component names).
+394: 
+395: ### The Fix: Convention-Based Discovery
+396: 
+397: Instead of explicit configuration, use a naming convention. The frontend auto-discovers components by model name:
+398: 
+399: ```
+400: Model "Product" → look for <product-item> and <product-list>
+401: Model "Comment" → look for <comment-item> and <comment-list>
+402: ```
+403: 
+404: **Resolution in ListElement:**
+405: 
+406: ```js
+407: get #resolvedItemFactory() {
+408:   // 1. Explicit (template or attribute) — as in §2
+409:   // ...
+410: 
+411:   // 2. Convention: check if a model-specific element is registered
+412:   const modelName = this.schema?.__name__?.toLowerCase();
+413:   if (modelName) {
+414:     const conventionTag = `${modelName}-item`;
+415:     if (customElements.get(conventionTag)) {
+416:       return () => document.createElement(conventionTag);
+417:     }
+418:   }
+419: 
+420:   // 3. Framework default
+421:   return () => document.createElement('ntx-item');
+422: }
+423: ```
+424: 
+425: **Benefits:**
+426: - Zero backend configuration needed
+427: - Frontend owns its component names — renaming doesn't touch Python
+428: - Follows existing Web Component conventions (dash-separated tag names)
+429: - Still overridable via explicit attribute or template (level 1)
+430: 
+431: **When explicit config IS needed**: Keep `ui.renderer` as an escape hatch for cases where the naming convention doesn't fit (e.g., a shared `media-card` component used by both `Photo` and `Video` models). But it should be the exception, not the primary mechanism.
+432: 
+433: ### Updated Resolution Chain
+434: 
+435: Combining this with §2:
+436: 
+437: ```
+438: 1. Explicit (template or attribute)       Developer chose in HTML
+439: 2. Convention (model-name-item)           Auto-discovered if registered
+440: 3. Schema hint (ui.renderer.item)         Backend override (escape hatch)
+441: 4. 'ntx-item'                             Framework default
+442: ```
+443: 
+444: Convention sits above schema hint because it represents an intentional frontend decision (the developer registered a component with that name). Schema hint is the backend's suggestion when no frontend convention exists.
+445: 
+446: ---
+447: 
+448: ## 8. Parallel Sequencing: Backend and Frontend
+449: 
+450: ### What 02 Proposes (§15)
+451: 
+452: A strictly sequential implementation order:
+453: 
+454: ```
+455: P0 (component refactor) → P1 batch → P2 batch → P3 batch → P4
+456: ```
+457: 
+458: With the P1 batch (field exclusion + `__ui__` schema extensions + slot templates) treated as a single sequential unit after P0.
+459: 
+460: ### The Problem
+461: 
+462: The backend schema extensions (§4 `__ui__`, §9 field exclusion) touch only `proto_model.py`. They have zero dependency on the frontend component refactor (P0). Blocking them on P0 wastes time — they could ship today and provide immediate value.
+463: 
+464: ### The Fix: Two Parallel Tracks
+465: 
+466: ```
+467: Track A (Backend):                Track B (Frontend):
+468:   §9 Field exclusion                P0 Component refactor
+469:   §4 __ui__ schema extensions       §5 Slot templates
+470:   §11 Validation attributes         §8 Adaptive display (opt-in)
+471:   §6 Renderer hints (schema side)   §13 Relationship rendering
+472:   §7 SSR pre-loading (backend)      §7 SSR pre-loading (N3TX.js)
+473:   §10 Scaffolding                   §6 Renderer hints (frontend)
+474:                                     §12 Permissions (frontend)
+475: ```
+476: 
+477: **Backend Track A** can start immediately. Each item touches `proto_model.py` and/or adds a new utility — no frontend dependency.
+478: 
+479: **Frontend Track B** starts with P0, then builds on the new class hierarchy. It can consume backend schema extensions as they land.
+480: 
+481: **Merge points** (items that need both tracks):
+482: - §7 SSR pre-loading: backend template + N3TX.js check (ship backend first, frontend second)
+483: - §6 Renderer hints: schema output (backend) + `#resolvedItemFactory` (frontend)
+484: - §10 Scaffolding: reads `schema()` output (backend) to generate component code (uses frontend API)
+485: 
+486: This roughly halves the wall-clock time to full implementation.
+487: 
+488: ---
+489: 
+490: ## 9. Loading and Error States
+491: 
+492: ### What 02 Proposes
+493: 
+494: Nothing. The entire plan covers the happy path exclusively.
+495: 
+496: ### The Problem
+497: 
+498: Real applications encounter:
+499: - Network failures (`GET /Product` returns 500)
+500: - Slow connections (schema fetch takes 3 seconds)
+501: - Missing models (typo in `<ntx-list model="Prodcut">`)
+502: - Partial data (schema loads, data fetch fails)
+503: - Auth failures (401/403 on data fetch)
+504: 
+505: Without framework-level handling, every developer must solve these independently — or more likely, won't, and users see blank screens.
+506: 
+507: ### The Fix: Lifecycle Hooks in Component Base
+508: 
+509: Add three optional hooks to `Component`:
+510: 
+511: ```js
+512: class Component extends HTMLElement {
+513:   // Default implementations — override to customize
+514:   renderLoading() {
+515:     this.shadowRoot.replaceChildren(this.$styles);
+516:     const loader = document.createElement('div');
+517:     loader.className = 'ntx-loading';
+518:     loader.textContent = 'Loading...';
+519:     this.shadowRoot.appendChild(loader);
+520:   }
+
+### docs/frontend/03_SYSTEM_IMPROVEMENTS_REFACTOR.md (639 total lines)
+521: 
+522:   renderError(error) {
+523:     this.shadowRoot.replaceChildren(this.$styles);
+524:     const errEl = document.createElement('div');
+525:     errEl.className = 'ntx-error';
+526:     errEl.textContent = error?.message || 'Something went wrong';
+527:     this.shadowRoot.appendChild(errEl);
+528:   }
+529: 
+530:   renderEmpty() {
+531:     this.shadowRoot.replaceChildren(this.$styles);
+532:     const empty = document.createElement('div');
+533:     empty.className = 'ntx-empty';
+534:     empty.textContent = 'No data';
+535:     this.shadowRoot.appendChild(empty);
+536:   }
+537: }
+538: ```
+539: 
+540: **Integration points:**
+541: 
+542: | Event | Hook Called | Where |
+543: |---|---|---|
+544: | Component connected, schema not yet loaded | `renderLoading()` | `connectedCallback()` |
+545: | Schema fetch fails | `renderError(err)` | N3TX.ATTACH error path |
+546: | Data fetch fails | `renderError(err)` | DynamicClass.READ error path |
+547: | List receives empty array | `renderEmpty()` | `ListElement.UPDATE()` |
+548: | Auth failure (401/403) | `renderError(err)` | NetworkAdapter response handler |
+549: 
+550: **Design principle**: These are defaults with zero config. They render minimal, unstyled feedback. Developers override one or all of them. The framework never shows a blank screen when it could show a reason.
+551: 
+552: ### CSS
+553: 
+554: The base stylesheet provides minimal styling for these states:
+555: 
+556: ```css
+557: .ntx-loading, .ntx-error, .ntx-empty {
+558:   padding: 1rem;
+559:   text-align: center;
+560:   color: var(--ntx-muted, #666);
+561: }
+562: .ntx-error { color: var(--ntx-error, #c00); }
+563: ```
+564: 
+565: ---
+566: 
+567: ## 10. Migration Path
+568: 
+569: ### What 02 Proposes
+570: 
+571: > "Don't break existing."
+572: 
+573: With no concrete plan for how.
+574: 
+575: ### The Problem
+576: 
+577: The P0 refactor changes:
+578: - **File locations**: `components/ntx-element.js` is deleted, replaced by `components/NTTElement.js`
+579: - **Class hierarchy**: `NTTElement` moves from `Component` child to `Component` grandchild (with new `NTTElement` base in between)
+580: - **Import paths**: Any code importing from old paths breaks
+581: - **Behavior**: `set value()` no longer auto-renders (moved to NTTElement subclass)
+582: 
+583: Existing pages using `<ntx-item>` and `<ntx-list>` will work (the custom element tags don't change), but any code that imports or extends the old classes will break.
+584: 
+585: ### The Fix: Explicit Migration Plan
+586: 
+587: **Phase 1: Parallel availability (during P0)**
+588: 
+589: Ship new files alongside old ones. Old files become thin re-exports:
+590: 
+591: ```js
+592: // components/ntx-element.js (OLD — becomes shim)
+593: export { NTTElement } from './NTTElement.js';
+594: console.warn('ntx-element.js is deprecated. Import from NTTElement.js instead.');
+595: ```
+596: 
+597: **Phase 2: Deprecation warnings (P1 timeframe)**
+598: 
+599: Old import paths still work but warn in dev mode. This gives developers a migration window.
+600: 
+601: **Phase 3: Removal (P2 timeframe)**
+602: 
+603: Delete the shim files. By this point, any code using old paths has had two priority batches to migrate.
+604: 
+605: ### Custom Element Tag Stability
+606: 
+607: `<ntx-item>` and `<ntx-list>` tags NEVER change. They are the public API surface. Internal class names and file locations can change; tag names are permanent.
+608: 
+609: ### What Must Be Documented
+610: 
+611: Before P0 ships, publish a migration checklist:
+612: 
+613: 1. `import { NTTElement } from './ntx-element.js'` → `import { NTTElement } from './NTTElement.js'`
+614: 2. `extends Component` (for entity components) → `extends NTTElement`
+615: 3. `extends Component` (for collection components) → `extends ListElement`
+616: 4. If you relied on `set value()` auto-rendering: add `render()` call in your value handler
+617: 5. If you called `describe()`: remove it, use `define()` + `UPDATE()` message handler
+618: 6. If you called `Actor.subclass()` on your component: remove it, inherited from Component
+619: 
+620: ---
+621: 
+622: ## Summary: Corrected Priority Table
+623: 
+624: | Priority | Enhancement | Track | Change from 02 |
+625: |---|---|---|---|
+626: | **P0-A** | `__ui__` TypedDict + field exclusion conventions | Backend | Moved ahead — no frontend dependency |
+627: | **P0-B** | Component layer refactor | Frontend | Unchanged — still the foundation |
+628: | **P0-B** | Loading/error/empty states | Frontend | **New** — built into P0 base classes |
+629: | **P0-B** | Migration shims | Frontend | **New** — ships with P0 |
+630: | **P1-A** | Schema validation attributes | Backend | Unchanged |
+631: | **P1-B** | Slot-based child templates (3-level) | Frontend | Simplified from 5 levels |
+632: | **P2-A** | Renderer hints (schema side) | Backend | Convention-first approach |
+633: | **P2-A** | SSR pre-loading (backend template) | Backend | Fixed naming convention |
+634: | **P2-B** | Convention-based component discovery | Frontend | **New** — replaces explicit renderer config as primary |
+635: | **P2-B** | SSR pre-loading (N3TX.js) | Frontend | Fixed naming convention |
+636: | **P3-A** | Scaffolding (safe codegen) | Backend | XSS-safe output |
+637: | **P3-B** | Adaptive display modes (opt-in) | Frontend | Changed from default to opt-in |
+638: | **P3-B** | Relationship-aware defaults | Frontend | Unchanged |
+639: | **P4** | Schema-driven permissions | Both | Unchanged |
+
+### docs/frontend/ACTORS.md (553 total lines)
+1: # Actor System Reference
+2: 
+3: Detailed documentation of each class in the Actor/Matrix system.
+4: 
+5: ## Table of Contents
+6: 
+7: 1. [Actor](#actor)
+8: 2. [Matrix](#matrix)
+9: 3. [Router](#router)
+10: 4. [TX](#tx)
+11: 5. [Observable](#observable)
+12: 6. [TT (Transfer Type)](#tt-transfer-type)
+13: 7. [N3TX (Named Transfer Type)](#ntx-named-transfer-type)
+14: 8. [DynamicClass (DynClass)](#dynamicclass-dynclass)
+15: 
+16: ---
+17: 
+18: ## Actor
+19: 
+20: **File:** `core/Actor.js`
+21: 
+22: The base class for all actors in the system. Provides hierarchical addressing, message passing, child management, and a metaclass helper (`subclass()`) that wires up any class to participate in the Actor system.
+23: 
+24: ### Instance Properties
+25: 
+26: | Property | Type | Description |
+27: |----------|------|-------------|
+28: | `addr` | `string` | Unique address (set in constructor, immutable) |
+29: | `children` | `Map<string, Actor>` | Child actors spawned by this instance |
+30: 
+31: ### Instance Methods
+32: 
+33: | Method | Signature | Description |
+34: |--------|-----------|-------------|
+35: | `inbox(event)` | `event: object\|TX` | Receives a message. Dispatches to `this[event.name](data, tx)` if the target matches this actor's address. Otherwise forwards via `send()`. |
+36: | `send(event)` | `event: object\|TX` | Delegates to `this.constructor.send()` (static routing). |
+37: | `register(actor)` | `actor: Actor` | Adds actor to `this.children` map. |
+38: | `spawn(addr, ActorClass, ...args)` | | Creates a child actor, registers it, returns it. |
+39: 
+40: ### Static Properties / Methods
+41: 
+42: | Member | Description |
+43: |--------|-------------|
+44: | `Actor.root` | The global root actor (Matrix singleton). Set once via `Actor.registerRoot()`. |
+45: | `Actor.registerRoot(actor)` | Sets the global root. Throws if already set. |
+46: | `Actor.isActor(obj)` | Returns `true` if obj is an Actor instance or has `__TypeActor` flag. |
+47: 
+48: ### Static Routing: `Actor._send(event)`
+49: 
+50: The core routing algorithm. Called in the context of a concrete subclass (e.g., `Component.send()` calls `Actor._send.call(Component, event)`).
+51: 
+52: ```
+53: Given tx.target = "A/B/C", parse into [targetParent, targetChild, childTarget]:
+54: 
+55: Case 1: targetParent is in this.children
+56:   -> Route directly to that child's inbox
+57: 
+58: Case 2: targetParent === this.addr (e.g., "Component/child-123")
+59:   -> Strip prefix, route to children[targetChild]
+60: 
+61: Case 3: Neither match
+62:   -> Prefix tx.source with this.addr
+63:   -> Bubble to ROOT_ACTOR.inbox() (the Matrix)
+64: ```
+65: 
+66: ### Static Dispatch: `Actor._inbox(event)`
+67: 
+68: ```
+69: If tx.target matches this.addr:
+70:   -> Call this[tx.name](tx.data, tx)  (method lookup by event name)
+71:   -> Falls back to prototype chain lookup
+72:   -> Throws if no handler found
+73: 
+74: If tx.target doesn't match:
+75:   -> Forward via this.send(event)
+76: ```
+77: 
+78: ### `Actor.subclass(ChildClass, ...Mixins)`
+79: 
+80: The metaclass helper. Mutates `ChildClass` to add Actor capabilities:
+81: 
+82: **Static additions:**
+83: - `addr` getter (returns `ChildClass.name`)
+84: - `_children` map (own, not inherited)
+85: - `children` getter
+86: - `send(event)` -> `Actor._send.call(Type, event)`
+87: - `inbox(event)` -> `Actor._inbox.call(Type, event)`
+88: - `register(actor)` -> `Actor._register.call(Type, actor)`
+89: - Registers the class in `ROOT_ACTOR.children` (if Matrix is initialized)
+90: 
+91: **Instance additions:**
+92: - `_children` map on prototype
+93: - `children` getter
+94: - `send(event)` -> `this.constructor.send(event)`
+95: - `inbox(event)` -> `Actor._inbox.call(this, event)`
+96: 
+97: **Mixin application:**
+98: - Each mixin must have a static `apply(Base)` method
+99: - Called in order: `Mixin.apply(ChildClass)`
+100: - Example: `Actor.subclass(N3TX, Observable)` adds signal/observe/notify to N3TX
+101: 
+102: **Idempotent:** If `ChildClass.__TypeActor` is already set, skips silently.
+103: 
+104: ---
+105: 
+106: ## Matrix
+107: 
+108: **File:** `core/Matrix.js`
+109: 
+110: The singleton root actor. All messages that cannot be resolved locally bubble up here. The Matrix routes locally or delegates to the NetworkAdapter for remote calls.
+111: 
+112: ### Construction
+113: 
+114: ```javascript
+115: Actor.subclass(Matrix)
+116: export const matrix = new Matrix("matrix://root");
+117: ```
+118: 
+119: On construction:
+120: 1. Calls `Actor.registerRoot(this)` (sets global root)
+121: 2. Creates `this.remote = new NetworkAdapter(this, url)`
+122: 
+123: ### Instance Methods
+124: 
+125: | Method | Description |
+126: |--------|-------------|
+127: | `inbox(event)` | Main routing hub. See routing logic below. |
+128: | `dispatch(event)` | Alias for `inbox(event)`. |
+129: | `has(addr)` | Checks if the first segment of `addr` is in `children`. |
+130: | `connect(source, target)` | Handles CONNECT events. Parses target into class/addr, routes to the target class's inbox. |
+
+### docs/frontend/ACTORS.md (553 total lines)
+131: 
+132: ### Routing Logic (`inbox`)
+133: 
+134: ```
+135: 1. If tx.name === CONNECT:
+136:    -> this.connect(source, target)
+137: 
+138: 2. If tx.target === this.addr:
+139:    -> Error (Matrix doesn't message itself)
+140: 
+141: 3. If first segment of tx.target is in this.children:
+142:    -> Forward to that child's inbox
+143: 
+144: 4. Otherwise:
+145:    -> this.remote.send(tx)  (send to backend via HTTP/WS)
+146: ```
+147: 
+148: ### Children
+149: 
+150: The Matrix's children map contains **classes and instances**:
+151: - `N3TX` (registered via `Actor.subclass(N3TX)`)
+152: - `Component` (registered via `Actor.subclass(Component)`)
+153: - `TT` (registered via `Actor.subclass(TT)`)
+154: - `Router` (registered via `Actor.subclass(Router)`)
+155: - Each DynClass (e.g., `Product`) is registered when `Actor.subclass(DynClass)` runs inside `prototype()`
+156: - Each Router instance (e.g., `"main"`) is registered via `matrix.register(this)` in the Router constructor
+157: 
+158: This means a message targeting `"N3TX"` routes to `N3TX.inbox()` (the static method), which handles it at the class level. A message targeting `"Product"` routes to the DynClass's static `inbox()`. A message targeting `"main"` routes to the Router instance's `inbox()`.
+159: 
+160: ---
+161: 
+162: ## Router
+163: 
+164: **File:** `core/Router.js`
+165: 
+166: Pure navigation state Actor. Manages the current route, a history stack, and optional `location.hash` synchronization. No DOM — view management is the ntx-router component's responsibility.
+167: 
+168: ### Construction
+169: 
+170: ```javascript
+171: Actor.subclass(Router, Observable)
+172: 
+173: const router = new Router('main', { hash: true });
+174: ```
+175: 
+176: On construction:
+177: 1. Calls `super(addr)` (Actor identity)
+178: 2. Calls `matrix.register(this)` (registered as a Matrix child, routable by addr)
+179: 3. If `hash: true`, listens for `hashchange` and reads initial hash
+180: 4. Registers in module-level `routers` Map for lookup via `getRouter(addr)`
+181: 
+182: ### Instance Properties
+183: 
+184: | Property | Type | Description |
+185: |----------|------|-------------|
+186: | `current` | `string\|object\|null` | Current route data. `null` = home. |
+187: | `canGoBack` | `boolean` | Whether the history stack has entries. |
+188: 
+189: ### Private State
+190: 
+191: | Property | Type | Description |
+192: |----------|------|-------------|
+193: | `#current` | `any` | Current route data. |
+194: | `#stack` | `Array` | History stack (previous routes, most recent last). |
+195: | `#hashSync` | `boolean` | Whether to sync string routes to `location.hash`. |
+196: 
+197: ### TX Handlers
+198: 
+199: | Handler | Data | Behavior |
+200: |---------|------|----------|
+201: | `NAVIGATE(data, tx)` | `string` or `object` | Dedup check (identity + deep equality for objects). Push old route to `#stack`. Set `#current = data`. Update hash if syncing. `notify('route', new, old)`. |
+202: | `BACK(data, tx)` | (ignored) | Guard `canGoBack`. Pop `#stack`. Set `#current = popped`. Update hash. `notify('route', new, old)`. |
+203: 
+204: ### Observable
+205: 
+206: ```javascript
+207: router.observe('route', (newRoute, oldRoute) => {
+208:     console.log('Navigated:', oldRoute, '->', newRoute);
+209: });
+210: ```
+211: 
+212: The `'route'` property is notified on every NAVIGATE and BACK. Callbacks receive `(newValue, oldValue, propertyName, actor)` per the Observable protocol.
+213: 
+214: ### Hash Sync
+215: 
+216: | Route type | Hash behavior |
+217: |------------|---------------|
+218: | String (`"Product/3"`) | `location.hash = "Product/3"` |
+219: | Object (`{ tag, attrs }`) | No hash representation (programmatic only) |
+220: | `null` (home) | Hash cleared via `history.replaceState` |
+221: | Browser back/forward | `hashchange` triggers `#fromHash()` → updates state + notifies |
+222: 
+223: ### Registry
+224: 
+225: ```javascript
+226: import { getRouter } from './core/Router.js';
+227: const router = getRouter('main');
+228: ```
+229: 
+230: ### Routing Path
+231: 
+232: Router instances are registered in the Matrix's children map via `matrix.register(this)`. Messages targeting the Router's addr (e.g., `"main"`) are routed by the Matrix to the Router's `inbox`, which dispatches to `NAVIGATE` or `BACK`.
+233: 
+234: ### Mixins Applied
+235: 
+236: ```javascript
+237: Actor.subclass(Router, Observable)  // Gets full actor wiring + signal/observe/notify
+238: ```
+239: 
+240: ---
+241: 
+242: ## TX
+243: 
+244: **File:** `core/TX.js`
+245: 
+246: The transaction/message envelope. Every message in the system is a TX or a plain object with TX fields.
+247: 
+248: ### Fields
+249: 
+250: | Field | Type | Description |
+251: |-------|------|-------------|
+252: | `name` | `string` | Event name / method to invoke (e.g., "ATTACH", "READ", "SCHEMA") |
+253: | `source` | `string` | Sender's address |
+254: | `target` | `string` | Recipient's address (can be a class name, instance addr, or URL) |
+255: | `data` | `any` | Payload |
+256: | `meta` | `object` | Metadata (e.g., `{remote: true}`, `{inbox: 'UPDATE'}`) |
+257: | `tst` | `number` | Timestamp (Date.now()) |
+258: | `hash` | `string` | Deterministic hash of the message content |
+259: 
+260: ### Methods

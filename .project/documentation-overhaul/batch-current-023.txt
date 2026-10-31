@@ -1,0 +1,507 @@
+
+### docs/CORE.md (369 total lines)
+1: # N3TX Core
+2: 
+3: The backend engine of N3TX. Defines models, generates schemas, serves APIs, enforces access control, and manages storage -- all driven from model definitions.
+4: 
+5: ## Directory Structure
+6: 
+7: ```
+8: core/
+9: |-- main.py              Application entry point (registers models, starts server)
+10: |-- config.py            HOST, PORT, API_URL, SQLITE_DB_FILE
+11: |-- seed.py              Seed data for development/testing
+12: |-- models/              Model definitions and base classes
+13: |   |-- proto_model.py   Base model: schema generation, model_dump, StorableMixin injection
+14: |   |-- storable_mixin.py  CRUD operations (create/get/list/update/delete)
+15: |   |-- ref.py           Ref[T], distributed ref helpers
+16: |   |-- product_model.py Example: Product with fields, UI hints, access rules, methods
+17: |   |-- comment_model.py Example: Comment with self-referencing (Ref['self'])
+18: |   |-- user_model.py    User model with authentication methods
+19: |   +-- like_model.py    Like model
+20: |-- api/
+21: |   |-- routes_fastapi.py  Auto-generated CRUD routes with auth injection
+22: |   +-- backend.py       API backend adapter
+23: |-- storage/
+24: |   |-- sqlite_storage.py   SQLite backend with FK hydration
+25: |   |-- sqlite_migration.py Auto-migration + Rails-style manual migrations
+26: |-- authorize/           Standalone auth package (zero N3TX imports)
+27: |   |-- auth.py          JWT: password hashing, token create/decode
+28: |   |-- rules.py         AccessRule base + built-in rules (ANYONE, AUTHENTICATED, OWNER, ROLE, Where)
+29: |   |-- context.py       AccessContext dataclass
+30: |   |-- resolver.py      AuthorizationResolver Protocol
+31: |   |-- schema.py        Serialize access rules to JSON for schema exposure
+32: |   +-- errors.py        AccessDenied exception
+33: |-- utils/
+34: |   |-- decorators.py    @expose_route() for custom method endpoints
+35: |   |-- registrar.py     Model registry (registered_models)
+36: |   |-- introspection.py Schema introspection, list[T]/list[Ref[T]] detection, model collection
+37: |   |-- typer.py         Compatibility re-export for Ref, Ref['self'], flatten_refs()
+38: |   +-- generate_docs.py Auto-doc generator (runs on startup)
+39: |-- docs/                Auto-generated + handwritten API documentation
+40: +-- tests/               PyTest test suite
+41: ```
+42: 
+43: ## Schema-Driven Development
+44: 
+45: N3TX Core's central principle: **the model is the single source of truth**. A Python model definition generates everything the application needs -- API endpoints, JSON Schema, database tables, access control, and frontend rendering instructions.
+46: 
+47: ### What a model definition carries
+48: 
+49: ```python
+50: class Product(ProtoModel):
+51:     __tablename__ = 'products'        # -> API routes at /products/...
+52:     __storable__ = True               # -> DB table, StorableMixin injection
+53:     __ui__ = {                        # -> Frontend layout instructions
+54:         'field_order': ['name', 'price', 'description', 'comments', 'favorites'],
+55:         'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments', 'favorites']},
+56:         'methods': {
+57:             'comment': {'layout': 'inline', 'attach_to': 'comments', ...},
+58:             'favorite': {'layout': 'button', 'icon': 'star', 'count_field': 'favorites', ...},
+59:         },
+60:         'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
+61:     }
+62:     __access__ = {                    # Optional -> Backend enforcement + frontend UI adaptation
+63:         'read': ANYONE,
+64:         'create': AUTHENTICATED,
+65:         'update': OWNER | ROLE('admin'),
+66:         'delete': ROLE('admin'),
+67:     }
+68: 
+69:     name: str = Field(min_length=1, max_length=200,
+70:                       json_schema_extra={'ui': {'placeholder': 'Product name...'}})
+71:     price: float = Field(gt=0,
+72:                          json_schema_extra={'ui': {'widget': 'currency'},
+73:                                             'access': {'view': 'anyone', 'edit': 'admin'}})
+74:     description: str = Field(default='',
+75:                              json_schema_extra={'ui': {'widget': 'textarea'}})
+76:     comments: list[Comment] = Field(default=[])
+77:     favorites: list[Like] = Field(default=[], description="Users who favorited")
+78: 
+79:     @expose_route('/comment', methods=['POST'])
+80:     def comment(self, comment: Comment, user: User = None) -> str: ...
+81: 
+82:     @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+83:     def favorite(self, user: User = None) -> str:
+84:         """Toggle — create if not favorited, remove if already favorited."""
+85:         ...
+86: ```
+87: 
+88: ### What gets generated
+89: 
+90: | Concern | Source | Generator |
+91: |---------|--------|-----------|
+92: | CRUD API endpoints | `__tablename__`, fields | `register_routes()` in `routes_fastapi.py` |
+93: | Class-name read mirror | model class name + `__storable__` | `GET /{ClassName}/{id:int}` delegates to the table-name read path |
+94: | HTML/view entrypoints | `__ui__` / `ViewableMixin` | `GET /{ClassName}/@...` returns frontend shell HTML |
+95: | JSON Schema | Field types, validators, extras | `ProtoModel.schema()` via Pydantic |
+96: | DB table + auto-migration | `__storable__`, annotations | `StorableMixin` + `sqlite_migration.py` |
+97: | JSON TEXT fields | `dict`, `Dict[...]`, primitive lists, `list[T]`, `list[Ref[T]]` | `sqlite_storage.py` serializes/deserializes with `json.dumps`/`json.loads`; see [JSON Fields](JSON_FIELDS.md) |
+98: | Local relationship hydration | `T`, `list[T]` | Stored as local ids and hydrated into model objects on read |
+99: | Backend access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth middleware |
+100: | Frontend access rules | `__access__` | `authorize/schema.py` serializes to JSON |
+101: | Method endpoints | `@expose_route()` | `routes_fastapi.py` custom route registration |
+102: | Method signatures in schema | `__endpoint__`, type hints, descriptor scope | `__n3tx_methods_json_signature__()` |
+103: | UI rendering hints | `__ui__`, `json_schema_extra` | Embedded in schema, read by frontend |
+104: | Method UI hints | `__ui__.methods` (icon, layout, count_field) | Injected into `$defs` method entries |
+105: | Toggle endpoints | `@expose_route` + `list[T]` updates | Like/favorite via create/delete child record + parent list replacement |
+106: | Relationship collections | `list[T]` fields | Ordered hydrated object arrays in parent responses |
+107: | Pagination | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
+108: | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update |
+109: | Route view renderers | `__ui__.renderer` | `#Model/@view` and `/Model/@view` resolve semantic views to component tags |
+110: | File metadata + byte storage | Optional `n3tx_files.File` model + `FileStore` | Metadata in N3TX storage, bytes in provider-backed store |
+111: | File-typed method args | `param: File` annotation | `n3tx_files` materializer resolves canonical absolute File `$id` URLs |
+112: | Auto-generated docs | Model + schema | `generate_docs.py` on startup |
+113: 
+114: If a model omits `__access__`, schema generation exposes a wildcard fallback
+115: (`access['*']`) that requires authentication for all actions. The Product
+116: example above shows an explicit ownership policy as an illustrative model-level
+117: contract; the shipped `examples/core` Product currently uses the authenticated
+118: wildcard fallback, while Comment declares owner/admin rules and protected
+119: `user_owner` ownership metadata.
+120: 
+121: Embedded `dict`, primitive lists, `list[T]`, and `list[Ref[T]]` fields are
+122: persisted as JSON TEXT columns. Use them for configuration, metadata, primitive
+123: arrays, local owned model collections, distributed pointer arrays such as
+124: `list[Ref[File]]`, and external payload fragments. Use explicit models and
+125: custom methods when nested data needs identity, authorization, lifecycle events,
+126: or domain-specific append/toggle behavior.
+127: See [JSON Fields](JSON_FIELDS.md) for the full contract and tradeoffs.
+128: 
+129: `@expose_route` methods publish descriptor-aware scope metadata in schema.
+130: Instance methods (`self`) set `requires_instance: true` and route through
+
+### docs/CORE.md (369 total lines)
+131: `/{ClassName}/{id}{route}`. Class methods, static methods, and service-style
+132: actor methods without `self`/`cls` set `requires_instance: false` and route
+133: through `/{ClassName}{route}`. Distributed adapters use this schema route and
+134: scope instead of deriving URLs from Python method names.
+135: 
+136: ### Optional File Capability
+137: 
+138: `n3tx-files` adds a first-class `File(ActorModel)` resource without making core
+139: depend on file storage. A file is represented as normal N3TX metadata plus a
+140: provider-owned byte object:
+141: 
+142: ```python
+143: from n3tx_files import File, LocalFileStore, configure_file_store
+144: 
+145: configure_file_store(LocalFileStore('./file-blobs'))
+146: app = create_app(models=[File], storage='sqlite:///app.db')
+147: ```
+148: 
+149: Generated and package-owned behavior:
+150: 
+151: | Concern | Contract |
+152: |---|---|
+153: | Metadata CRUD/schema | Normal `File` model endpoints and `File.schema()` |
+154: | Upload | `POST /files/upload` multipart form field named `upload` |
+155: | Download | `GET /files/{id}/download` and `GET /File/{id}/download` |
+156: | Range reads | `Range: bytes=start-end` returns `206` + `Content-Range` |
+157: | Reference resolution | `File.resolve('http://localhost:5000/File/1')` |
+158: | Typed materialization | Method params annotated as `File` resolve canonical URL strings to `File` instances |
+159: 
+160: Blob bytes are never stored in SQLite and dynamic user files are not served by
+161: the framework static-file catch-all. CDN/object-store/remote-node behavior is a
+162: provider strategy behind `FileStore`, not a separate app concept.
+163: 
+164: ## Schema as Universal Contract
+165: 
+166: `ProtoModel.schema()` produces a JSON Schema that serves as the **complete contract** between backend and frontend. It is not just a type description -- it carries behavior, permissions, UI instructions, and relationship structure.
+167: 
+168: `ui.icon` is part of that contract. Models and methods can declare a single icon
+169: token and let the frontend decide how to render it. Accepted values are direct
+170: emoji, direct URL/path strings, or lookup keys resolved through the frontend's
+171: shared icon registry (typically to inline SVG, with image and text fallbacks).
+172: 
+173: ### Schema generation pipeline
+174: 
+175: ```
+176: ProtoModel.schema()
+177: |
+178: |-- Pydantic model_json_schema()     -> properties, types, validation, $defs
+179: |-- __n3tx_methods_json_signature__()  -> methods with routes, params, returns, access, stream, events
+180: |-- access_schema(cls)               -> ABAC rules serialized to JSON
+181: |-- _apply_field_exclusion()         -> auto-hide id, *_id, timestamps (ui.display=false)
+182: |-- __ui__ injection                 -> field_order, groups, renderer hints
+183: |-- $defs enrichment                 -> nested models get $id, methods, ui, access
+184: |-- Ref['self'] patching             -> selfref fields in schema
+185: +-- $schema / $id injection          -> meta-schema and identity URLs
+186: ```
+187: 
+188: ### Schema anatomy
+189: 
+190: ```
+191: GET /Product -> JSON Schema
+192: |-- $schema         -> "http://localhost:5000/Schema"
+193: |-- $id             -> "http://localhost:5000/Product"
+194: |-- __name__        -> "Product"
+195: |-- __tablename__   -> "products"
+196: |-- properties      -> field definitions with types, validation, ui hints, access
+197: |-- ui              -> { field_order, groups, renderer }
+198: |-- access          -> { create, read, update, delete } as serialized ABAC rules
+199: |-- methods         -> { comment: { route, methods, scope, parameters, returns, access, ui, stream, events } }
+200: |-- $defs           -> { Comment: { $id, properties, methods, ui, access }, Like: { ... } }
+201: +-- required        -> required field names
+202: ```
+203: 
+204: ### How the frontend consumes each section
+205: 
+206: | Schema section | Frontend consumer | Effect |
+207: |---------------|------------------|--------|
+208: | `properties` | `prototype()` in N3TX.js | Typed getters/setters on DynamicClass |
+209: | `properties[f].ui.widget` | `form.js` | Widget selection (currency, textarea, ...) |
+210: | `properties[f].ui.display` | `form.js` | Hide internal fields from UI |
+211: | `properties[f].ui.protected` | `form.js` | Hides backend-owned fields in edit mode |
+212: | `properties[f].access` | `Permissions.js` | Field-level visibility per role |
+213: | `ui.field_order` | `form.js` | Field rendering order |
+214: | `ui.groups` | `form.js` | Fieldset grouping |
+215: | `ui.description` | `ListElement.render()` | Optional collection intro copy under the list title |
+216: | `ui.create_label` | `ListElement.render()` | Optional labeled create button for collection headers |
+217: | `ui.renderer.*` | `ntx-router.js` | Component tag for navigation views |
+218: | `access` | `Permissions.js` | Show/hide edit/delete buttons (resource-aware OWNER) |
+219: | `methods` | `prototype()` + `<ntx-method>` | Callable methods + action buttons |
+220: | `methods[m].ui` | `<ntx-method>` | Button layout, icon, count-field for social actions |
+221: | `methods[m].events` | `NTTStreamAgent` UPPERCASE handlers | Declared stream event types (JSON Schema per event) |
+222: | `$defs` | `N3TX.SCHEMA()` | Nested DynamicClass registration |
+223: | `$id` / `$schema` | DynamicClass value getter | Self-describing entity instances |
+224: 
+225: ### Entity response format
+226: 
+227: Every entity response includes JSON Schema instance metadata via `model_response()` (runs the dump pipeline):
+228: 
+229: ```json
+230: {
+231:   "$schema": "http://localhost:5000/Product",
+232:   "$id": "http://localhost:5000/Product/1",
+233:   "id": 1,
+234:   "name": "Wireless Headphones",
+235:   "price": 79.99,
+236:   "comments": [
+237:     {
+238:       "$schema": "http://localhost:5000/Comment",
+239:       "$id": "http://localhost:5000/Comment/1",
+240:       "id": 1,
+241:       "name": "Great sound"
+242:     }
+243:   ]
+244: }
+245: ```
+246: 
+247: - `$schema` points to the model's schema (the contract)
+248: - `$id` is the instance's canonical class-name URL (self-link, independently resolvable)
+249: - `list[T]` fields return hydrated child objects with their own `$schema`/`$id`
+250: 
+251: ### Model-Centric Route Grammar
+252: 
+253: N3TX keeps the original table-name JSON API and adds class-name model routes for
+254: schema, read mirrors, and HTML/view shells:
+255: 
+256: ```text
+257: /{tablename}/...       compatibility JSON API and custom methods
+258: /{ClassName}           JSON Schema/type endpoint
+259: /{ClassName}/_         JSON collection mirror of /{tablename}
+260: /{ClassName}/{id:int}  JSON instance mirror of /{tablename}/{id:int}
+
+### docs/CORE.md (369 total lines)
+261: /{ClassName}/{id:int}/{method}
+262:                        literal method mirror of /{tablename}/{id:int}/{method}
+263: /{ClassName}/@...      HTML/view entrypoints
+264: #{ClassName}/@...      frontend hash-router view routes
+265: ```
+266: 
+267: The `@` marker is reserved for views. A route such as `Product/1/run` remains a
+268: method/action route, while `Product/1/@run` is a view named `run`. The `_`
+269: marker is reserved for backend JSON collection reads and is not a frontend hash
+270: view route. Class-name create/update/delete mirrors are available. Class-name
+271: method mirrors are registered for literal `@expose_route` declarations only;
+272: there is no generic method catch-all.
+273: 
+274: `$id` uses class-name identity even when an entity is fetched through a legacy
+275: table-name route:
+276: 
+277: ```json
+278: {
+279:   "$schema": "http://localhost:5000/Product",
+280:   "$id": "http://localhost:5000/Product/1"
+281: }
+282: ```
+283: 
+284: Table-name routes remain available for JSON compatibility while response
+285: identity uses the class-name grammar.
+286: 
+287: ## Key Patterns
+288: 
+289: ### Local Model Collections
+290: 
+291: ```python
+292: # Model defines the relationship
+293: class Product(ProtoModel):
+294:     comments: list[Comment] = Field(default=[])
+295: ```
+296: 
+297: `list[T]` stores an ordered JSON list of local child ids on the parent row and
+298: hydrates those ids into child objects in responses. Domain actions update the
+299: collection through model methods:
+300: 
+301: ```python
+302: @expose_route('/comment', methods=['POST'])
+303: def comment(self, comment: Comment, user: User = None) -> Comment:
+304:     saved = Comment.create(comment)
+305:     type(self).update(self.id, {'comments': [*self.comments, saved]})
+306:     return saved
+307: ```
+308: 
+309: For shared relationship data, prefer an explicit link model. `ManyToMany[T]` is
+310: a legacy helper for existing shared-link cases, not the default collection
+311: primitive.
+312: 
+313: ### Authorization (ABAC)
+314: 
+315: Access rules compose with `|` (OR), `&` (AND), `~` (NOT):
+316: 
+317: ```python
+318: __access__ = {
+319:     'update': OWNER | ROLE('admin'),       # owner OR admin
+320:     'delete': ROLE('admin'),               # admin only
+321: }
+322: 
+323: @expose_route('/publish', methods=['POST'], access=OWNER & Where(status='draft'))
+324: def publish(self): ...                     # owner AND status is draft
+325: ```
+326: 
+327: Rules produce SQL WHERE clauses for efficient list filtering (SQL pushdown). They serialize to JSON in the schema so the frontend can adapt without duplicating logic.
+328: 
+329: ### Toggle Endpoints (Like/Favorite)
+330: 
+331: Toggle methods create/delete the child record and replace the parent `list[T]`.
+332: Empty body allowed -- no payload needed:
+333: 
+334: ```python
+335: @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+336: def favorite(self, user: User = None) -> str:
+337:     """Toggle — create if not favorited, remove if already favorited."""
+338:     ...
+339: ```
+340: 
+341: Returns a structured action payload such as `{"action": "favorited", "_field": "favorites", "id": 123, "user": 1}` or `{"action": "unfavorited", "_field": "favorites", "id": 123}`. The `_field` + `id` pair lets the frontend update the affected collection locally without an extra entity fetch.
+342: 
+343: ### Custom Methods
+344: 
+345: ```python
+346: @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+347: def favorite(self) -> dict: ...
+348: ```
+349: 
+350: This creates `POST /products/{id}/favorite`, appears in `schema.methods`, and the frontend renders it as a clickable `<ntx-method>` button -- all from one decorator. Button-layout methods (like, favorite) render as compact icon + count pills via `__ui__.methods` hints.
+351: 
+352: ## Running
+353: 
+354: ```bash
+355: cd src/n3tx/core
+356: python3 main.py          # Start server on localhost:5000
+357: python3 seed.py          # Seed development data
+358: ```
+359: 
+360: ## Testing
+361: 
+362: ```bash
+363: cd src/n3tx/core
+364: pytest tests/                  # Backend unit tests
+365: python3 test_social.py         # Playwright: social features (15 checks)
+366: python3 test_routing.py        # Playwright: URL path correctness
+367: ```
+368: 
+369: Tests cover: CRUD API, schema endpoints, storage, custom methods, social toggles (like/favorite), reply creation, hydrated local collections, and frontend rendering (star/heart/reply buttons, reply indent, favorites navigation).
+
+### docs/EXAMPLES.md (738 total lines)
+1: # N3TX Examples
+2: 
+3: Real-world examples demonstrating N3TX's capabilities.
+4: 
+5: **Note**: All CRUD and custom endpoint responses include `$schema` and `$id` metadata at the top of each object. Route handlers call `.model_response()` to inject these fields automatically via the dump pipeline.
+6: 
+7: ## Table of Contents
+8: 
+9: - [E-commerce Platform](#e-commerce-platform)
+10: - [Social Media API](#social-media-api)
+11: - [Content Management System](#content-management-system)
+12: - [Task Management](#task-management)
+13: - [Authentication System](#authentication-system)
+14: - [File Upload Service](#file-upload-service)
+15: - [Real-time Chat](#real-time-chat)
+16: - [Multi-tenant SaaS](#multi-tenant-saas)
+17: 
+18: ---
+19: 
+20: ## E-commerce Platform
+21: 
+22: A complete e-commerce API with products, orders, and inventory management.
+23: 
+24: ### Models
+25: 
+26: ```python
+27: from models.proto_model import ProtoModel
+28: from utils.typer import Ref
+29: from utils.decorators import expose_route
+30: from typing import ClassVar, Optional, List
+31: from datetime import datetime
+32: from enum import Enum
+33: 
+34: class OrderStatus(str, Enum):
+35:     PENDING = "pending"
+36:     PROCESSING = "processing"
+37:     SHIPPED = "shipped"
+38:     DELIVERED = "delivered"
+39:     CANCELLED = "cancelled"
+40: 
+41: class Category(ProtoModel):
+42:     __storable__: ClassVar[bool] = True
+43:     __tablename__: ClassVar[str] = 'categories'
+44:     
+45:     id: Optional[int] = None
+46:     name: str
+47:     description: str
+48:     slug: str
+49: 
+50: class Product(ProtoModel):
+51:     __storable__: ClassVar[bool] = True
+52:     __tablename__: ClassVar[str] = 'products'
+53:     
+54:     id: Optional[int] = None
+55:     name: str
+56:     description: str
+57:     price: float
+58:     stock: int
+59:     category: Ref[Category]
+60:     sku: str
+61:     
+62:     @expose_route('/check-stock', methods=['GET'])
+63:     def check_stock(self) -> dict:
+64:         """Check if product is in stock"""
+65:         return {
+66:             "in_stock": self.stock > 0,
+67:             "quantity": self.stock,
+68:             "available": self.stock > 0
+69:         }
+70:     
+71:     @expose_route('/reduce-stock', methods=['POST'])
+72:     def reduce_stock(self, quantity: int) -> Product:
+73:         """Reduce stock after purchase"""
+74:         if self.stock < quantity:
+75:             raise ValueError("Insufficient stock")
+76:         self.stock -= quantity
+77:         self.save()
+78:         return self
+79:     
+80:     @classmethod
+81:     @expose_route('/low-stock', methods=['GET'])
+82:     def get_low_stock(cls, threshold: int = 5) -> List[Product]:
+83:         """Get products with low stock"""
+84:         return [p for p in cls.list() if p.stock < threshold]
+85: 
+86: class Customer(ProtoModel):
+87:     __storable__: ClassVar[bool] = True
+88:     __tablename__: ClassVar[str] = 'customers'
+89:     
+90:     id: Optional[int] = None
+91:     email: str
+92:     name: str
+93:     phone: str
+94:     address: str
+95: 
+96: class Order(ProtoModel):
+97:     __storable__: ClassVar[bool] = True
+98:     __tablename__: ClassVar[str] = 'orders'
+99:     
+100:     id: Optional[int] = None
+101:     customer: Ref[Customer]
+102:     status: OrderStatus = OrderStatus.PENDING
+103:     total: float
+104:     created_at: str  # ISO datetime
+105:     
+106:     @expose_route('/cancel', methods=['POST'])
+107:     def cancel(self) -> Order:
+108:         """Cancel an order"""
+109:         if self.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED]:
+110:             raise ValueError("Cannot cancel shipped/delivered orders")
+111:         self.status = OrderStatus.CANCELLED
+112:         self.save()
+113:         return self
+114:     
+115:     @expose_route('/ship', methods=['POST'])
+116:     def ship(self, tracking_number: str) -> Order:
+117:         """Mark order as shipped"""
+118:         self.status = OrderStatus.SHIPPED
+119:         # In real app, save tracking_number
+120:         self.save()
+121:         return self
+122:     
+123:     @classmethod
+124:     @expose_route('/by-status', methods=['GET'])
+125:     def get_by_status(cls, status: str) -> List[Order]:
+126:         """Get orders by status"""
+127:         return [o for o in cls.list() if o.status == status]
+128: 
+129: class OrderItem(ProtoModel):
+130:     __storable__: ClassVar[bool] = True

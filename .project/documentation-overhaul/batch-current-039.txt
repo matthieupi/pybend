@@ -1,0 +1,501 @@
+
+### packages/n3tx-actors/docs/interceptors.md (131 total lines)
+1: # Interceptor Pattern
+2: 
+3: > Part of [n3tx-actors](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The `use()` interceptor mechanism: registration, chain execution, class/instance combination, and the `auth_interceptor` as a concrete example. Covers the `inbox`, `send`, and `request` interception points. Does not cover the full two-tier auth flow (see [actor-model.md](actor-model.md)).
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: actor.use(fn, on='inbox')   -->  stored in _interceptors['inbox'] (instance)
+13:                                   or __interceptors__['inbox'] (class)
+14: 
+15: actor.inbox(tx):
+16:     interceptors = class.__interceptors__['inbox'] + instance._interceptors['inbox']
+17:     for fn in interceptors:        # FIFO order
+18:         tx = await fn(tx)          # or fn(tx) for sync
+19:         if tx.is_error: break      # short-circuit
+20:     if tx.is_error:
+21:         await actor.send(tx)       # route error back
+22:         return                     # skip handler
+23:     await actor.handler(tx)        # proceed normally
+24: 
+25: actor.send(tx):
+26:     interceptors = ... (same retrieval)
+27:     for fn in interceptors:
+28:         tx = await fn(tx)
+29:         if tx.is_error: break
+30:     if tx.is_error: return         # DROP silently (don't route rejected outbound)
+31:     ... normal routing ...
+32: ```
+33: 
+34: Key difference: `inbox` error -> sends error TX back to source. `send` error -> drops silently (no routing).
+35: 
+36: ## Interface
+37: 
+38: ### Registration
+39: 
+40: ```python
+41: # Plain call (default on='inbox')
+42: actor.use(my_interceptor)
+43: actor.use(my_interceptor, on='send')
+44: actor.use(my_interceptor, on='request')  # NetworkAdapter only
+45: 
+46: # Decorator form
+47: @actor.use
+48: async def my_interceptor(tx: TX) -> TX: ...
+49: 
+50: # Decorator with target
+51: @actor.use(on='request')
+52: async def rate_limit(tx: TX) -> TX: ...
+53: 
+54: # Class-level
+55: MyActor.use(class_interceptor, on='inbox')
+56: 
+57: # Instance-level
+58: instance.use(instance_interceptor, on='inbox')
+59: ```
+60: 
+61: ### Interceptor Signature
+62: 
+63: ```python
+64: async def interceptor(tx: TX) -> TX:
+65:     # Inspect/modify tx
+66:     # Return tx to continue chain
+67:     # Return tx.error(...) to short-circuit
+68:     return tx
+69: ```
+70: 
+71: Both sync and async interceptors are supported. Mixed chains work. Return the TX (possibly modified) to continue. Return an error TX to stop the chain.
+72: 
+73: ### Chain Resolution
+74: 
+75: `Actor._get_interceptors(target, method_name)` returns:
+76: - **Class target**: `cls.__interceptors__[method_name]`
+77: - **Instance target**: `cls.__interceptors__[method_name] + instance._interceptors[method_name]`
+78: 
+79: Class interceptors always run first. Within each level, FIFO order (registration order).
+80: 
+81: ### Interception Points
+82: 
+83: | Point | Method | Error behavior |
+84: |-------|--------|----------------|
+85: | `inbox` | `Actor.inbox()` | Error TX sent back via `send()`, handler skipped |
+86: | `send` | `Actor.send()` | Error TX dropped silently (no routing) |
+87: | `request` | `NetworkAdapter.request()` | Error TX returned directly to caller (never enters actor system) |
+88: 
+89: ## Usage Patterns
+90: 
+91: ### Auth interceptor on NetworkAPI (Tier 1)
+92: 
+93: ```python
+94: from n3tx_actors.api.auth_interceptor import auth_interceptor
+95: 
+96: api = NetworkAPI()
+97: matrix.register(api)
+98: api.use(auth_interceptor, on='request')
+99: ```
+100: 
+101: The `auth_interceptor` reads `tx.meta['model_cls']` and `tx.meta['user']`, checks `__access__` rules, computes `sql_filter` for list operations, and returns error TX for unauthorized requests. Schema requests always pass through.
+102: 
+103: For custom `@expose_route` methods, the interceptor is a boundary precheck, not always the final authority. Class/static methods have no resource, so their explicit `access=` rule can be evaluated at Tier 1. Instance methods may use resource-dependent rules such as `OWNER`, `Where(...)`, or composed rules; authenticated requests for those methods pass through to `ActorModel.handler()`, which loads the target instance and evaluates final method access with `AccessContext(resource=instance)`. Anonymous requests are still rejected at Tier 1 when the rule cannot allow anonymous access.
+104: 
+105: ### Logging interceptor
+106: 
+107: ```python
+108: @api.use(on='request')
+109: async def log_requests(tx: TX) -> TX:
+110:     logger.info(f"{tx.name} -> {tx.target} from user={tx.meta.get('user', {}).get('email')}")
+111:     return tx
+112: ```
+113: 
+114: ### TX enrichment
+115: 
+116: ```python
+117: def add_trace_id(tx: TX) -> TX:
+118:     tx.meta['trace_id'] = uuid4().hex
+119:     return tx
+120: 
+121: actor.use(add_trace_id, on='inbox')
+122: ```
+123: 
+124: ## Gotchas
+125: 
+126: - **Interceptors are per-actor, not global.** There is no "register on all actors" mechanism. Register on the specific actor or class where interception is needed.
+127: - **Class interceptors leak to all instances of that class.** If you register on `MyActor` (the class), every instance of `MyActor` will run those interceptors. This is by design but can cause unexpected behavior if registering during tests without cleanup.
+128: - **`_run_interceptors` does not catch exceptions.** If an interceptor raises, the exception propagates up. Interceptors should catch their own errors and return `tx.error(...)` instead.
+129: - **`on='request'` only works on NetworkAdapter subclasses.** The `request()` method is defined on `NetworkAdapter`, not `Actor`. Regular actors only support `inbox` and `send`.
+130: - **`use()` with a non-callable argument raises `TypeError`.** The error message is: "Expected callable or None, got {type}".
+
+### packages/n3tx-actors/docs/interceptors.md (131 total lines)
+131: - **Each subclass gets its own `__interceptors__` dict** (set by `ActorMeta.__new__`). Interceptors registered on a parent class are NOT inherited by subclasses. Register on each class independently.
+
+### packages/n3tx-actors/docs/network-adapters.md (230 total lines)
+1: # Network Adapters
+2: 
+3: > Part of [n3tx-actors](../README.md)
+4: 
+5: ## What This Covers
+6: 
+7: The NetworkAdapter base class and its concrete adapters: NetworkAPI (HTTP), NetworkWebSocket, NetworkMCP, NetworkAP, and RemoteMatrix. Covers the request/response bridging mechanism, protocol translation, streaming, distributed refs, and route generation. Does not cover the auth interceptor in detail (see [interceptors.md](interceptors.md)).
+8: 
+9: ## Architecture
+10: 
+11: ```
+12: External Protocol         NetworkAdapter             Matrix / Actor Tree
+13: -----------------         ---------------            -------------------
+14: HTTP POST /products  -->  NetworkAPI.request(tx)  --> matrix.inbox(tx)
+15:                           [interceptors: auth]        --> Product.handler_crud()
+16:                           future = pending[uuid]      <-- reply TX
+17:                      <--  future.set_result(reply)    (via adapter.inbox correlation)
+18: 
+19: WebSocket message    -->  NetworkWebSocket            --> matrix.inbox(tx)
+20:                           .handle_message(msg)
+21:                           _translate_incoming()
+22:                      <--  _translate_outgoing()
+23: 
+24: MCP JSON-RPC         -->  NetworkMCP                  --> matrix.inbox(tx)
+25:                           .handle_jsonrpc(body)
+26:                      <--  JSON-RPC response
+27: 
+28: AP Activity          -->  NetworkAP                   --> matrix.inbox(tx)
+29:                            .handle_inbox(activity)
+30:                       <--  AP response
+31: 
+32: https://storage.example.com/File/1
+33:                     -->  RemoteMatrix.send(tx)     --> GET remote /File/1
+34:                     <--  TX reply/error            <-- REST JSON/error
+35: ```
+36: 
+37: All adapters extend `NetworkAdapter(Actor, auto_register=False)`. They register as Matrix children via `matrix.register(adapter)`. Response TXs route back through normal Matrix routing -- the adapter's `inbox()` checks for pending correlation before falling through to normal dispatch.
+38: 
+39: ## Interface
+40: 
+41: ### NetworkAdapter (base)
+42: 
+43: ```python
+44: class NetworkAdapter(Actor, auto_register=False):
+45:     async def inbox(self, tx: TX) -> None: ...
+46:     async def request(self, tx: TX, timeout=30.0) -> TX: ...
+47:     async def stream(self, tx: TX, timeout=120.0) -> AsyncGenerator[TX]: ...
+48: ```
+49: 
+50: `request()` bridges synchronous protocols to async actors: stores a Future keyed by `tx.uuid`, sends the TX, awaits the correlated reply (matched via `meta['req']`). Timeout returns error TX with code 504.
+51: 
+52: `stream()` uses an `asyncio.Queue` instead of a Future. Yields TX chunks until `stream_end` or error. Launches `send()` as a background task to enable progressive delivery.
+53: 
+54: ### NetworkAPI
+55: 
+56: ```python
+57: api = NetworkAPI(addr='api')   # default addr='api'
+58: matrix.register(api)
+59: api.use(auth_interceptor, on='request')
+60: router = create_api_routes(api, registered_models)
+61: app.include_router(router)
+62: ```
+63: 
+64: `create_api_routes()` generates: schema routes (`GET /{ClassName}`), class-name JSON mirrors for storable models (`GET /{ClassName}/_`, `POST /{ClassName}`, `GET/PUT/DELETE /{ClassName}/{id:int}`), table-name CRUD routes (`POST/GET/PUT/DELETE /{tablename}/...`), literal custom method routes from `@expose_route` under both table-name and class-name paths, and streaming routes (SSE for `stream=True` methods). Data/API routes create TXs, call `api.request()` or `api.stream()`, and convert responses via `_response_or_raise()` or SSE framing.
+65: 
+66: Models may also expose optional HTML/view routes through a package-neutral capability hook:
+67: 
+68: ```python
+69: class Product(ActorModel):
+70:     @classmethod
+71:     def register_view_routes(cls, router, *, tag: str) -> None: ...
+72: ```
+73: 
+74: `n3tx-ui` provides this hook via `ViewableMixin` for models with `__ui__` / `__viewable__`. NetworkAPI delegates to the hook when present, so actor routing supports the same hypermedia routes as direct routing without importing `n3tx_ui`:
+75: 
+76: - `GET /{ClassName}/@`
+77: - `GET /{ClassName}/@{view}`
+78: - `GET /{ClassName}/{id}/@`
+79: - `GET /{ClassName}/{id}/@{view}`
+80: 
+81: These HTML/view routes are served directly by the capability hook and do not dispatch CRUD or method TXs. Class-name JSON mirrors still dispatch normal CRUD or literal method TXs to the table-name actor address, preserving payload shape, `populate`, `depth`, authenticated user metadata, `model_cls` metadata, Tier 1/Tier 2 authorization, lifecycle hooks, and streaming metadata. `GET /{ClassName}` remains the schema endpoint; `GET /{ClassName}/_` is the explicit JSON collection mirror. There is no generic class-name method catch-all. Parent-scoped join/nested route synthesis is no longer part of NetworkAPI; see the global [release notes](../../../RELEASE_NOTES.md) for migration notes.
+82: 
+83: ### NetworkWebSocket
+84: 
+85: ```python
+86: ws = NetworkWebSocket(addr='ws')
+87: matrix.register(ws)
+88: router = create_ws_routes(ws)
+89: app.include_router(router)
+90: ```
+91: 
+92: WebSocket endpoint at `/ws?token=JWT`. Protocol translation: frontend UPPERCASE names mapped to backend lowercase (`READ`->`list`, `LOAD`->`schema`). Full URL targets stripped to local addresses. Lifecycle events broadcast to all connected clients.
+93: 
+94: ### NetworkMCP
+95: 
+96: ```python
+97: mcp = NetworkMCP(addr='mcp')
+98: matrix.register(mcp)
+99: router = create_mcp_routes(mcp)
+100: app.include_router(router)
+101: ```
+102: 
+103: JSON-RPC 2.0 endpoint at `POST /mcp`. Supports `initialize`, `tools/list`, `tools/call`, `ping`. Tool names follow `{tablename}_{action}` pattern. Schemas cached, invalidated via `mcp.invalidate_cache()`.
+104: 
+105: ### NetworkAP
+106: 
+107: ```python
+108: ap = NetworkAP(addr='ap', base_url='https://example.com')
+109: matrix.register(ap)
+110: router = create_federation_routes(ap)
+111: app.include_router(router)
+112: ```
+113: 
+114: Endpoints: `GET /.well-known/webfinger`, `GET /{tablename}/outbox`, `POST /{tablename}/inbox`. Models with `__federated__ = True` get AP actor documents, outbox recording, Follow/Unfollow handling.
+115: 
+116: ### RemoteMatrix
+117: 
+118: ```python
+119: from n3tx_actors.api.remote_matrix import RemoteMatrix, MatrixReferenceResolver
+120: 
+121: remote = RemoteMatrix(remotes={'storage': {'url': 'http://storage:7100', 'token': '...'}})
+122: matrix.register(remote)
+123: matrix.register_adapter(remote)
+124: storage.set_reference_resolver(MatrixReferenceResolver(matrix))
+125: ```
+126: 
+127: `RemoteMatrix` handles canonical distributed refs and remote class actor targets
+128: via existing class-name REST routes:
+129: 
+130: | TX | REST call |
+
+### packages/n3tx-actors/docs/network-adapters.md (230 total lines)
+131: |---|---|
+132: | `TX(name='get', target='http://storage:7100/File/12')` | `GET http://storage:7100/File/12` |
+133: | `TX(name='process', target='http://storage:7100/File/12', data={...})` | `POST http://storage:7100/File/12/process` |
+134: | `TX(name='reindex', target='http://compute:7200/Job', data={...})` | `POST http://compute:7200/Job/<schema route>` |
+135: | `TX(name='generate', target='http://compute:7200/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
+136: 
+137: Remote streaming uses the same TX stream contract as local `NetworkAdapter.stream()`.
+138: `RemoteMatrix.stream(tx)` opens the remote generated SSE route, parses
+139: `event: chunk|done|error` frames incrementally, reconstructs the serialized TX
+140: envelopes, and yields TX chunks until an error or `meta.stream_end` terminates
+141: the stream.
+142: 
+143: Method URLs are resolved schema-first for both normal requests and streaming
+144: requests. The adapter fetches
+145: `GET /{ClassName}`, reads `schema.methods[tx.name].route`, and uses method
+146: `scope` to choose the route shape:
+147: 
+148: ```text
+149: classmethod/staticmethod: /{ClassName}{route}      # target {base_url}/{ClassName}
+150: instance method:          /{ClassName}/{id}{route}
+151: ```
+152: 
+153: If schema lookup fails or the method is not present, `RemoteMatrix` falls back to
+154: the original method route shape `/{ClassName}/{id}/{tx.name}` for compatibility.
+155: ID-less class/static targets do not have a legacy fallback because static
+156: capabilities should not invent placeholder ids. This preserves N3TX's
+157: model/schema authority while keeping existing simple instance method calls
+158: working.
+159: 
+160: It attaches service/user context headers:
+161: 
+162: ```text
+163: Authorization: Bearer <remote-or-service-token>
+164: X-N3TX-Service: <local-service-name>
+165: X-N3TX-User: <json-user-context>  # when tx.meta.user is present
+166: ```
+167: 
+168: The receiving N3TX service accepts those headers through the core auth
+169: middleware when `Authorization` matches its configured `SERVICE_TOKEN`. The
+170: forwarded `X-N3TX-User` JSON becomes `request.state.user`, so generated routes
+171: and ActorModel handlers continue through the normal ABAC path. Remote response
+172: `$id` values that point back at the configured remote URL are normalized to the
+173: absolute HTTP(S) `$id` identity unchanged when returning to Matrix callers.
+174: 
+175: `MatrixReferenceResolver` is the storage-facing adapter: `SQLiteStorage` can
+176: receive it as `reference_resolver` and keep core independent from actors.
+177: 
+178: For explicit Python method calls, prefer the model-centric `ActorModel.ref()`
+179: helper:
+180: 
+181: ```python
+182: artifact = Artifact.ref('https://storage.example.com/Artifact/42', matrix=matrix)
+183: data = await artifact.get()
+184: result = await artifact.call('process', mode='fast')
+185: ```
+186: 
+187: Internally this returns a `RemoteRef` handle. `ActorProxy` is different: it wraps
+188: a local Python object/class as an actor; `RemoteRef` calls a remote HTTP(S)
+189: identity through Matrix.
+190: 
+191: ## Usage Patterns
+192: 
+193: ### Level 3 wiring (full actor routing)
+194: 
+195: ```python
+196: from n3tx_actors import matrix
+197: from n3tx_actors.api.network_api import NetworkAPI, create_api_routes
+198: from n3tx_actors.api.network_ws import NetworkWebSocket, create_ws_routes
+199: from n3tx_actors.api.auth_interceptor import auth_interceptor
+200: 
+201: api = NetworkAPI()
+202: ws = NetworkWebSocket()
+203: matrix.register(api)
+204: matrix.register(ws)
+205: api.use(auth_interceptor, on='request')
+206: ws.use(auth_interceptor, on='request')
+207: 
+208: app.include_router(create_api_routes(api, registered_models))
+209: app.include_router(create_ws_routes(ws))
+210: ```
+211: 
+212: ### SSE streaming through NetworkAPI
+213: 
+214: Streaming `@expose_route(stream=True)` methods produce SSE responses. The adapter calls `stream()` internally and converts TX chunks to SSE format: `event: chunk|done|error`, `data: {json TX envelope}`.
+215: 
+216: Frames are intentionally anti-buffered: each SSE message starts with a large
+217: comment padding line and responses set `Cache-Control: no-cache, no-transform`
+218: plus `X-Accel-Buffering: no`. This keeps browser/proxy stacks from coalescing
+219: small model-generated chunks and preserves progressive first-token delivery.
+220: 
+221: ## Gotchas
+222: 
+223: - **All adapters must use `auto_register=False`** and be manually registered via `matrix.register()`. They require constructor arguments and manual setup (interceptors, etc.).
+224: - **`request()` timeout returns an error TX, not an exception.** Always check `response.is_error` before accessing `response.data`.
+225: - **`stream()` launches `send()` as a background task** (`asyncio.create_task`). This prevents the full async generator from being consumed before chunks can be yielded. Do not change this to `await self.send(tx)`.
+226: - **WebSocket protocol translation strips API_URL prefix** from targets and maps frontend UPPERCASE names. If `config.API_URL` is not set correctly, routing will fail silently.
+227: - **MCP tool names use `rsplit('_', 1)`** to parse `{tablename}_{action}`. Model tablenames containing underscores will be parsed incorrectly (e.g., `product_reviews_list` splits as `product_reviews` + `list`, which is correct, but `my_products_list` would also work if tablename is `my_products`).
+228: - **NetworkAP stores outbox in memory** (`_outbox` dict). Activities are lost on restart. Persistent outbox storage is deferred to Wave 4+.
+229: - **RemoteMatrix is REST-backed in the first slice.** It intentionally reuses
+230:   existing class-name routes instead of introducing generic `/_tx` ingress.
+
+### packages/n3tx-agents/README.md (270 total lines)
+1: # 🧠 n3tx-agents: Give Your Models a Brain
+2: 
+3: > One flag. That's it. Set `__agent__ = True` and your model can reason, call tools, and stream answers — zero config, zero boilerplate.
+4: 
+5: ---
+6: 
+7: ## 🌐 Overview
+8: 
+9: n3tx-agents makes your N3TX models self-aware. Slap `__agent__ = True` on any
+10: ActorModel and it gains the ability to reason about itself, call tools
+11: on other actors, and stream progressive results -- all without you writing
+12: a single line of agent plumbing. Tool discovery reads schemas from the actor
+13: Matrix, so every `@expose_route` method and CRUD operation in your system is
+14: automatically available as an LLM tool. Your models already know what they
+15: can do — now they can *think* about it too.
+16: 
+17: ---
+18: 
+19: ## 📦 Installation
+20: 
+21: ```bash
+22: pip install n3tx-agents          # standalone
+23: pip install n3tx[agents]         # via meta-package
+24: pip install -e packages/n3tx-agents  # editable dev install
+25: ```
+26: 
+27: Requires `n3tx-core>=0.10.0`, `n3tx-actors>=0.10.0`, `pydantic-ai>=1.0`.
+28: 
+29: ---
+30: 
+31: ## 🚀 Quick Start
+32: 
+33: You're three lines away from a model that can talk about itself:
+34: 
+35: ```python
+36: from n3tx_actors.models.actor_model import ActorModel
+37: from pydantic import Field
+38: 
+39: class Product(ActorModel):
+40:     __tablename__ = 'products'
+41:     __storable__ = True
+42:     __agent__ = True                    # injects AgentMixin
+43: 
+44:     name: str = Field(min_length=1)
+45:     price: float = Field(gt=0)
+46: 
+47: # Class-level: reasons about the schema
+48: result = await Product.agentic(task='What fields does Product have?')
+49: print(result['answer'])
+50: 
+51: # Instance-level: reasons about schema + this specific record
+52: product = Product.get(1)
+53: result = await product.agentic(task='Is this product priced competitively?')
+54: 
+55: # Streaming
+56: async for chunk in product.agentic_stream(task='Describe this product'):
+57:     print(chunk['data'], end='', flush=True)
+58: ```
+59: 
+60: That's the whole thing. No prompt engineering, no tool wiring, no adapter setup. Your model already knows its own schema and relationships — the agent just reads them.
+61: 
+62: ---
+63: 
+64: ## 🧩 Core Concepts
+65: 
+66: Here's how the pieces fit together.
+67: 
+68: ### AgentMixin vs AgentActor
+69: 
+70: Two paths to agentic models, depending on what you're building:
+71: 
+72: **AgentMixin** is injected into any model with `__agent__ = True`. Config
+73: derives from the model definition. Use this when an existing model needs
+74: reasoning capabilities — you want your Product to answer questions, not become a whole new thing.
+75: 
+76: **AgentActor** is a concrete storable model whose instances ARE agents.
+77: Config lives in DB fields (name, prompt, tools, llm). Use this when agents
+78: are data -- created, configured, and managed at runtime via API. Think chatbots, scanners, assistants that users spin up on the fly.
+79: 
+80: ```python
+81: # Path A: existing model gains reasoning
+82: class Product(ActorModel):
+83:     __agent__ = True
+84: 
+85: # Path B: agent instances are data
+86: scanner = AgentActor(name="Scanner", prompt="Find grants...", llm="anthropic:claude-sonnet-4-5-20250929")
+87: AgentActor.create(scanner)
+88: ```
+89: 
+90: ### 🎛️ Policy/Engine Split
+91: 
+92: This is the design decision you'll thank us for later.
+93: 
+94: `agentic()` is the policy layer -- resolves config via 3-tier cascade
+95: (`config.AGENT_DEFAULTS` < `__agent__` dict < kwargs), auto-discovers
+96: prompt and tools. Expose this via HTTP.
+97: 
+98: `run()` is the engine -- takes fully resolved params, executes the LLM
+99: loop, returns results. Call directly for testing, pipelines, or when you
+100: need full control. Never expose via HTTP.
+101: 
+102: Think of it this way: `agentic()` is the bouncer, `run()` is the dance floor.
+103: 
+104: ### 🔍 Tool Discovery
+105: 
+106: Here's where the magic lives. Tools are discovered from actor addresses. Every actor registered in the
+107: Matrix with a `schema()` method contributes tools:
+108: - Storable models contribute CRUD tools (list, get, create, update, delete)
+109: - All `@expose_route` methods become callable tools
+110: - Instance methods auto-include an `id` parameter
+111: 
+112: Generated agent `update` tools are patch-oriented: only `id` is required and
+113: supplied collection fields replace their complete stored value. Generated HTTP
+114: `PUT` and raw actor updates use the same contract. Agents should not fetch and
+115: resend unrelated fields.
+116: 
+117: ```python
+118: # Auto-discovered from schema relationships
+119: Product.tools()  # -> ['products', 'comments']
+120: 
+121: # Explicit extras via config
+122: class Scanner(ActorModel):
+123:     __agent__ = {'tools': ['grants', 'web_tools']}
+124: ```
+125: 
+126: You never manually register tools. If it's in the Matrix, it's available.
+127: 
+128: ### ⚙️ Config Cascade
+129: 
+130: Three tiers, each overriding the previous — so you set sensible defaults once and override only when you need to:

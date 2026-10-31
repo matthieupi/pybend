@@ -1,0 +1,603 @@
+
+### docs/frontend/TRANSPORT.md (310 total lines)
+1: # Transport Layer Reference
+2: 
+3: Documentation for the network bridge between the Actor/Matrix system and the N3TX backend.
+4: 
+5: ## Table of Contents
+6: 
+7: 1. [NetworkAdapter](#networkadapter)
+8: 2. [HTTP](#http)
+9: 3. [Socket (WebSocket)](#socket)
+10: 4. [Request/Response Cycle](#requestresponse-cycle)
+11: 
+12: ---
+13: 
+14: ## NetworkAdapter
+15: 
+16: **File:** `core/transport/NetworkAdapter.js`
+17: 
+18: The Matrix's network bridge. Created by the Matrix singleton on construction. Translates TX messages into HTTP requests (or WebSocket frames) and routes responses back through the Matrix.
+19: 
+20: ### Construction
+21: 
+22: ```javascript
+23: // Created inside Matrix constructor:
+24: this.remote = new NetworkAdapter(this, url, mode);
+25: ```
+26: 
+27: ### Properties
+28: 
+29: | Property | Type | Description |
+30: |----------|------|-------------|
+31: | `matrix` | `Matrix` | Reference to the parent Matrix for dispatching responses. |
+32: | `mode` | `string` | Transport mode: `"http"` or `"ws"`. |
+33: | `url` | `string` | Base API URL (from `config.API_URL`). |
+34: | `socket` | `Socket\|null` | WebSocket instance (only if mode is `"ws"`). |
+35: 
+36: ### send(event)
+37: 
+38: The main outbound method. Called by `Matrix.inbox()` when a target cannot be resolved locally.
+39: 
+40: Maps TX event names to HTTP methods:
+41: 
+42: | `tx.name` (uppercase) | HTTP Method | URL | Data Handling |
+43: |------------------------|-------------|-----|---------------|
+44: | `LOAD` | GET | `{target}` | Ignored |
+45: | `READ` | GET | `{target}?{data as query params}` | Object → URL query params |
+46: | `SCHEMA` | GET | `{target}` | Ignored |
+47: | `CREATE` | POST | `{target}` | JSON body |
+48: | `UPDATE` | PUT | `{target}` | JSON body |
+49: | `DELETE` | DELETE | `{target}` | Ignored |
+50: | `TEST` | GET | `{target}` | Ignored |
+51: | (anything else) | POST | `{target}/{name}` | JSON body |
+52: 
+53: The `target` field of the TX is used directly as the URL (it's already a full URL like `http://localhost:5000/products`).
+54: 
+55: **READ query param encoding**: When `tx.data` is a non-null object for a READ event, its entries are encoded as URL query parameters. For example, `{limit: 20, offset: 0}` becomes `?limit=20&offset=0`. Null values are skipped. If the URL already contains a query string, params are appended with `&`.
+56: 
+57: **Note:** FK hydration hrefs (e.g., `http://localhost:5000/products/1/comments/2`)
+58: are also valid targets. They resolve via the same nested routes registered by the
+59: backend. A READ to such a URL returns the child entity directly.
+60: 
+61: If mode is `"ws"` and the socket is connected, the event is wrapped as a
+62: TX and sent over WebSocket via `socket.send(tx)`. If the socket is not ready,
+63: the adapter falls back to HTTP.
+64: 
+65: ### httpCallback(event, response)
+66: 
+67: Called when an HTTP request completes successfully.
+68: 
+69: ```javascript
+70: httpCallback(event, response) {
+71:   // 1. If meta.inbox is set, use it as the new event name
+72:   if (event.meta['inbox'])
+73:     event.name = event.meta['inbox'];
+74: 
+75:   // 2. Swap source and target (response goes back to the original sender)
+76:   let source = event.source, target = event.target;
+77:   event.source = target;
+78:   event.target = source;
+79: 
+80:   // 3. Set data to the response body
+81:   event.data = response;
+82: 
+83:   // 4. Dispatch back through the Matrix
+84:   this.matrix.dispatch(event);
+85: }
+86: ```
+87: 
+88: The `meta.inbox` field is key: it allows the caller to specify what event name the response should arrive as. For example, `DynClass.call('READ', {}, {inbox: 'UPDATE'})` means the response will be dispatched as an UPDATE event rather than READ.
+89: 
+90: ### onError(event, response)
+91: 
+92: Creates an ERROR event with the original event as data and dispatches it back to the original source.
+93: 
+94: ### pull(target, callback)
+95: 
+96: Convenience method to send a READ event to a target URL.
+97: 
+98: ### sendStream(event, onChunk, onDone, onError)
+99: 
+100: Deprecated compatibility helper. The preferred path is `send()` with
+101: `meta.stream = true`, which uses the normal TX/HTTP streaming flow.
+102: 
+103: Current behavior uses `HTTP.stream()` for SSE.
+104: 
+105: ```javascript
+106: const handle = adapter.sendStream(
+107:     { name: 'generate', target: 'http://localhost:5000/products/1', data: { prompt: 'hello' } },
+108:     (chunk) => console.log('Chunk:', chunk),
+109:     (data)  => console.log('Done:', data),
+110:     (err)   => console.error('Error:', err),
+111: );
+112: 
+113: // Cancel mid-stream:
+114: handle.cancel();
+115: ```
+116: 
+117: Returns `{ cancel: Function }` for both transports.
+118: 
+119: ---
+120: 
+121: ## HTTP
+122: 
+123: **File:** `core/transport/HTTP.js`
+124: 
+125: Static utility class wrapping the Fetch API. All methods use `window.localStorage['jwtToken']` for auth if present.
+126: 
+127: ### Methods
+128: 
+129: | Method | Signature | HTTP Method |
+130: |--------|-----------|-------------|
+
+### docs/frontend/TRANSPORT.md (310 total lines)
+131: | `HTTP.get(url, onSuccess, onError)` | | GET |
+132: | `HTTP.post(url, data, onSuccess, onError)` | | POST |
+133: | `HTTP.put(url, data, onSuccess, onError)` | | PUT |
+134: | `HTTP.remove(url, onSuccess, onError)` | | DELETE |
+135: | `HTTP.stream(url, data, onChunk, onDone, onError)` | | POST (SSE) |
+136: 
+137: ### Common Behavior
+138: 
+139: 1. Creates `Headers` with `x-access-token` if JWT exists in localStorage.
+140: 2. For POST/PUT: stringifies data to JSON, sets `Content-Type: application/json`.
+141: 3. On success: parses response as JSON, calls `onSuccess(json)`.
+142: 4. On 401: redirects to `/login.html`.
+143: 5. On error: calls `onError(message)`.
+144: 
+145: ### Static Helpers
+146: 
+147: | Method | Description |
+148: |--------|-------------|
+149: | `HTTP.rpc(method, args, kwargs, onSuccess)` | RPC-style POST to `/api/rpc`. |
+150: | `HTTP.checkIfUnauthorized(res)` | Returns true if status is 401. |
+151: | `HTTP.checkValidCode(res)` | Returns true for 2xx status codes. |
+152: 
+153: ### stream(url, data, onChunk, onDone, onError)
+154: 
+155: SSE client for streaming endpoints. Sends a POST request and reads the response as a `ReadableStream`, parsing SSE `event:`/`data:` lines.
+156: 
+157: ```javascript
+158: const handle = HTTP.stream(
+159:     'http://localhost:5000/products/1/generate',
+160:     { prompt: 'hello' },
+161:     (chunk) => console.log('Chunk:', chunk),    // event: chunk
+162:     (data)  => console.log('Done:', data),      // event: done
+163:     (err)   => console.error('Error:', err),    // event: error
+164: );
+165: 
+166: // Cancel mid-stream:
+167: handle.cancel();
+168: ```
+169: 
+170: **SSE format** expected from server:
+171: ```
+172: event: chunk
+173: data: {"chunk": "Part 0"}
+174: 
+175: event: done
+176: data: {}
+177: ```
+178: 
+179: **Returns** `{ cancel: Function }` — calls `AbortController.abort()` to terminate the stream. Auth token from `localStorage['jwtToken']` is included automatically.
+180: 
+181: ---
+182: 
+183: ## Socket
+184: 
+185: **File:** `core/transport/Socket.js`
+186: 
+187: TX-native WebSocket client with:
+188: 
+189: - auto-reconnect with exponential backoff
+190: - outbound message queue while disconnected
+191: - heartbeat keep-alive every 30s
+192: - optional JWT auth via query parameter
+193: 
+194: ### Construction
+195: 
+196: ```javascript
+197: const socket = new Socket('ws://localhost:5000/ws');
+198: ```
+199: 
+200: ### Public Surface
+201: 
+202: | Property / Method | Description |
+203: |---|---|
+204: | `url` | WebSocket URL |
+205: | `ws` | Underlying `WebSocket` instance or `null` |
+206: | `ready` | `true` when the socket is open and ready to send |
+207: | `onmessage` | callback invoked with parsed non-heartbeat message payloads |
+208: | `connect(token)` | opens the socket; appends `?token=...` when provided |
+209: | `send(tx)` | sends `tx.repr()` or plain payload; queues if disconnected |
+210: | `close()` | closes the socket and disables auto-reconnect |
+211: 
+212: ### Usage
+213: 
+214: ```javascript
+215: const socket = new Socket(wsUrl);
+216: socket.onmessage = (data) => matrix.dispatch(data);
+217: socket.connect(token);
+218: socket.send(tx);
+219: socket.close();
+220: ```
+221: 
+222: ### Message Handling
+223: 
+224: - Incoming WS frames are parsed as JSON.
+225: - Heartbeat frames (`{ heartbeat: true }`) are ignored.
+226: - All other payloads are forwarded to `socket.onmessage(data)`.
+227: - Outbound payloads are JSON-stringified.
+228: 
+229: ### Reconnect / Queue Behavior
+230: 
+231: - When the socket closes unexpectedly, reconnect is scheduled with exponential backoff.
+232: - Messages sent while disconnected are stored in an internal queue.
+233: - The queue is flushed when the socket opens successfully.
+234: 
+235: ### Obsolete Contract Notes
+236: 
+237: Older docs/tests referenced a larger Socket API with `sendEvent()`,
+238: `sendMessage()`, `watchdog()`, `Socket.resources`, `Socket.defaultSocket`,
+239: and target registration helpers. That is no longer the intended public
+240: contract for the current transport layer.
+241: 
+242: ### Stream Correlation
+243: 
+244: `registerStream(reqId, onChunk, onDone, onError)` registers stream handlers for correlated WS messages. When an incoming message has `meta.stream` and `meta.req` matching a registered stream, it is dispatched to the stream handler instead of the generic `onmessage`.
+245: 
+246: ```javascript
+247: const cancel = socket.registerStream(txUuid,
+248:     (chunk) => console.log('Chunk:', chunk),
+249:     (data)  => console.log('Done:', data),
+250:     (err)   => console.error('Error:', err),
+251: );
+252: 
+253: // Unregister the stream handler:
+254: cancel();
+255: ```
+256: 
+257: Messages are routed based on `meta` fields:
+258: - `meta.error` -> `onError`, then unregister
+259: - `meta.stream_end` -> `onDone`, then unregister
+260: - otherwise -> `onChunk`
+
+### docs/frontend/TRANSPORT.md (310 total lines)
+261: 
+262: ---
+263: 
+264: ## Request/Response Cycle
+265: 
+266: Complete lifecycle of a remote call:
+267: 
+268: ```
+269: 1. Actor calls:     DynClass.call('READ', {})
+270: 
+271: 2. DynClass.call() creates TX:
+272:    { name: READ, target: "http://localhost:8000/products",
+273:      data: {}, meta: {} }
+274:    (source omitted — Actor._send assigns DynClass.name during Case 3 bubble)
+275: 
+276: 3. DynClass.send() -> Actor._send()
+277:    Target "http://..." is not in DynClass.children
+278:    -> Bubbles to Matrix
+279: 
+280: 4. Matrix.inbox():
+281:    First segment "http:" not in matrix.children
+282:    -> matrix.remote.send(tx)
+283: 
+284: 5. NetworkAdapter.send():
+285:    name="READ" -> HTTP.get("http://localhost:8000/products", callback, onError)
+286: 
+287: 6. Fetch completes:
+288:    HTTP.get -> onSuccess(jsonData)
+289:    -> NetworkAdapter.httpCallback(originalEvent, jsonData)
+290: 
+291: 7. httpCallback:
+292:    event.name = meta.inbox (if set) or stays "READ"
+293:    event.source = "http://localhost:8000/products"  (was target)
+294:    event.target = "Product"                          (was source)
+295:    event.data = [{id:1, name:"Keyboard",...}, ...]
+296:    matrix.dispatch(event)
+297: 
+298: 8. Matrix.inbox():
+299:    First segment "Product" -> found in matrix.children (DynClass)
+300:    -> DynClass.inbox(tx)
+301: 
+302: 9. DynClass (static) inbox:
+303:    tx.target = "Product" matches DynClass.addr
+304:    -> this["READ"](tx.data) dispatches to DynClass.READ()
+305: 
+306: 10. DynClass.READ():
+307:     Creates/updates N3TX instances from data array
+308:     Replays pending instance ATTACHes
+309:     Notifies all watchers with instance address array
+310: ```
+
+### docs/generated/comments_comments.md (17 total lines)
+1: # `comments_comments` Model
+2: 
+3: **Endpoint**: `GET /comments_comments` (returns schema)
+4: 
+5: ## Fields
+6: 
+7: | Name | Type | Required | Default |
+8: |------|------|----------|---------|
+9: | name | string | Yes | — |
+10: | description | string | No |  |
+11: | user_owner | integer | No | None |
+12: | replies | object | No | [] |
+13: | likes | object | No | [] |
+14: | id | object | No | None |
+15: | comment_id | integer | Yes | — |
+16: 
+17: ## Routes
+
+### docs/generated/comments_likes.md (15 total lines)
+1: # `comments_likes` Model
+2: 
+3: **Endpoint**: `GET /comments_likes` (returns schema)
+4: 
+5: ## Fields
+6: 
+7: | Name | Type | Required | Default |
+8: |------|------|----------|---------|
+9: | id | integer | No | 0 |
+10: | image | string | No |  |
+11: | user | integer | Yes | — |
+12: | created_at | string | No |  |
+13: | comment_id | integer | Yes | — |
+14: 
+15: ## Routes
+
+### docs/generated/index.md (7 total lines)
+1: # N3TX API Documentation
+2: 
+3: - [products](./products.md)
+4: - [users](./users.md)
+5: - [products_comments](./products_comments.md)
+6: - [comments_likes](./comments_likes.md)
+7: - [products_likes](./products_likes.md)
+
+### docs/generated/products.md (28 total lines)
+1: # `products` Model
+2: 
+3: **Endpoint**: `GET /products` (returns schema)
+4: 
+5: ## Fields
+6: 
+7: | Name | Type | Required | Default |
+8: |------|------|----------|---------|
+9: | id | integer | No | 0 |
+10: | image | string | No | https://placehold.co/400x300/e2e8f0/64748b?text=No+Image |
+11: | name | string | Yes | — |
+12: | price | number | Yes | — |
+13: | description | string | No |  |
+14: | comments | array | No | [] |
+15: | favorites | array | No | [] |
+16: 
+17: ## Routes
+18: ### `/comment` [POST] (instancemethod)
+19: **Method**: `comment`
+20: #### Parameters:
+21: - `comment`: *$ref*
+22: **Returns**: `string`
+23: 
+24: ### `/favorite` [POST] (instancemethod)
+25: **Method**: `favorite`
+26: #### Parameters:
+27: - *(none)*
+28: **Returns**: `string`
+
+### docs/generated/products_comments.md (29 total lines)
+1: # `products_comments` Model
+2: 
+3: **Endpoint**: `GET /products_comments` (returns schema)
+4: 
+5: ## Fields
+6: 
+7: | Name | Type | Required | Default |
+8: |------|------|----------|---------|
+9: | id | integer | No | 0 |
+10: | image | string | No |  |
+11: | name | string | Yes | — |
+12: | description | string | No |  |
+13: | user_owner | integer | No | None |
+14: | parent_id | selfref | No | — |
+15: | likes | array | No | [] |
+16: | product_id | integer | Yes | — |
+17: 
+18: ## Routes
+19: ### `/like` [POST] (instancemethod)
+20: **Method**: `like`
+21: #### Parameters:
+22: - *(none)*
+23: **Returns**: `string`
+24: 
+25: ### `/reply` [POST] (instancemethod)
+26: **Method**: `reply`
+27: #### Parameters:
+28: - `text`: *string*
+29: **Returns**: `string`
+
+### docs/generated/products_likes.md (15 total lines)
+1: # `products_likes` Model
+2: 
+3: **Endpoint**: `GET /products_likes` (returns schema)
+4: 
+5: ## Fields
+6: 
+7: | Name | Type | Required | Default |
+8: |------|------|----------|---------|
+9: | id | integer | No | 0 |
+10: | image | string | No |  |
+11: | user | integer | Yes | — |
+12: | created_at | string | No |  |
+13: | product_id | integer | Yes | — |
+14: 
+15: ## Routes
+
+### docs/generated/users.md (30 total lines)
+1: # `users` Model
+2: 
+3: **Endpoint**: `GET /users` (returns schema)
+4: 
+5: ## Fields
+6: 
+7: | Name | Type | Required | Default |
+8: |------|------|----------|---------|
+9: | id | integer | No | 0 |
+10: | image | string | No | https://ui-avatars.com/api/?name=User&background=94a3b8&color=fff&size=128&rounded=true |
+11: | name | string | Yes | — |
+12: | email | string | Yes | — |
+13: | role | string | No | user |
+14: | age | object | No | None |
+15: 
+16: ## Routes
+17: ### `/login` [POST] (instancemethod)
+18: **Method**: `login`
+19: #### Parameters:
+20: - `email`: *string*
+21: - `password`: *string*
+22: **Returns**: `string`
+23: 
+24: ### `/register` [POST] (instancemethod)
+25: **Method**: `register`
+26: #### Parameters:
+27: - `name`: *string*
+28: - `email`: *string*
+29: - `password`: *string*
+30: **Returns**: `string`
+
+### packages/n3tx-actors/README.md (235 total lines)
+1: # 🎭 n3tx-actors
+2: 
+3: > Your models don't just sit there — they talk, route, and respond. Actor-based messaging, routing, and protocol adapters for the N3TX framework.
+4: 
+5: ## 🌐 Overview
+6: 
+7: n3tx-actors gives your models a voice. It's the Actor/Matrix/TX messaging system that powers Level 3 routing in N3TX — where models become routable actors, external protocols (HTTP, WebSocket, MCP, ActivityPub) bridge into the actor tree through NetworkAdapters, and interceptors give you composable middleware at any routing point.
+8: 
+9: Need message-driven CRUD? Lifecycle events? Real-time WebSocket push? Multi-protocol support? This is your package.
+10: 
+11: ## 📦 Installation
+12: 
+13: ```bash
+14: pip install n3tx-actors           # standalone
+15: pip install n3tx[actors]          # via meta-package
+16: pip install -e packages/n3tx-actors  # editable dev install
+17: ```
+18: 
+19: Requires `n3tx-core>=0.10.0` and `pydantic>=2.7,<3.0`.
+20: 
+21: ## 🚀 Quick Start
+22: 
+23: Here's the whole thing — define a model, wire it up, send a message. Four steps, you're routing.
+24: 
+25: ```python
+26: from n3tx_actors import TX, Actor, Matrix, matrix
+27: from n3tx_actors.models.actor_model import ActorModel
+28: from n3tx_actors.api.network_api import NetworkAPI, create_api_routes
+29: from n3tx_actors.api.auth_interceptor import auth_interceptor
+30: from pydantic import Field
+31: 
+32: # 1. Define a model that IS an actor
+33: class Product(ActorModel):
+34:     __tablename__ = 'products'
+35:     __storable__ = True
+36:     name: str = Field(min_length=1, max_length=200)
+37:     price: float = Field(gt=0)
+38: 
+39: # 2. Product auto-registers with the module-level matrix at addr='products'
+40: # 3. Wire HTTP adapter with auth
+41: api = NetworkAPI()
+42: matrix.register(api)
+43: api.use(auth_interceptor, on='request')
+44: 
+45: # 4. Route a message through the actor system
+46: tx = TX(name='schema', source='api', target='products')
+47: response = await api.request(tx)  # returns schema TX
+48: ```
+49: 
+50: That's it. Your model is an actor now. Let's dig into what that means.
+51: 
+52: ## 🧩 Core Concepts
+53: 
+54: ### TX -- Message Envelope
+55: 
+56: Every message in the system is a TX. Think of it as a little envelope with a `name`, `source`, `target`, `data`, `meta`, `timestamp`, and `uuid`. You send it, the system routes it, and you get a reply back.
+57: 
+58: Responses use `tx.reply()` (swaps source/target, stores correlation in `meta['req']`). Errors use `tx.error()` (sets `name='ERROR'`, `meta['error']=True`). Streaming uses `tx.chunk()` and `tx.end()`.
+59: 
+60: ```python
+61: tx = TX(name='create', source='api', target='products', data={'name': 'Widget'})
+62: reply = tx.reply(data={'id': 1, 'name': 'Widget'})   # name='create_RESPONSE'
+63: error = tx.error("Not found", code=404)                # name='ERROR', is_error=True
+64: chunk = tx.chunk({'part': 1}, seq=0)                   # name='STREAM', streaming chunk
+65: ```
+66: 
+67: ### 🎯 Actor -- Unified Class/Instance Dispatch
+68: 
+69: Here's where it gets fun. Actors use `fullmethod`/`fullproperty` descriptors so that `Product.inbox(tx)` and `product.inbox(tx)` both work with the same code. No separate class methods vs instance methods — just one unified API. Class-level state lives in `__addr__`, `__children__`, `__interceptors__`; instance-level in `_addr`, `_children`, `_interceptors` (Pydantic PrivateAttr).
+70: 
+71: ```python
+72: Product.addr          # 'products' (from __addr__)
+73: product.addr          # 'products' (from _addr)
+74: Product.register(child)  # into __children__
+75: product.register(child)  # into _children, sets child._parent
+76: await Product.inbox(tx)  # class-level dispatch
+77: await product.inbox(tx)  # instance-level dispatch
+78: ```
+79: 
+80: ### 🌳 Matrix -- Root Router
+81: 
+82: One Matrix per actor tree. It routes TX to local children first, then tries registered NetworkAdapters. Self-send is blocked (no infinite loops on your watch). A module-level `matrix` instance is created at import time so subclass auto-registration always has a root.
+83: 
+84: ### 🔗 ActorModel -- The Bridge Class
+85: 
+86: This is where the magic lives. `ActorModel(Actor, ProtoModel)` gives your models actor capabilities without changing anything else. CRUD messages (`schema`, `create`, `get`, `list`, `update`, `delete`) are handled by `handler_crud()`. Non-CRUD messages dispatch via `getattr`. Lifecycle events (`after_create`, `after_update`, `after_delete`) are published to subscribers.
+87: 
+88: One import change. Zero other changes. Your model just became an actor.
+89: 
+90: Raw actor `update` TX messages and generated actor HTTP `PUT` routes are
+91: patch-oriented. Omitted fields remain unchanged; the actor validates the merged
+92: complete entity through the original model before storing supplied fields. See
+93: [the canonical CRUD update contract](../../docs/API_CRUD_ENDPOINTS.md#update-resource).
+94: 
+95: ### 🛡️ Interceptors -- Composable Middleware
+96: 
+97: TX interceptors registered via `actor.use(fn, on='inbox')`. They run before the method body. Return an error TX to short-circuit. Class + instance chains combine (class first, FIFO). Targets: `inbox`, `send`, `request`.
+98: 
+99: ```python
+100: api.use(auth_interceptor, on='request')
+101: 
+102: @actor.use(on='inbox')
+103: async def log_messages(tx: TX) -> TX:
+104:     print(f"Received: {tx.name}")
+105:     return tx
+106: ```
+107: 
+108: Simple, composable, and you can stack as many as you need.
+109: 
+110: ## 📖 API Reference
+111: 
+112: | Export | Type | Purpose |
+113: |--------|------|---------|
+114: | `TX` | dataclass | Message envelope with reply/error/chunk/end methods |
+115: | `Actor` | class | Base actor with unified class/instance messaging |
+116: | `Matrix` | class | Root actor and message router |
+117: | `matrix` | instance | Module-level default Matrix (created at import) |
+118: | `ActorProxy` | class | Wraps any class/instance as a routable actor without inheritance |
+119: 
+120: ### Subpackage: `n3tx_actors.models`
+121: 
+122: | Export | Type | Purpose |
+123: |--------|------|---------|
+124: | `ActorModel` | class | Bridge class: `Actor` + `ProtoModel` with CRUD handling |
+125: 
+126: ### Subpackage: `n3tx_actors.api`
+127: 
+128: | Export | Type | Purpose |
+129: |--------|------|---------|
+130: | `NetworkAdapter` | class | Base class for protocol adapters (request/response bridging) |

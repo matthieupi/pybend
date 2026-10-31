@@ -1,0 +1,592 @@
+
+### .opencode/skills/n3tx-principles/SKILL.md (96 total lines)
+1: ---
+2: name: n3tx-principles
+3: description: N3TX principles, philosophy, and architectural intent. Use when building any N3TX app, choosing between models, actors, agents, UI, networking, or preserving framework boundaries.
+4: argument-hint: "<N3TX task or design question>"
+5: ---
+6: 
+7: # N3TX Principles
+8: 
+9: Use this skill first for any N3TX application work. It explains **why** N3TX is shaped this way so implementation decisions preserve the framework's intent.
+10: 
+11: ## Core philosophy
+12: 
+13: **The model is the app.** A Python model definition is the single source of truth for data structure, validation, API endpoints, JSON Schema, access control, and UI rendering. If the backend schema can carry a contract, do not duplicate it elsewhere.
+14: 
+15: **Backend is authoritative.** The backend defines models, schemas, access rules, relationships, methods, and UI hints. The frontend adapts at runtime from `GET /{ClassName}` schema responses.
+16: 
+17: **Actors are reusable compute boundaries.** If a capability performs work that should be reused by UI, agents, MCP, workflows, or other components, put it behind an `Actor`, `ActorModel`, `@expose_route` method, or `NetworkAdapter`. Do not hide reusable compute in random free functions or one-off HTTP handlers.
+18: 
+19: **Networking goes through the actor system.** Internal N3TX networking should flow through TX messages, Matrix routing, and network adapters. If an external API must be called, wrap it in a dedicated actor or adapter so the capability is inspectable, addressable, reusable, and tool-discoverable.
+20: 
+21: **Zero to working, then customize.** Define models first. Let N3TX generate storage, API, schema, and UI. Customize additively through `__ui__`, widgets, custom web components, `@expose_route`, actors, agents, schema/dump extensions, or network adapters.
+22: 
+23: **Transparent, not magical.** The framework removes plumbing, not accountability. Behavior should be traceable from model definition -> schema -> route/TX -> storage/actor -> frontend rendering.
+24: 
+25: ## Architectural boundaries
+26: 
+27: ```text
+28: Model definition
+29:    |
+30:    v
+31: JSON Schema contract  ---> Frontend DynamicClass + components
+32:    |
+33:    v
+34: Generated API / TX messages
+35:    |
+36:    v
+37: Actor / ActorModel capability boundary
+38:    |
+39:    v
+40: Storage, agents, external adapters, or business logic
+41: ```
+42: 
+43: Keep work inside these boundaries:
+44: 
+45: - Data and validation belong in models.
+46: - App behavior belongs in model methods or actors.
+47: - API exposure belongs in `@expose_route` or generated CRUD routes.
+48: - Access rules belong in `__access__` and `access=` decorators.
+49: - UI rendering hints belong in schema metadata and renderer/widget extension points.
+50: - Agent tools are actor/model methods exposed with `@expose_route`.
+51: - External protocols belong behind dedicated actors or `NetworkAdapter`s.
+52: 
+53: ## Source-reading policy
+54: 
+55: Prefer docs, skills, public API, and generated schemas. **Inspect framework source only when documentation is insufficient, does not cover the intended implementation, or observed behavior contradicts docs.** If source inspection reveals a missing or stale contract, update docs/skills or propose that update after the implementation.
+56: 
+57: ## Default decision rules
+58: 
+59: | Need | Default N3TX mechanism | Why |
+60: |---|---|---|
+61: | Data entity | `ProtoModel` or `ActorModel` | Model remains single source of truth |
+62: | Persistence | `__storable__ = True` | Storage and migration derive from schema |
+63: | Auth | `__access__` / `access=` | Backend authoritative, frontend adapts |
+64: | Parent-child relationship | `ListRef[T]` | Parent-scoped relationship appears in schema and nested routes |
+65: | Shared relationship | `ManyToMany[T]` | Field-declared association generates link model/table during bootstrap |
+66: | Files | `n3tx-files` `File` + `FileStore` | Metadata stays in N3TX; bytes stay in a provider |
+67: | Custom action | `@expose_route` method | Same method becomes API, UI action, agent tool |
+68: | Reusable compute | Actor / non-storable `ActorModel` | Addressable and reusable through Matrix |
+69: | External API | Dedicated actor or `NetworkAdapter` | Keeps IO inspectable and reusable |
+70: | Frontend UI | Schema hints, widgets, custom elements | Avoid duplicating backend contract |
+71: | LLM capability | `AgentActor` or `__agent__ = True` | Agents use same actor/tool system |
+72: 
+73: ## Anti-patterns
+74: 
+75: - Custom FastAPI routes for app behavior that should be `@expose_route`.
+76: - Direct database access from application features instead of model CRUD/storage.
+77: - Treating relationship fields (`ListRef[T]`, `ManyToMany[T]`) as arbitrary JSON arrays.
+78: - Storing file bytes in SQLite or serving dynamic user uploads through static assets.
+79: - Internal plain HTTP calls between N3TX components.
+80: - Frontend `fetch()` for N3TX entities/actions when runtime transport/entity methods apply.
+81: - Duplicating backend schema, access rules, or field metadata in frontend code.
+82: - Defining agent tools with a separate tool decorator instead of actor methods.
+83: - Reusable compute hidden in free functions rather than actor-addressable capabilities.
+84: - External API calls scattered through app code instead of wrapped in actors/adapters.
+85: - Forking generated UI when schema hints, widgets, renderers, or custom components are enough.
+86: 
+87: ## Verification mindset
+88: 
+89: Verify at the framework contract boundary:
+90: 
+91: - `GET /{ClassName}` returns the expected schema, methods, access, `$defs`, and `ui` hints.
+92: - CRUD and custom methods use generated routes or actor routing.
+93: - Entity responses include `$schema` and `$id`.
+94: - Frontend renders from schema, not duplicated knowledge.
+95: - Actors/tools are discoverable and callable through TX/Matrix.
+96: - External IO is behind a named actor or adapter.
+
+### .opencode/skills/n3tx-skill-routing/SKILL.md (97 total lines)
+1: ---
+2: name: n3tx-skill-routing
+3: description: N3TX skill selection, routing, fresh codebase onboarding, established codebase changes, and choosing the right N3TX specialist skill. Use FIRST when a task is broad, ambiguous, spans backend/frontend/actors/agents/files, or asks which N3TX skill/context to use.
+4: argument-hint: "<N3TX task or codebase context>"
+5: ---
+6: 
+7: # N3TX Skill Routing
+8: 
+9: Use this skill as the catalog index for N3TX work. Its job is to choose the
+10: smallest useful skill set before implementation so agents do not over-load broad
+11: context or miss specialist contracts.
+12: 
+13: ## Read first
+14: 
+15: For implementation tasks, preserve the repository context-loading order:
+16: 
+17: 1. Read `AGENTS.md` and relevant `/workspace/docs/` or package docs.
+18: 2. Read `BACKEND.md`, `FRONTEND.md`, or both based on the affected surface.
+19: 3. Load the primary skill below and any required companion skill.
+20: 4. Inspect framework source only when docs/skills are insufficient, stale, or
+21:    contradicted by observed behavior.
+22: 5. If source reveals a stale contract, update or propose updates to docs/skills.
+23: 
+24: ## Fresh N3TX codebase flow
+25: 
+26: ```text
+27: new app / feature idea
+28:   -> n3tx-principles
+29:   -> n3tx-build-app
+30:   -> n3tx-app-bootstrap
+31:   -> domain specialist(s)
+32:   -> n3tx-testing
+33: ```
+34: 
+35: Choose the lowest routing level that satisfies the requirement:
+36: 
+37: | Need | Default level | Primary skill |
+38: |---|---|---|
+39: | CRUD/schema-driven app | Level 1: `ProtoModel` + direct routes | `n3tx-models` |
+40: | Actor-capable entities with direct HTTP | Level 2: `ActorModel` + direct routes | `n3tx-actors` |
+41: | TX/protocol routing, agents, MCP, WebSocket, federation | Level 3: `ActorModel` + `routing='actor'` | `n3tx-networking` |
+42: 
+43: ## Established codebase flow
+44: 
+45: ```text
+46: existing N3TX app change
+47:   -> n3tx-principles
+48:   -> exact mechanism skill
+49:   -> n3tx-testing
+50:   -> n3tx-framework-maintenance only if framework internals/public contracts change
+51: ```
+52: 
+53: For bug fixes, use the normal bugfix/TDD workflow first, then load the exact
+54: N3TX mechanism skill for the failing path.
+55: 
+56: ## Routing matrix
+57: 
+58: | User intent / keywords / files | Primary skill | Combine with | Avoid as primary |
+59: |---|---|---|---|
+60: | app bootstrap, `create_app`, `N3TXApp`, static dirs, package imports | `n3tx-app-bootstrap` | `n3tx-build-app`, `n3tx-testing` | `n3tx-backend` |
+61: | model fields, `ProtoModel`, `ActorModel`, `BaseUser`, schema, validation | `n3tx-models` | `n3tx-storage-relationships`, `n3tx-authorization` | `n3tx-backend` |
+62: | storage, pagination, `ListRef`, joins, ownership, `ManyToMany` | `n3tx-storage-relationships` | `n3tx-json-fields`, `n3tx-testing` | raw SQL changes |
+63: | dict/list persistence, JSON TEXT, nested object field storage | `n3tx-json-fields` | `n3tx-storage-relationships` | relationship skills alone |
+64: | upload, download, blob, attachment, `File`, `FileStore`, `/files/upload` | `n3tx-files` | `n3tx-authorization`, `n3tx-testing`, `n3tx-external-integrations` | generic backend |
+65: | auth, JWT, `__access__`, OWNER, ROLE, protected fields | `n3tx-authorization` | `n3tx-models`, `n3tx-testing` | frontend-only fixes |
+66: | `@expose_route`, custom method, user injection, method schema | `n3tx-methods-routes` | `n3tx-authorization`, `n3tx-streaming` | custom FastAPI route |
+67: | actor, TX, Matrix, lifecycle, reusable compute | `n3tx-actors` | `n3tx-networking`, `n3tx-agents` | plain helper functions |
+68: | NetworkAPI, WebSocket, MCP, ActivityPub, protocol bridge | `n3tx-networking` | `n3tx-actors`, `n3tx-authorization` | direct internal HTTP |
+69: | LLM, `AgentActor`, `__agent__`, tools, chat, agent stream | `n3tx-agents` | `n3tx-streaming`, `n3tx-actors` | separate tool-only APIs |
+70: | SSE, `stream=True`, stream events, `NTTStream`, `NTTStreamAgent` | `n3tx-streaming` | `n3tx-methods-routes`, `n3tx-agents` | normal method skill alone |
+71: | schema-driven UI, `__ui__`, field metadata, access adaptation | `n3tx-ui-schema` | `n3tx-frontend`, `n3tx-widgets` | duplicated frontend contracts |
+72: | Web Components, `Component`, `NTTElement`, `ListElement`, renderers | `n3tx-ui-components` | `n3tx-ui-schema`, `n3tx-testing` | backend-only skills |
+73: | field widgets, Formidable, widget registry | `n3tx-widgets` | `n3tx-ui-schema`, `n3tx-testing` | custom component first |
+74: | theme, shell, topbar, sidebar, profile, route views | `n3tx-frontend` | `n3tx-ui-components`, `n3tx-ui-schema` | backend as primary |
+75: | external API, scraping, webhooks, cloud provider | `n3tx-external-integrations` | `n3tx-actors`, `n3tx-files`, `n3tx-authorization` | scattered service calls |
+76: | schema/dump extension, mixin, custom storage, custom adapter | `n3tx-extension-patterns` | `n3tx-framework-boundaries` | app-level workaround |
+77: | framework packages, public contracts, package docs, test harness | `n3tx-framework-maintenance` | exact package/domain skill, `n3tx-testing` | app build skills |
+78: 
+79: ## Broad skill rules
+80: 
+81: - `n3tx-build-app` is a workflow skill for end-to-end app construction.
+82: - `n3tx-backend` is a backend index; delegate concrete work to models, storage,
+83:   methods, auth, actors, agents, files, networking, or integrations.
+84: - `n3tx-frontend` is a frontend index; delegate concrete work to UI schema,
+85:   components, widgets, streaming, agents, route/view, or theme/shell guidance.
+86: - `n3tx-framework-maintenance` is for framework internals, not app code.
+87: 
+88: ## Stale-information guardrails
+89: 
+90: - Treat `AGENTS.md`, `BACKEND.md`, `FRONTEND.md`, `/workspace/docs/`, and
+91:   package docs as authoritative contracts.
+92: - Skills should summarize and route; avoid copying long command lists or route
+93:   tables unless they include a drift anchor back to canonical docs.
+94: - If a skill and a canonical doc disagree, trust the canonical doc and update or
+95:   propose a skill change.
+96: - After editing `.opencode/skills`, restart OpenCode so the running session sees
+97:   the new skill catalog.
+
+### .opencode/skills/n3tx-storage-relationships/SKILL.md (179 total lines)
+1: ---
+2: name: n3tx-storage-relationships
+3: description: N3TX storage, StorableMixin, SQLite JSON fields, Ref/list[Ref] distributed pointers, pagination, ListRef parent-child relationships, ManyToMany shared relationships, nested routes, and ownership fields. Use when designing or debugging persistence and relationships.
+4: argument-hint: "<storage or relationship task>"
+5: ---
+6: 
+7: # N3TX Storage and Relationships
+8: 
+9: ## Storage model
+10: 
+11: Set `__storable__ = True` to inject CRUD behavior and register a database table.
+12: 
+13: ```python
+14: class Product(ActorModel):
+15:     __tablename__ = 'products'
+16:     __storable__ = True
+17:     name: str
+18: ```
+19: 
+20: CRUD methods are provided by `StorableMixin`: `create`, `get`, `list`, `update`, `delete`.
+21: 
+22: ## JSON fields
+23: 
+24: `dict`, `list`, typed list fields, and `list[Ref[T]]` pointer arrays are stored
+25: as JSON TEXT in SQLite and deserialized on read.
+26: Use the dedicated `n3tx-json-fields` skill and `docs/JSON_FIELDS.md` when
+27: designing, debugging, or changing embedded JSON field behavior.
+28: 
+29: ```python
+30: class AgentConfig(ActorModel):
+31:     __tablename__ = 'agent_configs'
+32:     __storable__ = True
+33:     tools: list[str] = []
+34:     constraints: dict = {}
+35: ```
+36: 
+37: ## Pagination
+38: 
+39: When `limit` is provided, list returns:
+40: 
+41: ```json
+42: {"data": [], "meta": {"total": 0, "limit": 20, "offset": 0, "has_more": false}}
+43: ```
+44: 
+45: Without `limit`, list returns a plain list for compatibility.
+46: 
+47: ## Relationship primitives
+48: 
+49: Use the relationship primitive that matches ownership and lifecycle:
+50: 
+51: | Domain shape | Field type | Generated behavior |
+52: |---|---|---|
+53: | Parent owns or scopes child records | `ListRef[T]` | Nested routes, FK/join model hydration, parent-scoped identity |
+54: | Shared collection between two entities | `ManyToMany[T]` | Generated link model/table from the field declaration |
+55: | Local or distributed identity pointer | `Ref[T]` | Local id or canonical `n3tx://service/Class/id` ref |
+56: | Local/distributed pointer array | `list[Ref[T]]` | JSON TEXT array, optional best-effort populate |
+57: 
+58: Do not use a plain JSON list for records that need independent identity, auth,
+59: routes, or lifecycle.
+60: 
+61: `ListRef[T]` remains local-owned relationship semantics only. Do not overload it
+62: for remote/distributed pointers; use `list[Ref[T]]` when the parent stores
+63: identity addresses such as `n3tx://storage/File/12`.
+64: 
+65: ## Parent-child relationships with ListRef
+66: 
+67: Use `ListRef[T]` on the parent:
+68: 
+69: ```python
+70: from n3tx_core.models.ref import ListRef
+71: 
+72: class Product(ActorModel):
+73:     __tablename__ = 'products'
+74:     __storable__ = True
+75:     comments: ListRef['Comment'] = []
+76: ```
+77: 
+78: N3TX generates a join model such as `ProductComment` with FK columns. Public nested identity uses semantic class names:
+79: 
+80: ```text
+81: Legacy:    /products/1/comments/2
+82: Canonical: /Product/1/Comment/2
+83: ```
+84: 
+85: ## Shared many-to-many relationships
+86: 
+87: Use `ManyToMany[T]` when both sides are independent entities and the field
+88: represents membership/association rather than parent ownership:
+89: 
+90: ```python
+91: from pydantic import Field
+92: from n3tx_core.models.relationships import ManyToMany
+93: 
+94: 
+95: class Tag(ActorModel):
+96:     __tablename__ = 'tags'
+97:     __storable__ = True
+98:     name: str
+99: 
+100: 
+101: class Product(ActorModel):
+102:     __tablename__ = 'products'
+103:     __storable__ = True
+104:     tags: ManyToMany[Tag] = Field(default=[])
+105: ```
+106: 
+107: `create_app()` / `N3TXApp` discover `ManyToMany` declarations and generate the
+108: relationship link model during bootstrap. For lower-level/raw registration flows,
+109: use the relationship helpers deliberately rather than hand-rolling SQL tables.
+110: 
+111: ## Self references
+112: 
+113: ```python
+114: from n3tx_core.utils.typer import Ref
+115: 
+116: class Comment(ActorModel):
+117:     __tablename__ = 'comments'
+118:     __storable__ = True
+119:     parent_id: Ref['self'] | None = None
+120: ```
+121: 
+122: ## Distributed ref storage
+123: 
+124: Single `Ref[T]` fields preserve local behavior while accepting distributed refs:
+125: 
+126: ```text
+127: local id / /File/12 / current API URL -> local id / local href response
+128: configured remote HTTP URL            -> n3tx://service/Class/id
+129: n3tx://service/Class/id               -> preserved canonical ref
+130: ```
+
+### .opencode/skills/n3tx-storage-relationships/SKILL.md (179 total lines)
+131: 
+132: Remote dereference is opt-in through storage injection:
+133: 
+134: ```python
+135: SQLiteStorage(reference_resolver=None)                       # local-only
+136: SQLiteStorage(reference_resolver=MatrixReferenceResolver(m))  # remote populate
+137: ```
+138: 
+139: Keep the boundary clean: core storage accepts an injected resolver; it must not
+140: import actors directly.
+141: 
+142: ## Ownership fields
+143: 
+144: For OWNER auth:
+145: 
+146: ```python
+147: class Comment(ActorModel):
+148:     __owner_field__ = 'user_owner'
+149:     __protected_fields__ = {'user_owner'}
+150:     user_owner: int | None = None
+151: ```
+152: 
+153: Protected fields are backend-owned: injected on create and hidden/stripped in edit/update flows.
+154: 
+155: ## Guardrails
+156: 
+157: - Do not query or mutate SQLite directly from app features.
+158: - Do not store relationships as duplicated arbitrary arrays if `ListRef` or `ManyToMany` represents the domain relationship.
+159: - Do not confuse `ListRef[T]` local ownership with `list[Ref[T]]` pointer arrays.
+160: - Do not confuse embedded JSON arrays with relationship fields: JSON fields have
+161:   no child `$id`, href hydration, owner/auth boundary, lifecycle events, or
+162:   independent update route.
+163: - Do not expose generated join model names as the semantic public concept.
+164: - Do not treat `ManyToMany[T]` as a JSON field; it is relationship metadata.
+165: - Avoid `:memory:` SQLite for tests involving migrations; use a file database.
+166: 
+167: ## Verification
+168: 
+169: - CRUD works for parent and child.
+170: - Relationship fields appear in schema and responses as href arrays.
+171: - `ManyToMany` fields generate deterministic link models/tables during app bootstrap.
+172: - `Ref[T]` and `list[Ref[T]]` remote inputs canonicalize to `n3tx://...`.
+173: - Remote populate failures do not break parent reads; they report per-ref errors where supported.
+174: - Nested routes resolve correctly.
+175: - Pagination metadata is correct when `limit` is used.
+176: 
+177: ## Source-reading policy
+178: 
+179: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+
+### .opencode/skills/n3tx-streaming/SKILL.md (123 total lines)
+1: ---
+2: name: n3tx-streaming
+3: description: N3TX streaming methods, SSE, TX stream protocol, @expose_route(stream=True), schema-declared events, NTTStream, NTTStreamAgent, and progressive UI. Use when building or debugging long-running or realtime output.
+4: argument-hint: "<streaming feature>"
+5: ---
+6: 
+7: # N3TX Streaming
+8: 
+9: Streaming is schema-declared and TX-correlated.
+10: 
+11: ## Backend streaming method
+12: 
+13: ```python
+14: from pydantic import Field
+15: from n3tx_core.models.proto_model import ProtoModel
+16: from n3tx_core.utils.decorators import expose_route
+17: 
+18: class TextChunk(ProtoModel):
+19:     text: str = Field(default='')
+20: 
+21: class DoneChunk(ProtoModel):
+22:     answer: str = Field(default='')
+23: 
+24: 
+25: class Report(ActorModel):
+26:     __tablename__ = 'reports'
+27:     __storable__ = True
+28: 
+29:     @expose_route('/generate', methods=['POST'], stream=True,
+30:                   events={'text': TextChunk, 'done': DoneChunk})
+31:     async def generate(self, topic: str):
+32:         yield {'name': 'text', 'data': {'text': f'Starting {topic}'}}
+33:         yield {'name': 'done', 'data': {'answer': 'Complete'}}
+34: ```
+35: 
+36: ## TX stream protocol
+37: 
+38: | Message | Meta |
+39: |---|---|
+40: | chunk | `req`, `stream: True`, `seq` |
+41: | end | `req`, `stream: True`, `stream_end: True`, `seq` |
+42: | error | error TX terminates stream |
+43: 
+44: ## SSE wire format
+45: 
+46: ```text
+47: event: chunk|done|error
+48: data: {json}\n\n
+49: ```
+50: 
+51: Generated N3TX SSE routes serialize the full TX envelope in `data`, not only
+52: `chunk.data`. Consumers should reconstruct or dispatch TXs and stop on an error
+53: TX or `meta.stream_end`.
+54: 
+55: ## Distributed streaming
+56: 
+57: For backend-to-backend streaming across services, use `RemoteMatrix.stream(tx)`
+58: instead of ad hoc HTTP/SSE clients:
+59: 
+60: ```python
+61: tx = TX(
+62:     name='generate',
+63:     source='app',
+64:     target='n3tx://compute/Job/12',
+65:     data={'prompt': '...'},
+66:     meta={'stream': True, 'user': user},
+67: )
+68: async for chunk in matrix.stream(tx, timeout=120.0):
+69:     if chunk.is_error:
+70:         ...
+71:     elif chunk.meta.get('stream_end'):
+72:         break
+73:     else:
+74:         ...
+75: ```
+76: 
+77: Remote streaming resolves method routes from schema first:
+78: `GET /{ClassName}` -> `schema.methods[tx.name].route`. This preserves decorator
+79: routes such as `/upload-to-splat` and avoids guessing from Python method names.
+80: 
+81: ## Frontend components
+82: 
+83: | Component | Use |
+84: |---|---|
+85: | `ntx-stream` | Generic streaming method UI |
+86: | `NTTStream` | Base for custom streaming components |
+87: | `NTTStreamAgent` | Rich agent output rendering |
+88: | `ntx-chat` | Agent chat surface |
+89: | `ntx-agent-live` | Agent activity stream |
+90: 
+91: UPPERCASE handlers process stream events:
+92: 
+93: ```javascript
+94: class MyStream extends NTTStreamAgent {
+95:   TEXT(data, meta) { /* data.text */ }
+96:   DONE(data, meta) { /* data.answer */ }
+97:   STREAM_END(data) { /* cleanup */ }
+98: }
+99: ```
+100: 
+101: ## Lifecycle guidance
+102: 
+103: - Use `prerender()` for structural DOM before schema loads.
+104: - `render()` should be additive and must not wipe `prerender()` output.
+105: - Cancel active streams in `disconnectedCallback()`.
+106: 
+107: ## Guardrails
+108: 
+109: - Declare event schemas with `events=` for typed frontend contracts.
+110: - Do not invent a parallel streaming protocol for app methods.
+111: - Do not hand-roll backend-to-backend SSE clients for N3TX methods; use TX/Matrix/RemoteMatrix.
+112: - Do not duplicate stream event shapes in frontend code; read method schema.
+113: 
+114: ## Verification
+115: 
+116: - Schema method has `stream: true` and `events`.
+117: - SSE or WebSocket chunks arrive in order and terminate.
+118: - RemoteMatrix streaming preserves TX chunks, error TXs, service/user headers, and `stream_end` termination.
+119: - Frontend handlers render each event type and clean up on disconnect.
+120: 
+121: ## Source-reading policy
+122: 
+123: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+
+### .opencode/skills/n3tx-testing/SKILL.md (85 total lines)
+1: ---
+2: name: n3tx-testing
+3: description: N3TX application testing and verification. Use when testing app models, routes, auth, actor routing, agents, frontend components, widgets, streaming, or E2E behavior.
+4: argument-hint: "<test or verification task>"
+5: ---
+6: 
+7: # N3TX Testing
+8: 
+9: This skill covers application verification, not framework maintenance.
+10: 
+11: ## Verification order
+12: 
+13: 1. Narrow behavior test or direct schema/API check.
+14: 2. Adjacent backend/frontend tests.
+15: 3. Browser/E2E only when behavior needs real browser/auth/routing/layout.
+16: 4. Broader suites when the narrow boundary passes.
+17: 
+18: ## Backend checks
+19: 
+20: Use generated contracts:
+21: 
+22: - `GET /{ClassName}` schema includes fields, methods, access, UI, `$defs`.
+23: - CRUD routes work and enforce auth.
+24: - Relationship routes/link models work for `ListRef[T]` and `ManyToMany[T]` contracts.
+25: - Custom methods work through generated routes.
+26: - Actor-routed apps preserve direct-route behavior.
+27: - Entity responses include `$schema` and `$id`.
+28: 
+29: Repo commands:
+30: 
+31: ```bash
+32: cd /workspace && python3 scripts/test-backend.py --list
+33: cd /workspace && python3 scripts/test-backend.py --suite core -- -q
+34: cd /workspace && python3 scripts/test-backend.py --short
+35: ```
+36: 
+37: ## Frontend checks
+38: 
+39: ```bash
+40: cd /workspace/tests/frontend && npx vitest run
+41: cd /workspace/tests/frontend && npm run test:e2e:fast
+42: ```
+43: 
+44: Use Vitest for schema-to-DOM/component/widget behavior. Use Playwright for auth/session, router history, layout, computed CSS, browser streaming, and backend-integrated flows.
+45: 
+46: ## Agent checks
+47: 
+48: Use Pydantic AI `TestModel`:
+49: 
+50: ```python
+51: from pydantic_ai.models.test import TestModel
+52: 
+53: result = await agent.run(task='List grants', llm=TestModel(call_tools=['grants_list']))
+54: ```
+55: 
+56: Use file-based SQLite databases for migration/storage tests, not `:memory:`.
+57: 
+58: ## File capability checks
+59: 
+60: For `n3tx-files` features:
+61: 
+62: - `File` schema and CRUD routes are available when registered.
+63: - `POST /files/upload` returns a `File` metadata response.
+64: - `GET /files/{id}/download` and `GET /File/{id}/download` stream bytes.
+65: - Range requests return `206` with `Content-Range`.
+66: - `File`-typed method parameters materialize addresses into authorized `File` instances.
+67: - Bytes are written through `FileStore`, not SQLite/static assets.
+68: 
+69: ## Streaming checks
+70: 
+71: - Schema method has `stream: true` and event schemas.
+72: - Chunks arrive in order.
+73: - Done/end event terminates stream.
+74: - UI cancels stream on disconnect.
+75: 
+76: ## Test guardrails
+77: 
+78: - Do not test implementation details when contract behavior is enough.
+79: - Do not duplicate schema expectations manually beyond what the test needs.
+80: - Do not loosen tests without identifying current intended contract.
+81: - Do not use fixed sleeps in Playwright when readiness helpers or DOM state waits apply.
+82: 
+83: ## Source-reading policy
+84: 
+85: Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.

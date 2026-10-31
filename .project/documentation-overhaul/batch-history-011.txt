@@ -1,0 +1,510 @@
+
+### .project/reports/research/html-compiler/CONDENSED-01-05.md (328 total lines)
+1: ## HTML Compiler Research (Docs 01-05) -- Condensed
+2: 
+3: ### Key Findings (Top 20 Data Points)
+4: 
+5: 1. **Static HTML pages achieve TTFB under 50ms** from CDN edge vs 200-800ms for SSR and 1-3s for CSR SPAs.
+6: 2. **A 0.1s load improvement increases conversions 8-10%** in e-commerce (Google/Deloitte research).
+7: 3. **Astro scores 99.2/100 Lighthouse** -- highest of any JS framework benchmarked (Enterspeed 2025).
+8: 4. **Netflix cut TTI by 50%** replacing React SPA with server-rendered HTML + vanilla JS, reducing JS by 200KB.
+9: 5. **Jamstack market: $1.8B (2020) to $8.6B (2025)**, projected ~$12B by 2026. 35% of developers identify as Jamstack-aligned.
+10: 6. **No existing framework compiles from a data schema to static HTML** -- N3TX's proposed compiler is a genuine whitespace opportunity.
+326: 
+327: **Bottom-Line Recommendation:**
+328: Start with CDN caching + Service Workers (1-2 weeks, 80% of benefit at 5% cost). Measure TTFB/FCP/LCP. If still >200ms TTFB on public pages after caching, proceed with the schema-walking compiler. The compiler is architecturally sound, uniquely enabled by N3TX's schema completeness (~770 LOC, 5-7 days for N3TX-specific implementation), and produces the Static Shell + Dynamic Islands pattern the industry has converged on. Make it opt-in: runtime rendering remains default.
+
+### .project/reports/research/html-compiler/CONDENSED-06-10.md (402 total lines)
+1: ## Static Site Generation Research (Docs 06-10) -- Condensed
+2: 
+3: ### Key Findings (Top 20 Data Points)
+4: 
+5: 1. Prerendered (fully static) sites are **0.5% of the web** but growing
+6:    **67% YoY** in the top 10K tier.
+7: 2. Median mobile page ships **697 KB of JavaScript** (2025); a zero-JS
+8:    static page achieves **<50 KB total** -- a 10-35x reduction.
+9: 3. Next.js static export carries **583 KB JS** median; Astro **164 KB**;
+10:    Hugo **210 KB**; true zero-JS is **0 KB**.
+400: gzipped. (5) `@view-transition { navigation: auto; }` in base CSS.
+401: (6) `:checked` filters for categories. (7) Target Lighthouse
+402: Performance >= 95, Accessibility >= 95.
+
+### .project/reports/research/micro-frontend/01-industry-case-studies.md (733 total lines)
+1: # Micro-Frontend Adoption: Industry Case Studies and Business Outcomes
+2: 
+3: **Research Date:** February 2026
+4: **Scope:** Real-world adoption case studies, measurable outcomes, failure stories, and industry statistics
+5: 
+6: ---
+7: 
+8: ## Table of Contents
+9: 
+10: 1. [Companies That Adopted Micro-Frontends Successfully](#1-companies-that-adopted-micro-frontends-successfully)
+731: - [Project Mosaic -- mosaic9.org](https://www.mosaic9.org/)
+732: - [Zalando Tailor -- GitHub](https://github.com/zalando/tailor)
+733: - [Bit.dev Micro Frontends Documentation](https://bit.dev/docs/micro-frontends/react-micro-frontends/)
+
+### .project/reports/research/micro-frontend/02-technical-landscape.md (1924 total lines)
+1: # Micro-Frontend Architecture: Technical Deep Dive
+2: 
+3: > A comprehensive technical analysis of micro-frontend architecture patterns, their
+4: > evolution from 2016 to 2026, and current best practices for building scalable,
+5: > independently deployable frontend systems.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+1922: - [OpenTelemetry for Distributed Tracing 2025 (Medium)](https://medium.com/@shbhggrwl/backend-observability-in-2025-distributed-tracing-with-opentelemetry-af338a987abb)
+1923: - [Observability and Monitoring 2025 (Madrigan)](https://blog.madrigan.com/en/blog/202512120852/)
+1924: - [Top 15 Distributed Tracing Tools 2026 (SigNoz)](https://signoz.io/blog/distributed-tracing-tools/)
+
+### .project/reports/research/micro-frontend/03-decision-framework.md (962 total lines)
+1: # Micro-Frontend Adoption: A Decision Framework for Executive Leadership
+2: 
+3: > **Purpose**: This document provides the analytical foundation a CEO or CTO needs
+4: > to evaluate whether micro-frontend (MFE) architecture is appropriate for their
+5: > organization. It synthesizes current industry research (through early 2026),
+6: > academic findings, practitioner experience, and consulting firm analyses into
+7: > an actionable decision framework.
+8: 
+9: > **Key takeaway**: Micro-frontends solve organizational scaling problems, not
+10: > code problems. The decision to adopt them should be driven by delivery pain at
+960: - [Microsoft Azure -- Strangler Fig Pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/strangler-fig)
+961: - [microservices.io -- Strangler Application Pattern](https://microservices.io/patterns/refactoring/strangler-application.html)
+962: - [SecureFlag -- Front-End Security Best Practices (2025)](https://blog.secureflag.com/2025/11/17/front-end-security-best-practices/)
+
+### .project/reports/research/micro-frontend/04-webcomponents-actor-schema.md (1132 total lines)
+1: # Web Components as a Micro-Frontend Strategy: Actor-Model Communication and Schema-Driven Architectures
+2: 
+3: **Research Date:** February 2026
+4: **Context:** N3TX framework -- vanilla JS Web Components, actor-based message bus (Matrix/Actor/TX), schema-driven DynamicClass creation from backend JSON Schema, no build step (raw ES modules).
+5: 
+6: ---
+7: 
+8: ## Table of Contents
+9: 
+10: 1. [Web Components State of the Art (2025-2026)](#1-web-components-state-of-the-art-2025-2026)
+1130: 5. **ES Modules + Import Maps** are the emerging standard for micro-frontend infrastructure, replacing webpack-specific solutions.
+1131: 
+1132: The architecture is not just viable -- it is aligned with the direction the web platform is moving. The standards N3TX builds on (Custom Elements, ES Modules, JSON Schema) are stable, widely supported, and actively evolving in directions that benefit this approach.
+
+### .project/reports/research/micro-frontend/06-micro-frontend-analysis.md (2002 total lines)
+1: # Micro-Frontend Architecture: Strategic Analysis Report
+2: 
+3: ## For: Executive Leadership
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: > **Classification:** Internal -- Executive Audience
+10: > **Reading time:** 45 minutes (full report) / 5 minutes (executive summary)
+2000: *This report synthesizes findings from 4 research documents totaling 80+ pages, 50+ industry sources, and direct analysis of N3TX's source code across 29 JavaScript files. All statistics are sourced from the research documents referenced in the appendices. Where industry benchmarks are applied to our situation, expected ranges are conservatively estimated (lower end of reported improvements).*
+2001: 
+2002: *Prepared February 2026.*
+
+### .project/reports/research/microservices/01-industry-landscape.md (658 total lines)
+1: # Microservices Industry Landscape (2026)
+2: 
+3: ## N3TX as a Schema-Driven Microservice Backbone
+4: 
+5: **Audience:** Technical CEOs and Engineering Teams
+6: **Date:** February 2026
+7: **Scope:** Market sizing, framework benchmarks, ecosystem mapping, success/failure analysis, and strategic positioning for schema-driven microservice development
+8: 
+9: ---
+10: 
+656: ---
+657: 
+658: *This document was prepared as a strategic industry analysis for engineering leadership. Data points are sourced from public surveys, market research reports, and engineering post-mortems. Market size figures vary by research methodology and scope definition; growth rate trends are consistent across sources.*
+
+### .project/reports/research/microservices/02-technical-deep-dive.md (1656 total lines)
+1: # Microservice Architecture: Technical Deep Dive
+2: 
+3: **Research Document -- February 2026**
+4: **Audience: Technical CEOs and Engineering Teams**
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: Microservice architecture decomposes a software system into small, independently deployable services, each responsible for a single business capability. The promise -- independent scaling, technology diversity, faster release cycles -- is real, but so is the complexity it introduces. This document provides a rigorous technical examination of every layer of the microservice stack: how to decompose services correctly, how they communicate, how data stays consistent without a shared database, how to keep them resilient, observable, secure, and testable, and how schema-driven frameworks can collapse much of that complexity into a single source of truth.
+1654: - [Service Discovery Explained](https://developer.hashicorp.com/consul/docs/use-case/service-discovery) -- HashiCorp Consul
+1655: - [Consul vs etcd Service Discovery Tools Comparison](https://slickfinch.com/consul-vs-etcd-service-discovery-tools-comparison/) -- SlickFinch
+1656: - [Effective Service Discovery Strategies for Microservices](https://www.gravitee.io/blog/service-discovery-microservices) -- Gravitee
+
+### .project/reports/research/microservices/03-decision-framework.md (943 total lines)
+1: # Decision Framework: When to Adopt Microservices
+2: 
+3: **Audience:** Technical CEOs, CTOs, and Engineering Teams
+4: **Last Updated:** 2026-02-26
+5: **Context:** N3TX schema-driven monolithic framework; evaluating architectural evolution paths
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+941: ---
+942: 
+943: *This document is part of the N3TX research series on architecture decisions. It should be revisited quarterly as team size, traffic patterns, and operational maturity evolve.*
+
+### .project/reports/research/microservices/04-our-stack-relevance.md (1116 total lines)
+1: # Microservice Patterns and N3TX: Architecture Relevance Analysis
+2: 
+3: > Research document for technical leadership and engineering teams.
+4: > Analyzes how N3TX's schema-driven architecture maps to microservice
+5: > patterns, where the framework already provides microservice primitives,
+6: > and what would need to change for a full decomposition.
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+1114: | **ListRef[T]** | Type annotation for collection relationships (parent-child via join model). |
+1115: | **Ref[T]** | Type annotation for foreign key references. |
+1116: | **HATEOAS** | Hypermedia as the Engine of Application State. N3TX's FK hydration produces URLs, not raw IDs. |
+
+### .project/reports/research/microservices/05-schema-as-service-contract.md (1232 total lines)
+1: # Schema as the Universal Service Contract
+2: 
+3: ## How JSON Schema Eliminates the Integration Tax on Microservices
+4: 
+5: ---
+6: 
+7: **Audience:** Technical CEOs, engineering leadership, platform architects
+8: **Last updated:** 2026-02-26
+9: 
+10: ---
+1230: 21. [Schema-First: JSON Schemas for Microservice Data Contracts](https://coding-cloud.com/blog/json-schema-contracts) -- Coding Cloud. JSON Schema as the contract layer for microservice communication.
+1231: 
+1232: 22. [What is Consumer-Driven Contract Testing?](https://pactflow.io/what-is-consumer-driven-contract-testing/) -- Pactflow. Explanation of CDC patterns and their role in microservice testing.
+
+### .project/reports/research/microservices/06-microservices-analysis.md (1044 total lines)
+1: # N3TX as a Microservice Backbone: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+1042: ---
+1043: 
+1044: *This analysis was prepared for engineering leadership as a strategic assessment of N3TX's position relative to the microservices market. The recommendation is to stay monolithic, harden boundaries, and extract services only when measured triggers demand it. Review quarterly.*
+
+### .project/reports/research/polymorphic-system/01-industry-landscape.md (653 total lines)
+1: # Polymorphic Data Systems: Industry Landscape Report
+2: 
+3: > **Audience:** Technical CEO + Engineering Leadership
+4: > **Date:** February 2026
+5: > **Scope:** Who uses polymorphic data patterns, how prevalent they are, and what the measured outcomes look like across the industry.
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+651: ---
+652: 
+653: *Report compiled from 15+ web searches, 20+ primary sources, and cross-referenced against platform documentation, engineering blogs, and community benchmarks. All performance numbers are sourced from published benchmarks and should be validated against your specific workload before making architectural decisions.*
+
+### .project/reports/research/polymorphic-system/02-technical-deep-dive.md (1363 total lines)
+1: # Polymorphic Data Systems: Technical Deep Dive
+2: 
+3: **Implementation Approaches, Storage Strategies, Query Patterns, Schema Representations**
+4: 
+5: ---
+6: 
+7: ## Executive Summary
+8: 
+9: Polymorphic data systems model entities that share a common base type but diverge
+10: into specialized forms. A payment can be a credit card charge, a bank transfer,
+1361: *Document generated 2026-02-26. Covers PostgreSQL through v18, SQLAlchemy 2.1,
+1362: Django 5.x, Prisma 6.x, Python 3.14, TypeScript 5.x, Rust 2024 edition,
+1363: OpenAPI 3.1, and JSON Schema 2020-12.*
+
+### .project/reports/research/polymorphic-system/03-decision-framework.md (951 total lines)
+1: # Polymorphic Data Systems: Decision Framework
+2: 
+3: **When to use polymorphism, when to avoid it, and what to use instead.**
+4: 
+5: Research document for engineering leadership. February 2026.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+949: 15. [Django Documentation - The ContentTypes Framework](https://docs.djangoproject.com/en/6.0/ref/contrib/contenttypes/) --- Generic relations for framework-level polymorphic associations.
+950: 
+951: 16. [TypeDB Blog - Inheritance and Polymorphism: Where the Cracks in SQL Begin to Show](https://typedb.com/blog/inheritance-and-polymorphism-where-the-cracks-in-sql-begin-to-show) --- Analysis of SQL's fundamental limitations for modeling inheritance.
+
+### .project/reports/research/polymorphic-system/04-our-stack-relevance.md (824 total lines)
+1: # Polymorphic Data Systems: Relevance to N3TX's Stack
+2: 
+3: **Analysis Date:** 2026-02-26
+4: **Scope:** How N3TX's current architecture handles (or would handle) polymorphic types -- models that share a base type but have different specializations
+5: **Audience:** Technical CEO + Engineering Leadership
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+822: - Django Polymorphic -- [django-polymorphic on PyPI](https://pypi.org/project/django-polymorphic/)
+823: - Rails Single Table Inheritance -- [Rails Guides: Active Record Inheritance](https://guides.rubyonrails.org/association_basics.html)
+824: - Martin Fowler's Patterns of Enterprise Application Architecture -- STI, CTI, Concrete Table Inheritance patterns
+
+### .project/reports/research/polymorphic-system/05-schema-evolution-strategy.md (1004 total lines)
+1: # Schema Polymorphism as an Evolution Strategy
+2: 
+3: **Using discriminator-based schemas for API versioning, plugin architectures, and progressive type systems**
+4: 
+5: *Research Document -- February 2026*
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1002: ---
+1003: 
+1004: *Document generated February 2026. Schema specifications and API designs referenced are current as of publication date.*
+
+### .project/reports/research/polymorphic-system/06-polymorphic-system-analysis.md (970 total lines)
+1: # Polymorphic Systems for N3TX: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+968: ---
+969: 
+970: *Report compiled from 5 research documents totaling 227,000+ characters, 25+ primary sources, and direct codebase analysis of 8 key framework files. Performance numbers are sourced from published benchmarks and should be validated against your specific workload. All codebase references are accurate as of the `profiling` branch, commit 7550aeb.*
+
+### .project/reports/research/rx-as-tx-responses/01-technical-deep-dive.md (949 total lines)
+1: # Reactive Patterns for Actor Message Response Correlation
+2: 
+3: **A Technical Deep Dive: Replacing asyncio.Future with Observable Streams in Actor Systems**
+4: 
+5: *Research Date: 2026-03-04 | Audience: Technical CEOs & Engineering Leadership*
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+947: 31. [Scatter-Gather Enterprise Integration Pattern](https://www.enterpriseintegrationpatterns.com/patterns/messaging/BroadcastAggregate.html) -- Canonical pattern definition
+948: 32. [ReactiveX Retry Operator](https://reactivex.io/documentation/operators/retry.html) -- Retry semantics in Rx
+949: 33. [Backpressure in Reactive Systems (Frankel)](https://blog.frankel.ch/backpressure-reactive-systems/) -- Backpressure fundamentals
+
+### .project/reports/research/rx-as-tx-responses/02-our-stack-relevance.md (806 total lines)
+1: # Rx as TX Responses: Relevance to N3TX's Actor Stack
+2: 
+3: **Research Focus**: How N3TX's current TX/response system compares to reactive observable patterns, and where (if anywhere) Rx would deliver concrete value.
+4: 
+5: **Date**: 2026-03-04 | **Audience**: Technical CEO + Engineering Leadership
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+804: - [Enterprise Integration Patterns: Scatter-Gather](https://www.enterpriseintegrationpatterns.com/patterns/messaging/BroadcastAggregate.html)
+805: - [Red Hat: 5 Things to Know About Reactive Programming](https://developers.redhat.com/blog/2017/06/30/5-things-to-know-about-reactive-programming)
+806: - [Reactive Messaging Patterns with the Actor Model -- InformIT](https://www.informit.com/articles/article.aspx?p=2428369)
+
+### .project/reports/research/schema-agentic-system/01-industry-landscape.md (795 total lines)
+1: # Schema-Driven Agentic Systems: Industry Landscape
+2: 
+3: **Date:** February 2026
+4: **Audience:** Technical CEOs, Engineering Leadership, Product Strategy Teams
+5: **Scope:** AI agent frameworks, tool/schema contracts, inter-agent protocols, enterprise adoption, market dynamics
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+793: ---
+794: 
+795: *This document reflects data available as of February 26, 2026. The agent framework landscape is consolidating rapidly -- key events to watch include Microsoft Agent Framework GA (Q1 2026), Oracle Agent Spec ecosystem growth, A2A protocol maturation beyond v0.3, and the continued MCP adoption curve. All market projections should be treated as directional estimates from their cited sources.*
+
+### .project/reports/research/schema-agentic-system/02-technical-deep-dive.md (1148 total lines)
+1: # Schema-Driven Agentic Systems: Technical Deep Dive
+2: 
+3: **Date:** February 2026
+4: **Audience:** Technical CEOs and Engineering Leadership Teams
+5: **Scope:** Architecture patterns, implementation mechanisms, and technical foundations for building agent systems where declarative schemas define capabilities, behavior, communication, and security at runtime.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+1146: - [A Detailed Comparison of Top 6 AI Agent Frameworks (Turing)](https://www.turing.com/resources/ai-agent-frameworks)
+1147: - [CrewAI vs LangGraph vs AutoGen (DataCamp)](https://www.datacamp.com/tutorial/crewai-vs-langgraph-vs-autogen)
+1148: - [14 AI Agent Frameworks Compared (Softcery)](https://softcery.com/lab/top-14-ai-agent-frameworks-of-2025-a-founders-guide-to-building-smarter-systems)
+
+### .project/reports/research/schema-agentic-system/03-decision-framework.md (880 total lines)
+1: # Decision Framework: When and How to Adopt Schema-Driven Agentic Systems
+2: 
+3: **Date:** February 2026
+4: **Audience:** Technical CEOs, Engineering Leadership, Architecture Teams
+5: **Purpose:** A comprehensive decision guide for evaluating, adopting, or rejecting schema-driven approaches to AI agent systems -- grounded in data, not hype.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+878: framework capabilities, and regulatory requirements should be verified against current sources
+879: before making investment decisions. All cost figures assume US-based deployment with
+880: pay-as-you-go pricing unless otherwise noted.*
+
+### .project/reports/research/schema-agentic-system/04-our-stack-relevance.md (927 total lines)
+1: # Schema-Driven Agentic Systems: Relevance to N3TX
+2: 
+3: **Research Document -- N3TX Stack Analysis**
+4: Date: 2026-02-26 | Audience: Technical CEO + Engineering Team
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: N3TX is a schema-driven framework where **a single Python model definition generates the entire application stack**: database, API, validation, permissions, and frontend rendering. This document performs a deep codebase analysis to answer a specific question: **how do N3TX's existing architectural primitives map to the requirements of schema-driven agentic AI systems, and what would it take to bridge the gap?**
+925: 
+926: ---
+927: 
+
+### .project/reports/research/schema-agentic-system/05-schema-as-agent-protocol.md (1305 total lines)
+1: # Schema as Agent Protocol: The Universal Contract for Agentic Systems
+2: 
+3: > **The core thesis:** What if the same pattern that lets N3TX derive a full-stack
+4: > application from a model definition could derive a full agent system from a schema?
+5: 
+6: ---
+7: 
+8: ## 1. Executive Summary
+9: 
+10: The AI agent ecosystem is converging on a single insight: **declarative schemas
+1303: - [FIPA Agent Communication Language](https://en.wikipedia.org/wiki/Agent_Communications_Language)
+1304: - [Anthropic MCP Donation & Agentic AI Foundation](https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation)
+1305: - [Enterprise MCP Adoption 2026 - CData](https://www.cdata.com/blog/2026-year-enterprise-ready-mcp-adoption)
+
+### .project/reports/research/schema-agentic-system/06-schema-agentic-system-analysis.md (992 total lines)
+1: # Schema-Driven Agentic Systems: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 26, 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+990: ---
+991: 
+992: *This analysis reflects data available as of February 26, 2026. The agent framework landscape is consolidating rapidly. All market projections are directional estimates from cited sources. Pricing and framework capabilities should be verified against current sources before making investment decisions.*
+
+### .project/reports/research/schema-driven-agents/06-schema-driven-agents-analysis.md (902 total lines)
+1: # Schema-Driven Agentic System Architecture: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 26, 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+900: ---
+901: 
+902: *This document reflects data available as of February 26, 2026. The agent framework landscape is consolidating rapidly. All market projections should be treated as directional estimates from their cited sources. Pricing and framework capabilities should be verified against current sources before making investment decisions.*
+
+### .project/reports/research/server-side-rendering/01-industry-landscape.md (627 total lines)
+1: # Server-Side Rendering: Industry Landscape
+2: 
+3: **Research Document for N3TX Strategic Planning**
+4: *Date: February 2026 | Audience: Technical CEO + Engineering Leadership*
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: Server-side rendering is no longer a niche technique -- it is the **default architecture** for production web applications at scale. SSR adoption increased **41% year-over-year** through 2025, and **59% of JavaScript developers** now use SSR in their projects (State of JS 2024). The global web frameworks market, heavily driven by SSR-capable meta-frameworks, reached **$959.67M in 2025** and is projected to hit **$1.92B by 2035** at a 7.2% CAGR.
+625: ---
+626: 
+627: *Document prepared February 2026. Data reflects the state of the SSR landscape as of Q1 2026. Market data, framework download numbers, and satisfaction scores are subject to change. All business outcome figures are as reported by the cited sources and may not be independently verified.*
+
+### .project/reports/research/server-side-rendering/02-technical-deep-dive.md (1496 total lines)
+1: # Server-Side Rendering: Technical Deep Dive
+2: 
+3: **For N3TX -- a schema-driven Python/FastAPI framework with vanilla JS Web Components**
+4: 
+5: *Research date: 2026-02-25 | Author: Claude Opus 4.6 | Target: Technical leadership + engineering teams*
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+1494: ---
+1495: 
+1496: *Document generated 2026-02-25. Performance benchmarks reflect published data from 2024-2026. Specific numbers vary by hardware, network conditions, and application complexity.*
+
+### .project/reports/research/server-side-rendering/03-decision-framework.md (645 total lines)
+1: # SSR Decision Framework for N3TX
+2: 
+3: **A structured guide for deciding when, whether, and how to adopt Server-Side Rendering**
+4: 
+5: | Metadata | |
+6: |---|---|
+7: | **Audience** | Technical CEOs, Engineering Leadership, Senior Engineers |
+8: | **Framework Context** | N3TX -- schema-driven Python/FastAPI + vanilla JS Web Components |
+9: | **Date** | February 2026 |
+10: | **Reading Time** | ~25 minutes |
+643: ---
+644: 
+645: *This document provides a decision framework, not a recommendation to adopt SSR. The correct rendering strategy depends on your specific traffic patterns, SEO requirements, team capabilities, and business model. For most N3TX applications -- particularly internal tools and authenticated SaaS products -- the current CSR architecture is the correct choice, with targeted optimizations (schema pre-loading, HTML shell caching) delivering the best ROI.*
+
+### .project/reports/research/server-side-rendering/04-our-stack-relevance.md (1131 total lines)
+1: # Server-Side Rendering for N3TX: Stack Relevance Analysis
+2: 
+3: **Date:** 2025-02-25
+4: **Scope:** How SSR maps to N3TX's schema-driven architecture
+5: **Audience:** Engineering leadership + technical CEO
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+1129: | **Strategy A** | Schema+Data injection: server embeds JSON in HTML, client renders from local data (no network fetches). |
+1130: | **Strategy B** | Pre-rendered HTML with DSD: server renders full HTML, client hydrates for interactivity. |
+1131: | **Strategy C** | HTMX-enhanced rendering: server returns HTML fragments, HTMX handles partial updates. |
+
+### .project/reports/research/server-side-rendering/05-hydration-strategies.md (1252 total lines)
+1: # Hydration Strategies for Server-Side Rendering
+2: 
+3: **Research Document -- N3TX SSR Analysis, Part 5**
+4: **Date:** 2026-02-25 | **Audience:** Technical CEO + Engineering Leadership
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: Hydration is the process of making server-rendered HTML interactive by attaching
+1250: *Document generated 2026-02-25. Research conducted across 12+ searches spanning
+1251: hydration strategies, Web Component SSR, Declarative Shadow DOM, actor model
+1252: patterns, and performance benchmarking data.*
+
+### .project/reports/research/server-side-rendering/06-ssr-analysis.md (992 total lines)
+1: # 📋 Server-Side Rendering for N3TX: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+990: ---
+991: 
+992: *Report prepared February 2026. Performance benchmarks reflect published data from 2024-2026. Specific numbers vary by hardware, network conditions, and application complexity. All business outcome figures are as reported by cited sources.*

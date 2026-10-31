@@ -1,0 +1,694 @@
+
+### docs/ACTORS.md (812 total lines)
+521: 
+522: ```
+523: Product -> ActorModel -> Actor -> ProtoModel -> PydanticBaseModel
+524: ```
+525: 
+526: ### Handler
+527: 
+528: `ActorModel.handler()` overrides Actor's generic handler with a
+529: two-phase dispatch:
+530: 
+531: 1. **CRUD adapter** (`handler_crud`) -- handles `schema`, `create`,
+532:    `get`, `list`, `update`, `delete` by calling StorableMixin methods.
+533:    Returns `model_response()` for entities, error TX for failures.
+534: 
+535: 2. **Generic fallback** -- anything not in the CRUD set falls through
+536:    to `getattr(target, tx.name)`, same as plain Actor.
+537: 
+538: ### Lifecycle Events
+539: 
+540: After successful create/update/delete, `_publish_lifecycle()` sends a
+541: `LIFECYCLE` TX to registered subscribers (fire-and-forget via
+542: `asyncio.create_task`). Subscribers are future consumers: federation
+543: outbox, agent monitor, audit logger, websocket bridge.
+544: 
+545: ```python
+546: # Internal — published automatically after CRUD ops
+547: TX(name='LIFECYCLE', source='products', target=subscriber_addr,
+548:    data={'event': 'after_create', 'entity': {...}})
+549: ```
+550: 
+551: ---
+552: 
+553: ## NetworkAdapter -- Protocol Bridge
+554: 
+555: ALL external protocol interaction flows through a `NetworkAdapter`.
+556: Each adapter is an Actor registered as a Matrix child that translates
+557: between an external protocol and TX messages.
+558: 
+559: ```
+560: External Protocol  →  NetworkAdapter  →  TX  →  Matrix  →  ActorModel
+561:                   ←                  ←  TX  ←          ←
+562: ```
+563: 
+564: ### Base Class
+565: 
+566: `NetworkAdapter(Actor, auto_register=False)` lives in `api/network_adapter.py`:
+567: 
+568: ```python
+569: from n3tx.core.api.network_adapter import NetworkAdapter
+570: 
+571: class MyAdapter(NetworkAdapter, auto_register=False):
+572:     def __init__(self, **kwargs):
+573:         kwargs.setdefault('addr', 'myadapter')
+574:         super().__init__(**kwargs)
+575: 
+576:     def SOME_MESSAGE(self, data, tx):
+577:         return {'handled': True}
+578: ```
+579: 
+580: Key methods:
+581: 
+582: | Method | Purpose |
+583: |--------|---------|
+584: | `request(tx, timeout)` | Send TX, await single correlated response via asyncio.Future |
+585: | `stream(tx, timeout)` | Send TX, yield multiple correlated chunks via asyncio.Queue |
+586: | `inbox(tx)` | Intercepts correlated replies (Future for request, Queue for stream) |
+587: 
+588: `request()` bridges synchronous protocols (HTTP, JSON-RPC) to the
+589: fire-and-forget actor model. It creates a Future keyed by `tx.uuid`,
+590: sends the TX, and awaits the reply. When the reply arrives at
+591: `inbox()`, its `meta['req']` matches the original uuid, resolving
+592: the Future.
+593: 
+594: `stream()` works like `request()` but for multi-reply interactions.
+595: It creates an `asyncio.Queue` keyed by `tx.uuid`, sends the TX, and
+596: yields chunks as they arrive. The stream terminates when a
+597: `stream_end` or error TX is received. `inbox()` detects whether the
+598: pending entry is a Future or Queue and dispatches accordingly.
+599: 
+600: ### Concrete Adapters
+601: 
+602: | Adapter | Addr | Protocol | Module |
+603: |---------|------|----------|--------|
+604: | `NetworkMCP` | `mcp` | MCP JSON-RPC 2.0 | `api/network_mcp.py` |
+605: | `NetworkAP` | `ap` | ActivityPub | `api/network_ap.py` |
+606: | `NetworkAPI` | `api` | HTTP REST | v0.9 |
+607: | `NetworkWebSocket` | `ws` | WebSocket | v0.8.5 |
+608: | `RemoteMatrix` | `remote` | REST-backed distributed refs | `api/remote_matrix.py` |
+609: 
+610: ### RemoteMatrix Adapter
+611: 
+612: `RemoteMatrix` handles absolute HTTP(S) targets by reusing existing class-name
+613: REST routes. Configured remotes provide tokens and API-prefix disambiguation,
+614: not identity translation:
+615: 
+616: ```python
+617: from n3tx_actors.api.remote_matrix import RemoteMatrix, MatrixReferenceResolver
+618: 
+619: remote = RemoteMatrix(remotes={'storage': {'url': 'http://storage:7100'}})
+620: matrix.register(remote)
+621: matrix.register_adapter(remote)
+622: storage.set_reference_resolver(MatrixReferenceResolver(matrix))
+623: ```
+624: 
+625: | TX | REST call |
+626: |---|---|
+627: | `TX(name='get', target='http://storage:7100/File/12')` | `GET http://storage:7100/File/12` |
+628: | `TX(name='process', target='http://storage:7100/File/12')` | `POST http://storage:7100/File/12/process` |
+629: | `TX(name='generate', target='http://compute:7200/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
+630: 
+631: `RemoteMatrix.stream(tx)` provides distributed streaming for canonical remote
+632: refs. It calls the remote generated SSE route, parses `event: chunk|done|error`
+633: frames into full TX envelopes, and yields chunks until an error TX or
+634: `meta.stream_end` is received. Streaming route resolution is schema-first:
+635: `GET /{ClassName}` supplies `schema.methods[tx.name].route`, so decorator routes
+636: such as `/upload-to-splat` do not need to be guessed from Python method names.
+637: If the schema route cannot be resolved, the adapter falls back to the legacy
+638: `/{ClassName}/{id}/{tx.name}` shape.
+639: 
+640: Remote requests carry backend trust and user continuity through headers:
+641: 
+642: ```text
+643: Authorization: Bearer <remote-or-service-token>
+644: X-N3TX-Service: <local-service-name>
+645: X-N3TX-User: <json-user-context>  # optional
+646: ```
+647: 
+648: The receiving service accepts the request when the bearer token matches its
+649: configured `SERVICE_TOKEN`, then installs forwarded user JSON into
+650: `request.state.user` so generated routes and ActorModel ABAC remain the single
+
+### docs/ACTORS.md (812 total lines)
+651: authorization path. Absolute remote response `$id` values are returned unchanged.
+652: 
+653: For explicit Python calls to a remote model ref, use the model-centric handle:
+654: 
+655: ```python
+656: artifact = Artifact.ref('https://storage.example.com/Artifact/42', matrix=matrix)
+657: result = await artifact.call('process', mode='fast')
+658: ```
+659: 
+660: Internally this returns a `RemoteRef`. `ActorProxy` is different: it wraps a
+661: local object as an actor; `RemoteRef` calls a remote HTTP(S) identity
+662: through Matrix.
+663: 
+664: ### MCP Adapter
+665: 
+666: Discovers registered models, converts schemas to MCP tool specs,
+667: routes tool calls through Matrix:
+668: 
+669: ```python
+670: from n3tx.core.api.network_mcp import NetworkMCP, create_mcp_routes
+671: 
+672: mcp = NetworkMCP()          # addr='mcp' by default
+673: matrix.register(mcp)
+674: 
+675: # tools/list → iterates Matrix children, requests schemas, builds tools
+676: # tools/call → parses tool name (products_create), routes TX to model
+677: # Tool names: {tablename}_{action} (e.g. products_list, products_favorite)
+678: 
+679: app.include_router(create_mcp_routes(mcp))  # POST /mcp, GET /mcp/tools
+680: ```
+681: 
+682: ### AP Adapter
+683: 
+684: Receives lifecycle events from ActorModel, converts to ActivityPub
+685: Activities, handles inbound federation:
+686: 
+687: ```python
+688: from n3tx.core.api.network_ap import NetworkAP, create_federation_routes
+689: 
+690: ap = NetworkAP(base_url='https://example.com')  # addr='ap' by default
+691: matrix.register(ap)
+692: 
+693: # Subscribe federated models to lifecycle events
+694: Product._subscribers.append('ap')
+695: 
+696: # Lifecycle events (after_create/update/delete) → AP Activities in outbox
+697: # Inbound Follow/Unfollow/Create/Update/Delete → TX through Matrix
+698: # WebFinger actor discovery at /.well-known/webfinger
+699: 
+700: app.include_router(create_federation_routes(ap))
+701: ```
+702: 
+703: ### Message Flow: MCP tools/call
+704: 
+705: ```
+706: MCP Client (Claude Desktop, etc.)
+707:     |  POST /mcp  {"method": "tools/call", "params": {"name": "products_create", ...}}
+708:     v
+709: NetworkMCP.handle_jsonrpc()
+710:     |  Parses tool name: "products_create" → addr="products", action="create"
+711:     v
+712: NetworkMCP.request(TX(name='create', source='mcp', target='products', data={...}))
+713:     |  Creates Future keyed by tx.uuid
+714:     |  Sends TX into Matrix
+715:     v
+716: Matrix.inbox(tx)  →  Product.inbox(tx)  →  Product.handler_crud(tx)
+717:     |  StorableMixin.create(data)
+718:     |  Returns model_response() as tx.reply()
+719:     v
+720: Matrix.inbox(reply_tx)  →  NetworkMCP.inbox(reply_tx)
+721:     |  meta['req'] matches pending uuid
+722:     |  Resolves Future with reply_tx
+723:     v
+724: NetworkMCP.handle_tools_call() returns MCP result
+725:     |  JSON-RPC response: {"result": {"content": [{"type": "text", "text": "..."}]}}
+726:     v
+727: MCP Client receives response
+728: ```
+729: 
+730: ---
+731: 
+732: ## File Layout
+733: 
+734: ```
+735: actors/
+736:     __init__.py          Public API: TX, Actor, Matrix, matrix
+737:     actor.py             Actor class, ActorMeta, actormethod, actorproperty
+738:     actor_proxy.py       ActorProxy wrapper, ActorLike Protocol
+739:     matrix.py            Matrix root actor, adapter registry
+740:     tx.py                TX message envelope (dataclass)
+741: 
+742: api/
+743:     network_adapter.py   NetworkAdapter base — request/response correlation
+744:     network_mcp.py       MCP JSON-RPC 2.0 adapter + create_mcp_routes()
+745:     network_ap.py        ActivityPub adapter + create_federation_routes()
+746:     tests/
+747:         test_network_adapter.py   Base class: correlation, timeout, fallthrough (28 tests)
+748:         test_network_mcp.py       MCP: tools, JSON-RPC, CRUD routing (55 tests)
+749:         test_network_ap.py        AP: activities, outbox, WebFinger, inbox (74 tests)
+750: 
+751: models/
+752:     actor_model.py       ActorModel bridge class (Actor + ProtoModel)
+753:     legacy/
+754:         actor_legacy.py  Previous __init_subclass__ implementation (reference)
+755:     tests/
+756:         conftest.py      Fixtures: reset_actor_state, mock_method, make_tx
+757:         test_tx.py       TX creation, reply, error, is_error
+758:         test_actor.py    Unified dispatch, routing, child management
+759:         test_matrix.py   Root routing, adapters, self-send guard
+760:         test_actor_proxy.py   Proxy dispatch, address resolution, ActorLike
+761:         test_integration.py   E2E routing, class/instance coexistence
+762: ```
+763: 
+764: ---
+765: 
+766: ## Testing
+767: 
+768: ```bash
+769: # Run actor tests
+770: cd src/n3tx/core && python3 -m pytest actors/tests/ -v
+771: 
+772: # Run network adapter tests
+773: cd src/n3tx/core && python3 -m pytest api/tests/ -v
+774: 
+775: # Run all framework unit tests (includes actor tests from tests/unit/)
+776: cd src/n3tx/core && python3 -m pytest tests/unit/ -q
+777: ```
+778: 
+779: ### Test Coverage
+780: 
+
+### docs/ACTORS.md (812 total lines)
+781: | Module | Tests | Covers |
+782: |--------|-------|--------|
+783: | `test_tx.py` | 27 | Creation, reply, error, `is_error`, edge cases |
+784: | `test_actor.py` | 62 | Descriptors, init, meta, routing, handler, send, register, spawn |
+785: | `test_matrix.py` | 19 | Init, `has()`, inbox routing, adapters, module-level instance |
+786: | `test_actor_proxy.py` | 22 | Address resolution, dispatch, inbox routing, `ActorLike` |
+787: | `test_integration.py` | 8 | E2E routing, class+instance coexistence, Pydantic compat |
+788: | `test_network_adapter.py` | 28 | Request/response correlation, timeout, handler fallthrough, concurrency |
+789: | `test_network_mcp.py` | 55 | Tool specs, JSON-RPC dispatch, CRUD routing, FastAPI routes |
+790: | `test_network_ap.py` | 74 | Activities, outbox, WebFinger, inbox, follow/unfollow, lifecycle |
+791: 
+792: ### Pydantic Mock Patching
+793: 
+794: Pydantic's `__setattr__` prevents standard mock patching on Actor
+795: instances. Use `object.__setattr__` directly or the `mock_method`
+796: context manager from `conftest.py`:
+797: 
+798: ```python
+799: from n3tx.core.actors.tests.conftest import mock_method
+800: 
+801: async def capture(tx):
+802:     captured.append(tx)
+803: 
+804: with mock_method(actor_instance, 'inbox', capture):
+805:     await actor_instance.inbox(tx)
+806: ```
+807: 
+808: ---
+809: 
+810: ## License
+811: 
+812: MIT
+
+### docs/AGENTS.md (736 total lines)
+1: # N3TX Agents
+2: 
+3: LLM-powered reasoning via the actor system.
+4: 
+5: **A Model is an Agent, an Agent is an Actor, and an Actor is a Tool collection.**
+6: 
+7: Every Actor with `@expose_route` methods is a set of callable tools.
+8: An Agent is an Actor that reasons — it has a prompt, an LLM, and a list
+9: of other actors it can talk to. The union of all `@expose_route` methods
+10: on those actors forms the agent's available tool set.
+11: 
+12: Agents are **data, not code**. The primary pattern is dynamic
+13: instantiation — create agents via API, store them in DB, load them at
+14: runtime. Subclasses are supported but not the primary path.
+15: 
+16: ---
+17: 
+18: ## Quick Start
+19: 
+20: ### Path A: Dynamic Agents (primary)
+21: 
+22: Agents are instances of `AgentActor`. Configuration lives in fields.
+23: 
+24: ```python
+25: from n3tx import AgentActor, create_app
+26: 
+27: # Define tool-providing models (these are NOT agents — they are tools)
+28: class Grant(ActorModel):
+29:     __tablename__ = 'grants'
+30:     __storable__ = True
+31:     title: str
+32:     url: str
+33: 
+34: class WebTools(ActorModel):
+35:     __tablename__ = 'web_tools'
+36:     __storable__ = False
+37: 
+38:     @expose_route('/scrape', methods=['POST'])
+39:     async def scrape(self, url: str) -> dict:
+40:         """Fetch a URL and return its content."""
+41:         ...
+42: 
+43: # Create an agent — in code, via API, or from DB
+44: scanner = AgentActor(
+45:     name="Grant Scanner",
+46:     prompt="You find government grants. List sources, scrape each URL, "
+47:            "create Grant records for new ones.",
+48:     tools=["grants", "web_tools"],
+49:     llm="anthropic:claude-sonnet-4-5-20250929",
+50:     constraints={"max_iterations": 30},
+51: )
+52: 
+53: # Trigger the agent
+54: result = await scanner.run(task="Find grants about renewable energy")
+55: # result is JSON: {"answer": "...", "usage": {...}, "messages": 5}
+56: ```
+57: 
+58: Via API:
+59: 
+60: ```
+61: POST /agents
+62: {"name": "Grant Scanner", "prompt": "...", "tools": ["grants", "web_tools"]}
+63: 
+64: POST /agents/1/run
+65: {"task": "Find grants about renewable energy"}
+66: ```
+67: 
+68: From DB:
+69: 
+70: ```python
+71: scanner = AgentActor.get(1)
+72: result = await scanner.call(task="Find new grants")
+73: ```
+74: 
+75: ### Path B: Agentic Model Methods (secondary)
+76: 
+77: Any `ActorModel` with `__agent__ = True` gets `AgentMixin` injected.
+78: Its methods can call `self.agent_run()` internally — the caller doesn't
+79: know or care that an LLM is involved.
+80: 
+81: ```python
+82: class Product(ActorModel):
+83:     __tablename__ = 'products'
+84:     __storable__ = True
+85:     __agent__ = True          # injects AgentMixin
+86: 
+87:     name: str
+88:     price: float
+89: 
+90:     @expose_route('/create_from_text', methods=['POST'])
+91:     async def create_from_text(self, text: str, tools: list = []) -> str:
+92:         """LLM parses freeform text into a Product."""
+93:         result = await self.agent_run(
+94:             prompt="Parse the text into a Product with name and price. "
+95:                    "Use products_create to save it.",
+96:             tools=["products"] + tools,
+97:             task=text,
+98:         )
+99:         return result['answer']
+100: ```
+101: 
+102: Both paths use the same underlying machinery: `AgentMixin.agent_run()`.
+103: 
+104: ---
+105: 
+106: ## Core Insights
+107: 
+108: ### @expose_route = Tool
+109: 
+110: No new `@tool` decorator. The existing `@expose_route` already provides
+111: everything a tool needs:
+112: 
+113: - **I/O validation** — parameter types from function signatures
+114: - **Auth** — inherits `__access__` from model + per-method `access=`
+115: - **Schema exposure** — appears in `schema.methods`, auto-discovered
+116: - **TX routing** — calls route through Matrix with full interceptor chain
+117: - **Tool spec generation** — schemas carry method signatures with types
+118: 
+119: A "custom tool" like web scraping is just an `@expose_route` method
+120: on a non-storable model:
+121: 
+122: ```python
+123: class WebTools(ActorModel):
+124:     __tablename__ = 'web_tools'
+125:     __storable__ = False
+126: 
+127:     @expose_route('/scrape', methods=['POST'], access=AUTHENTICATED)
+128:     async def scrape(self, url: str) -> dict:
+129:         async with httpx.AsyncClient() as client:
+130:             resp = await client.get(url)
+
+### docs/AGENTS.md (736 total lines)
+131:         return {'url': url, 'html': resp.text[:50000]}
+132: ```
+133: 
+134: ### Pydantic AI Is the Engine
+135: 
+136: N3TX does not build an LLM client, agent loop, or context manager.
+137: [Pydantic AI](https://ai.pydantic.dev/) provides all of that:
+138: 
+139: | Concern | Pydantic AI provides |
+140: |---------|---------------------|
+141: | LLM calls | Multi-provider (Ollama, Anthropic, OpenAI, Google, etc.) |
+142: | Agent loop | ReAct-style tool calling with automatic retries |
+143: | Tool calling | Argument validation + result serialization |
+144: | Structured output | `output_type=` with Pydantic model validation |
+145: | Conversation history | `result.all_messages()` for continuation |
+146: | Usage tracking | `result.usage()` (tokens, requests) |
+147: | Error handling | `ModelRetry`, `UsageLimitExceeded`, retries |
+148: | Safety limits | `UsageLimits(request_limit=, token_limit=)` |
+149: 
+150: N3TX's job is purely the **binding layer**: discover tools from actors,
+151: route tool calls through Matrix as TX, persist agent state, publish
+152: lifecycle events.
+153: 
+154: ### Actors ARE Tools, Agents ARE Actors
+155: 
+156: ```
+157: Actor
+158:   |-- Has @expose_route methods     --> these ARE tools
+159:   |-- Registered with Matrix        --> addressable via TX
+160:   |-- Any actor can be in another agent's tools list
+161: 
+162: ActorModel (Actor + ProtoModel)
+163:   |-- Same as Actor, plus: storage, schema, CRUD
+164:   |-- CRUD operations are themselves tools (list, get, create, update, delete)
+165: 
+166: AgentMixin (injected when __agent__ = True)
+167:   |-- Provides: agent_run(prompt, tools, task)
+168:   |-- Provides: tool discovery from actor addresses
+169:   |-- Makes any ActorModel capable of LLM-powered methods
+170: 
+171: AgentActor (ActorModel + __agent__ = True)
+172:   |-- prompt, tools, llm, constraints are FIELDS (data, not code)
+173:   |-- Instances ARE agents -- created from DB, API, or code
+174:   |-- /run endpoint calls self.agent_run(self.prompt, self.tools, task)
+175: ```
+176: 
+177: ---
+178: 
+179: ## Package Structure
+180: 
+181: ```
+182: src/n3tx/core/agents/
+183:   __init__.py        Re-exports: AgentMixin, AgentActor, AgentDeps, ToolSpec
+184:   mixin.py           AgentMixin: agentic(), run(), Matrix request-response, Pydantic AI binding
+185:   actor.py           AgentActor(ActorModel): the dynamic agent class
+186:   deps.py            AgentDeps dataclass (Pydantic AI RunContext deps)
+187:   tools.py           ToolSpec, discover_tools(), create_tool_function(), make_tool()
+188:   schema_ext.py      @schema_extension for agent metadata in JSON Schema
+189:   tests/
+190:     conftest.py      Fixtures: fresh_matrix, memory_storage, reset_actor_state
+191:     test_mixin.py    12 tests: injection, agent_run, cleanup, tool calling
+192:     test_tools.py    12 tests: discovery, function generation, Pydantic AI wrapper
+193:     test_agent_actor.py  21 tests: class, instances, CRUD, run, schema
+194: ```
+195: 
+196: ---
+197: 
+198: ## Module Reference
+199: 
+200: ### AgentMixin (`mixin.py`)
+201: 
+202: Injected into any model with `__agent__ = True` via `ProtoModel`'s mixin registry.
+203: Same injection pattern as `StorableMixin`:
+204: 
+205: ```python
+206: __storable__ = True  -->  injects StorableMixin  (special-cased in core)
+207: __agent__    = True  -->  injects AgentMixin     (registered by n3tx_agents.__init__)
+208: __ui__       = {...} -->  injects ViewableMixin  (registered by n3tx_ui.__init__)
+209: ```
+210: 
+211: **Import ordering requirement**: `n3tx_agents` (or just `import n3tx_agents`) must
+212: be imported **before** any model with `__agent__ = True` is defined. The mixin
+213: registry is populated at `n3tx_agents` import time. Applications must put
+214: `import n3tx_agents` before their model imports in `main.py`.
+215: 
+216: ```python
+217: # main.py — correct order
+218: import n3tx_agents   # registers AgentMixin in proto_model._mixin_registry
+219: from models import Product  # __agent__ = True fires → AgentMixin injected
+220: 
+221: # main.py — wrong order (AgentMixin silently not injected)
+222: from models import Product  # __agent__ = True fires with empty registry
+223: import n3tx_agents          # too late
+224: ```
+225: 
+226: Provides one method:
+227: 
+228: #### `agent_run(prompt, tools, task, user=None, **kwargs) -> dict`
+229: 
+230: Execute an LLM reasoning loop with Matrix-routed tools.
+231: 
+232: **Args:**
+233: 
+234: | Parameter | Type | Description |
+235: |-----------|------|-------------|
+236: | `prompt` | `str` | System prompt for the LLM |
+237: | `tools` | `list[str]` | Actor addresses whose methods become tools |
+238: | `task` | `str` | The user task / query to execute |
+239: | `user` | `dict` | JWT user dict for auth context (optional) |
+240: | `llm` | `str \| Model` | Override LLM model (kwarg) |
+241: | `constraints` | `dict` | Override constraints (kwarg) |
+242: 
+243: **Returns:**
+244: 
+245: ```python
+246: {
+247:     "answer": "The LLM's final text output",
+248:     "usage": {
+249:         "input_tokens": 1500,
+250:         "output_tokens": 320,
+251:         "requests": 3
+252:     },
+253:     "messages": 7
+254: }
+255: ```
+256: 
+257: **Internals:**
+258: 
+259: Each call to `run()`:
+260: 
+
+### docs/AGENTS.md (736 total lines)
+261: 1. Resolves LLM from 3-tier cascade (kwargs > model config > AGENT_DEFAULTS)
+262: 2. Reads thread history via `Actor.root().request()` (if `thread_id` provided)
+263: 3. Calls `discover_tools(tools, root)` to build `ToolSpec` list
+264: 4. Creates a `pydantic_ai.Agent` with the discovered tools
+265: 5. Runs the Pydantic AI agent loop (`ai_agent.run(task, deps=...)`)
+266: 6. Updates thread with conversation messages (if `thread_id` provided)
+267: 
+268: Tool calls and thread operations route through `Actor.root()` correlation
+269: helpers — no transient adapters needed. Non-stream calls use
+270: `Actor.root().request()` with asyncio Futures keyed by TX uuid; streaming
+271: tool calls use `Actor.root().stream()` with queues and are collapsed
+272: server-side into a single final tool result for the LLM.
+273: 
+274: `Thread` is registered automatically during app bootstrap whenever any
+275: agent-enabled model is present, so applications do not need to include it in
+276: their model list. When custom routes inject a full user model into agent calls,
+277: the agent thread helpers normalize it to JWT-shaped metadata before dispatching
+278: Thread CRUD messages through the actor root.
+279: 
+280: ---
+281: 
+282: ### AgentActor (`actor.py`)
+283: 
+284: A concrete `ActorModel` whose instances ARE agents. Extends `ActorModel`
+285: with `__agent__ = True`, so `AgentMixin` is injected automatically.
+286: 
+287: #### Fields
+288: 
+289: | Field | Type | Default | Description |
+290: |-------|------|---------|-------------|
+291: | `name` | `str` | (required) | Human-readable agent name |
+292: | `prompt` | `str` | `''` | System prompt for the LLM |
+293: | `tools` | `list` | `[]` | Actor addresses for tool discovery |
+294: | `llm` | `str` | `'ollama:llama3.1'` | Pydantic AI `provider:model` string |
+295: | `constraints` | `dict` | `{}` | Budget/safety limits |
+296: 
+297: #### LLM Provider Strings
+298: 
+299: The `llm` field accepts any [Pydantic AI model string](https://ai.pydantic.dev/models/):
+300: 
+301: ```
+302: ollama:llama3.1                       # Local Ollama
+303: anthropic:claude-sonnet-4-5-20250929           # Anthropic
+304: openai:gpt-4o                         # OpenAI
+305: google-gla:gemini-2.0-flash           # Google
+306: ```
+307: 
+308: #### Constraints
+309: 
+310: The `constraints` dict controls safety limits:
+311: 
+312: ```python
+313: {
+314:     "max_iterations": 30,    # Max LLM round-trips (maps to UsageLimits.request_limit)
+315: }
+316: ```
+317: 
+318: #### Storage
+319: 
+320: `tools` (list) and `constraints` (dict) are stored as JSON TEXT in SQLite.
+321: Serialization is handled automatically:
+322: 
+323: - `_storage_dict()` serializes `list`/`dict` fields to JSON strings on write
+324: - `@model_validator(mode='before')` deserializes JSON strings back on read
+325: 
+326: #### Endpoint
+327: 
+328: `POST /{tablename}/{id}/run`
+329: 
+330: ```json
+331: {"task": "Find grants about renewable energy"}
+332: ```
+333: 
+334: Returns JSON:
+335: 
+336: ```json
+337: {
+338:     "answer": "I found 3 new grants...",
+339:     "usage": {"input_tokens": 2100, "output_tokens": 450, "requests": 5},
+340:     "messages": 11
+341: }
+342: ```
+343: 
+344: ---
+345: 
+346: ### Tool Discovery (`tools.py`)
+347: 
+348: Discovers tools from actor addresses by reading their schemas.
+349: 
+350: #### `discover_tools(actor_addrs, root) -> list[ToolSpec]`
+351: 
+352: For each address in `actor_addrs`:
+353: 
+354: 1. Looks up the actor in Matrix children
+355: 2. Gets the model class and calls `cls.schema()`
+356: 3. If the model is **storable**: generates CRUD tool specs (`list`, `get`, `create`, `update`, `delete`)
+357: 4. For all `@expose_route` methods in `schema.methods`: generates method tool specs
+358: 
+359: **Tool naming convention:** `{tablename}_{method}` (e.g., `grants_create`, `web_tools_scrape`).
+360: 
+361: **CRUD tools** for storable models:
+362: 
+363: | Tool | Description | Required params |
+364: |------|-------------|-----------------|
+365: | `{t}_list` | List records | (none, optional `limit`/`offset`) |
+366: | `{t}_get` | Get by ID | `id` |
+367: | `{t}_create` | Create record | writable fields |
+368: | `{t}_update` | Update record | `id` + writable fields |
+369: | `{t}_delete` | Delete by ID | `id` |
+370: 
+371: **Method tools** from `@expose_route`:
+372: 
+373: - Parameters come from `schema.methods[name].parameters`
+374: - The `user` parameter is filtered out (injected server-side)
+375: - Instance methods automatically get an `id` parameter prepended
+376: 
+377: #### `ToolSpec`
+378: 
+379: ```python
+380: @dataclass
+381: class ToolSpec:
+382:     actor_addr: str     # Target actor address (e.g., 'grants')
+383:     method_name: str    # Method/action name (e.g., 'create')
+384:     tool_name: str      # LLM-facing name (e.g., 'grants_create')
+385:     description: str    # Human-readable description
+386:     parameters: dict    # JSON Schema for parameters
+387: ```
+388: 
+389: #### `create_tool_function(spec) -> async function`
+390: 

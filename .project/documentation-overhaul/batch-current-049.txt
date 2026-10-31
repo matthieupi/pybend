@@ -1,0 +1,660 @@
+
+### tests/frontend/README.md (967 total lines)
+1: # N3TXTX Framework — Quickstart & Developer Guide
+2: 
+3: > **Build schema-driven UIs with zero boilerplate.**
+4: > Drop a `<ntx-list>` tag, point it at a model, and the framework handles
+5: > schema discovery, data fetching, rendering, and CRUD — all via actors.
+6: 
+7: ---
+8: 
+9: ## TL;DR — From Zero to Rendered List
+10: 
+11: ```html
+12: <ntx-list model="Product"></ntx-list>
+13: 
+14: <script type="module">
+15:     import { Matrix, matrix } from './core/Matrix.js';
+16:     import { N3TX } from './core/N3TX.js';
+17:     import { config } from './config.js';
+18:     import './components/ntx-item.js';
+19:     import './components/ntx-list.js';
+20: </script>
+21: ```
+22: 
+23: That's it. The list auto-discovers the schema, fetches records, and renders
+24: editable cards. **Everything below explains _why_ that works.**
+25: 
+26: ---
+27: 
+28: ## Table of Contents
+29: 
+30: 1. [Mental Model — The Big Picture](#1-mental-model--the-big-picture)
+31: 2. [Setup](#2-setup)
+32: 3. [Your First Page](#3-your-first-page)
+33: 4. [Core Concepts](#4-core-concepts)
+34: 5. [The Actor System — How Messages Flow](#5-the-actor-system--how-messages-flow)
+35: 6. [Dataflow — Render Lifecycle (Step by Step)](#6-dataflow--render-lifecycle-step-by-step)
+36: 7. [CRUD Operations](#7-crud-operations)
+37: 8. [Local Relationship Hydration — Collection Fields as Objects](#8-local-relationship-hydration--collection-fields-as-objects)
+38: 9. [Web Components API](#9-web-components-api)
+39: 10. [Custom Methods](#10-custom-methods)
+40: 11. [Building a Complete App](#11-building-a-complete-app)
+41: 12. [Message Protocol Cheat Sheet](#12-message-protocol-cheat-sheet)
+42: 13. [Configuration Reference](#13-configuration-reference)
+43: 14. [Troubleshooting](#14-troubleshooting)
+44: 
+45: ---
+46: 
+47: ## 1. Mental Model — The Big Picture
+48: 
+49: N3TXTX is an **actor-based** frontend runtime. Think of it as a post office
+50: inside the browser: every piece of data, every UI component, and the network
+51: layer are all **actors** with mailboxes. They communicate by sending
+52: **TX messages** through a central router called the **Matrix**.
+53: 
+54: ```
+55: +-------------------------------------------------------------------+
+56: |                        BROWSER                                     |
+57: |                                                                    |
+58: |   +-----------+     TX Messages     +-----------------------+      |
+59: |   |   UI      | <=================> |      MATRIX           |      |
+60: |   |  Layer    |   (ATTACH, UPDATE,  |   (Root Actor /       |      |
+61: |   |           |    DESCRIBE, ...)   |    Message Router)     |      |
+62: |   | <ntx-list |                     |                       |      |
+63: |   | <ntx-item |                     |   children:           |      |
+64: |   +-----------+                     |   +- N3TX (registry)   |      |
+65: |                                     |   +- Product (DynClass)|     |
+66: |                                     |   +- Component (UI)   |      |
+67: |                                     |   +- ...              |      |
+68: |                                     +----------+------------+      |
+69: |                                                |                   |
+70: |                                     +----------v-----------+       |
+71: |                                     | NetworkAdapter       |       |
+72: |                                     | (HTTP / WebSocket)   |       |
+73: |                                     +----------+-----------+       |
+74: +------------------------------------+-----------+-------------------+
+75:                                      |  fetch() / WS
+76:                                      +----------v-----------+
+77:                                      |   N3TX Backend     |
+78:                                      |   (FastAPI)          |
+79:                                      |                      |
+80:                                      |  GET /Product        | -> JSON Schema
+81:                                      |  GET /products       | -> [{...}, ...]
+82:                                      |  PUT /products/1     | -> Updated record
+83:                                      +----------------------+
+84: ```
+85: 
+86: ### Key Insight: Components Never Talk to the Network Directly
+87: 
+88: A `<ntx-item>` doesn't call `fetch()`. It sends a TX message to its N3TX actor,
+89: which routes through the Matrix, hits the NetworkAdapter, and the response
+90: flows back the same way. This decouples UI from transport entirely.
+91: 
+92: ---
+93: 
+94: ## 2. Setup
+95: 
+96: ### 2.1 Backend
+97: 
+98: You need a N3TX backend running. The default port is `5000`:
+99: 
+100: ```bash
+101: cd your-project/
+102: python3 main.py          # Starts FastAPI on http://localhost:5000
+103: ```
+104: 
+105: The backend auto-generates endpoints from your Pydantic models:
+106: 
+107: | Endpoint | Purpose |
+108: |----------|---------|
+109: | `GET /ModelName` | Returns JSON schema for the model |
+110: | `GET /tablename` | Lists all records |
+111: | `GET /tablename/:id` | Gets a single record |
+112: | `POST /tablename` | Creates a record |
+113: | `PUT /tablename/:id` | Updates a record |
+114: | `DELETE /tablename/:id` | Deletes a record |
+115: | `POST /tablename/:id/method` | Custom method (toggle, comment, reply, etc.) |
+116: 
+117: > **Convention:** `/Product` (PascalCase) = schema. `/products` (lowercase plural from `__tablename__`) = CRUD.
+118: 
+119: ### 2.2 Frontend Config
+120: 
+121: Edit `config.js` to point at your backend:
+122: 
+123: ```js
+124: export const config = {
+125:     API_URL: 'http://localhost:5000',   // Backend base URL
+126:     WS_URL:  'ws://localhost:8765',     // WebSocket (if using WS transport)
+127:     LOGGING: 3,                         // 0=off, 1=errors, 2=warnings, 3=verbose
+128:     DEBUG:   true,                      // Enable debug output
+129:     // ...
+130: };
+
+### tests/frontend/README.md (967 total lines)
+131: ```
+132: 
+133: ### 2.3 Required Imports
+134: 
+135: Every N3TXTX page needs these module imports:
+136: 
+137: ```js
+138: import { Matrix, matrix } from './core/Matrix.js';  // Root actor (auto-initializes)
+139: import { N3TX }            from './core/N3TX.js';      // Type registry + entity classes
+140: import { config }         from './config.js';         // Configuration
+141: import './components/ntx-item.js';                    // <ntx-item> web component
+142: import './components/ntx-list.js';                    // <ntx-list> web component
+143: ```
+144: 
+145: > **Order matters.** Matrix must be imported first — it creates the singleton
+146: > root actor that all other actors register into.
+147: 
+148: ---
+149: 
+150: ## 3. Your First Page
+151: 
+152: ```html
+153: <!DOCTYPE html>
+154: <html lang="en">
+155: <head>
+156:     <meta charset="UTF-8">
+157:     <title>My N3TXTX App</title>
+158:     <link rel="stylesheet" href="./dark-theme.css">
+159:     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+160: </head>
+161: <body>
+162: 
+163:     <h1>Products</h1>
+164:     <ntx-list model="Product"></ntx-list>
+165: 
+166:     <h1>Users</h1>
+167:     <ntx-list model="User"></ntx-list>
+168: 
+169:     <script type="module">
+170:         import { Matrix, matrix } from './core/Matrix.js';
+171:         import { N3TX }            from './core/N3TX.js';
+172:         import { config }         from './config.js';
+173:         import './components/ntx-item.js';
+174:         import './components/ntx-list.js';
+175:     </script>
+176: 
+177: </body>
+178: </html>
+179: ```
+180: 
+181: Each `<ntx-list>` independently:
+182: 1. Asks the backend for the model's JSON schema
+183: 2. Discovers the CRUD endpoint from `__tablename__`
+184: 3. Fetches all records
+185: 4. Renders editable `<ntx-item>` cards in a grid
+186: 
+187: ---
+188: 
+189: ## 4. Core Concepts
+190: 
+191: ### The Four Pillars
+192: 
+193: ```
+194: +---------+    +-----------+    +---------+    +-------------+
+195: |  Matrix  |    |    N3TX    |    |   TX    |    |  Component  |
+196: |          |    |           |    |         |    |             |
+197: |  Root    |    | Registry  |    | Message |    | Web Comp.   |
+198: |  Actor   |    | + Entity  |    |Envelope |    | = Actor     |
+199: |  Router  |    | Base      |    |         |    |             |
+200: |          |    |           |    |         |    |             |
+201: +---------+    +-----------+    +---------+    +-------------+
+202: ```
+203: 
+204: | Concept | What it is | Analogy |
+205: |---------|-----------|---------|
+206: | **Matrix** | Singleton root actor. Routes every TX message to the right place, or sends it to the backend. | The post office |
+207: | **N3TX** | Named Transfer Type. Static level: type registry + universal ATTACH router. Instance level: per-entity data with `href` pointing at its backend URL. | A registry + data holder |
+208: | **DynClass** | DynamicClass. One per model (e.g., `Product`). Runtime-generated N3TX subclass. Holds the JSON schema, manages entity instances, handles CRUD. Born complete — never half-initialized. | A typed class factory |
+209: | **TX** | Transaction message. `{name, source, target, data, meta}`. Every interaction is a TX. | A letter in an envelope |
+210: | **Component** | Web component base class that is also an Actor. Has `send()` and `inbox()`. | A mailbox-enabled HTML element |
+211: 
+212: ### Actor Hierarchy
+213: 
+214: ```
+215: Matrix (root)
+216:  +-- N3TX (class — type registry)
+217:  +-- Product (DynClass — runtime-generated)
+218:  |    +-- 1 (N3TX instance — Product/1)
+219:  |    +-- 2 (N3TX instance — Product/2)
+220:  |    +-- ...
+221:  +-- User (DynClass)
+222:  |    +-- ...
+223:  +-- Component (class)
+224:  |    +-- List-abc123 (instance)
+225:  |    +-- Item-def456 (instance)
+226:  |    +-- ...
+227:  +-- TT (class)
+228: ```
+229: 
+230: Every actor has:
+231: - An **address** (`addr`) — e.g., `"Product"`, `"Product/1"`, `"Item-abc123"`
+232: - An **inbox** — receives TX messages, dispatches to `this[tx.name](tx.data, tx)`
+233: - A **send** method — routes TX to target (local child, or bubble to Matrix)
+234: - **Children** — a map of child actors
+235: 
+236: ### Address Resolution
+237: 
+238: TX messages route through the tree using `/`-separated addresses:
+239: 
+240: ```
+241: Target: "Product/1"
+242: 
+243: Matrix receives TX
+244:   +-- "Product" in children? YES -> DynClass "Product"
+245:   |     +-- "1" in children? YES -> N3TX instance
+246:   |     |     +-- Delivered to N3TX inbox
+247: ```
+248: 
+249: If the target is a URL (e.g., `http://localhost:5000/products`), Matrix
+250: can't resolve it locally -> forwards to `NetworkAdapter.send()` -> HTTP request.
+251: 
+252: ---
+253: 
+254: ## 5. The Actor System — How Messages Flow
+255: 
+256: ### Sending a Message
+257: 
+258: ```js
+259: // From any actor (component, N3TX, DynClass...):
+260: this.send(new TX({
+
+### tests/frontend/README.md (967 total lines)
+261:     name:   'UPDATE',           // Method to invoke on the target
+262:     source: this.addr,          // Sender's address
+263:     target: 'Product/1',       // Recipient's address
+264:     data:   { price: 29.99 }   // Payload
+265: }));
+266: ```
+267: 
+268: ### Routing Algorithm
+269: 
+270: ```
+271: Actor.send(tx)
+272:   |
+273:   +-- Is target a direct child?
+274:   |     YES -> child.inbox(tx)
+275:   |
+276:   +-- Does target start with my addr?
+277:   |     YES -> strip prefix, route to children
+278:   |
+279:   +-- Neither?
+280:         -> Prefix source with my addr
+281:         -> Bubble up to Matrix.inbox(tx)
+282:               |
+283:               +-- Is first segment of target in Matrix children?
+284:               |     YES -> forward to that class/DynClass
+285:               |
+286:               +-- Unknown target?
+287:                     -> NetworkAdapter.send(tx) -> HTTP/WS
+288: ```
+289: 
+290: ### Receiving a Message
+291: 
+292: When a TX arrives at an actor's inbox:
+293: 
+294: ```js
+295: // Actor._inbox dispatches by event name:
+296: this[tx.name](tx.data, tx)
+297: 
+298: // Example: N3TX instance receives UPDATE
+299: // -> calls this.UPDATE(data, event)
+300: ```
+301: 
+302: **Convention:** Handler names are UPPERCASE and match the TX `name` field exactly.
+303: 
+304: ---
+305: 
+306: ## 6. Dataflow — Render Lifecycle (Step by Step)
+307: 
+308: This is the complete flow when `<ntx-list model="Product">` appears on a page.
+309: Follow each step — this is how the framework wires everything together.
+310: 
+311: ```
+312:   BROWSER                                           BACKEND
+313:   =======                                           =======
+314: 
+315:   +----------------------+
+316:   | <ntx-list model=     |
+317:   |   "Product">         |
+318:   |                      |
+319:   | 1. constructor()     |
+320:   |   registers in Matrix|
+321:   |                      |
+322:   | 2. attributeChanged  |
+323:   |   model="Product"    |
+324:   +----------+-----------+
+325:              |
+326:              |  TX { ATTACH, src: List-xxx, target: N3TX, data: "Product" }
+327:              v
+328:   +----------------------+
+329:   | N3TX (static class)   |
+330:   |                      |
+331:   | 3. N3TX.ATTACH()      |
+332:   |   "Product" not in   |
+333:   |   #prototypes ->     |
+334:   |   null pointer       |
+335:   |   bootstrap:         |
+336:   |   set null, queue TX |
+337:   |                      |
+338:   | 4. Dispatch SCHEMA   |
+339:   +----------+-----------+
+340:              |
+341:              |  TX { SCHEMA, src: N3TX, target: http://.../Product }
+342:              |  (target is a URL -> Matrix can't resolve -> NetworkAdapter)
+343:              v
+344:   +----------------------+        GET /Product
+345:   | NetworkAdapter       | --------------------------->  +--------------+
+346:   |                      |                               | Returns JSON |
+347:   | 5. HTTP GET          | <---------------------------  | Schema       |
+348:   |                      |        { properties:          | { __name__:  |
+349:   | 6. httpCallback()    |          { name: {type:       |   "Product", |
+350:   |   swaps src/target   |            "string"}, ...     |  __tablename_|
+351:   |   name stays SCHEMA  |          }                    |  : "products"|
+352:   +----------+-----------+        }                      +--------------+
+353:              |
+354:              |  TX { SCHEMA, src: http://.../Product, target: N3TX }
+355:              v
+356:   +----------------------+
+357:   | N3TX.SCHEMA(data)     |
+358:   |                      |
+359:   | 7. prototype() creates DynClass "Product"
+360:   |   - Stores in #prototypes
+361:   |   - Registers $defs as additional DynClasses
+362:   |   - Replays queued TXs (the original ATTACH)
+363:   |   - DynClass.call('READ') triggers data fetch
+364:   +----------+-----------+
+365:              |
+366:              | DynClass receives replayed ATTACH -> adds List as watcher
+367:              |
+368:              | DynClass.call('READ'):
+369:              |  TX { READ, src: Product, target: http://.../products }
+370:              v
+371:   +----------------------+        GET /products
+372:   | NetworkAdapter       | --------------------------->  +--------------+
+373:   |                      |                               | Returns      |
+374:   | 8. HTTP GET          | <---------------------------  | [{id:1,      |
+375:   |                      |                               |   name:"KB"},|
+376:   | 9. httpCallback()    |                               |  {id:2, ...}]|
+377:   +----------+-----------+                               +--------------+
+378:              |
+379:              |  TX { READ, src: http://.../products, target: Product }
+380:              v
+381:   +----------------------+
+382:   | DynClass.READ(data)  |
+383:   |                      |
+384:   | 10. For each record: |
+385:   |   new Product(item)  |  <- DynClass instances
+386:   |   stored in          |
+387:   |   DynClass.instances |
+388:   |                      |
+389:   | 11. notify() ->      |
+390:   |   sends UPDATE to    |
+
+### tests/frontend/README.md (967 total lines)
+391:   |   all watchers       |
+392:   +----------+-----------+
+393:              |
+394:              |  TX { UPDATE, src: Product, target: List-xxx,
+395:              |       data: ["Product/1", "Product/2", ...] }
+396:              v
+397:   +----------------------+
+398:   | List.UPDATE(data)    |
+399:   |                      |
+400:   | 12. this.value = addrs|
+401:   |    this.render()     |
+402:   |                      |
+403:   | For each address:    |     For each <ntx-item>:
+404:   |  createElement       |     +----------------------+
+405:   |  ('ntx-item')        |     | 13. Item.ref setter  |
+406:   |  el.ref = addr  -----+---->|                      |
+407:   |                      |     | TX { ATTACH, src:     |
+408:   +----------------------+     |   Item-yyy, target:   |
+409:                                |   N3TX, data:          |
+410:                                |   "Product/1" }       |
+411:                                +----------+------------+
+412:                                           |
+413:                                           v
+414:                                +----------------------+
+415:                                | N3TX.ATTACH ->        |
+416:                                | DynClass.ATTACH ->   |
+417:                                | N3TX instance         |
+418:                                | "Product/1"          |
+419:                                |                      |
+420:                                | 14. N3TX.ATTACH()     |
+421:                                |   watch(Item-yyy)    |
+422:                                |   sends DESCRIBE back|
+423:                                +----------+-----------+
+424:                                           |
+425:                                           |  TX { DESCRIBE, data: {
+426:                                           |    proto: schema,
+427:                                           |    data: { id:1, name:"KB", ... }
+428:                                           |  }}
+429:                                           v
+430:                                +----------------------+
+431:                                | Item.DESCRIBE(data)   |
+432:                                |                       |
+433:                                | 15. this.schema = proto|
+434:                                |    this.value = data  |
+435:                                |    this.render()      |
+436:                                |                       |
+437:                                | -> Formidable generates|
+438:                                |   HTML form from      |
+439:                                |   schema + values     |
+440:                                +-----------------------+
+441:                                           |
+442:                                           v
+443:                                +-----------------------+
+444:                                |  Rendered Card         |
+445:                                |  +-----------------+  |
+446:                                |  | Keyboard         |  |
+447:                                |  | Price: $49.99   |  |
+448:                                |  | In stock: true  |  |
+449:                                |  +-----------------+  |
+450:                                +-----------------------+
+451: ```
+452: 
+453: ### Summary of Steps
+454: 
+455: | # | What happens | TX name | Direction |
+456: |---|-------------|---------|-----------|
+457: | 1-2 | List registers, triggers model lookup | `ATTACH` | List -> N3TX |
+458: | 3-4 | Null pointer bootstrap, schema request | `SCHEMA` | N3TX -> Backend |
+459: | 5-6 | HTTP GET, response routed back | `SCHEMA` | Backend -> N3TX |
+460: | 7 | DynClass created, queue replayed, READ triggered | (internal) | — |
+461: | 8-9 | HTTP GET records, response routed back | `READ` | Backend -> DynClass |
+462: | 10-11 | N3TX instances created, watchers notified | `UPDATE` | DynClass -> List |
+463: | 12 | List renders `<ntx-item>` elements | (DOM) | — |
+464: | 13 | Items send ATTACH through N3TX | `ATTACH` | Item -> N3TX -> DynClass -> instance |
+465: | 14 | N3TX responds with DESCRIBE | `DESCRIBE` | N3TX -> Item |
+466: | 15 | Item renders form from schema + data | (DOM) | — |
+467: 
+468: ---
+469: 
+470: ## 7. CRUD Operations
+471: 
+472: ### Read (List)
+473: 
+474: Automatic when using `<ntx-list>`. Or manually:
+475: 
+476: ```js
+477: N3TX.attach('Product', (dynClass) => {
+478:     // DynClass is ready (schema loaded, initial READ done)
+479:     console.log('Schema:', dynClass.schema);
+480:     console.log('Instances:', dynClass.instances);
+481: });
+482: ```
+483: 
+484: ### Read (Single)
+485: 
+486: ```html
+487: <ntx-item ref="Product/4"></ntx-item>
+488: ```
+489: 
+490: The item ATTACHes to `Product/4`, receives DESCRIBE with the entity data.
+491: 
+492: ### Create
+493: 
+494: ```js
+495: // Get the DynClass for a model, then call CREATE
+496: const Product = N3TX.get('Product');
+497: Product.call('CREATE', {
+498:     name: 'New Widget',
+499:     price: 19.99,
+500:     description: 'A shiny new widget'
+501: });
+502: ```
+503: 
+504: This sends: `TX { CREATE, target: http://.../products, data: {...} }`
+505: -> HTTP POST -> Backend creates record.
+506: 
+507: ### Update
+508: 
+509: When a user edits an `<ntx-item>` and clicks save:
+510: 
+511: ```
+512: Item.save()
+513:   -> TX { UPDATE, src: Item-xxx, target: N3TX, data: "Product/1" }
+514:   -> Routes to N3TX instance "Product/1"
+515:   -> N3TX.UPDATE(): optimistically updates local data, forwards to backend
+516:   -> TX { UPDATE, target: http://.../products/1, data: {...} }
+517:   -> HTTP PUT /products/1
+518: ```
+519: 
+520: ### Delete
+
+### tests/frontend/README.md (967 total lines)
+521: 
+522: ```js
+523: // Get an entity instance and call DELETE
+524: const product = N3TX.get('Product/1');
+525: product.call('DELETE', {});
+526: // -> HTTP DELETE /products/1
+527: ```
+528: 
+529: ### How TX Names Map to HTTP Methods
+530: 
+531: | TX `name` | HTTP Method | URL Pattern |
+532: |-----------|-------------|-------------|
+533: | `SCHEMA` | GET | `{API_URL}/ModelName` |
+534: | `READ` | GET | `{API_URL}/tablename` |
+535: | `CREATE` | POST | `{API_URL}/tablename` |
+536: | `UPDATE` | PUT | `{API_URL}/tablename/id` |
+537: | `DELETE` | DELETE | `{API_URL}/tablename/id` |
+538: | `(custom)` | POST | `{API_URL}/tablename/id/methodname` |
+539: | `_response_` | (internal) | Auto-pulls entity after method call |
+540: 
+541: ---
+542: 
+543: ## 8. Local Relationship Hydration — Collection Fields as Objects
+544: 
+545: When a model has a local owned collection field (for example
+546: `Product.comments: list[Comment]`), SQLite stores an ordered JSON array of child
+547: ids on the parent row. On read, the backend hydrates those ids into
+548: self-describing child objects. The frontend can render the relationship directly
+549: while each child still carries its own flat class-name identity URL.
+550: 
+551: ### What the Data Looks Like
+552: 
+553: ```json
+554: {
+555:   "id": 1,
+556:   "name": "Keyboard",
+557:   "price": 49.99,
+558:   "comments": [
+559:     {
+560:       "$schema": "http://localhost:5000/Comment",
+561:       "$id": "http://localhost:5000/Comment/1",
+562:       "id": 1,
+563:       "name": "Great!",
+564:       "description": "Love it"
+565:     },
+566:     {
+567:       "$schema": "http://localhost:5000/Comment",
+568:       "$id": "http://localhost:5000/Comment/2",
+569:       "id": 2,
+570:       "name": "Useful",
+571:       "description": "Bought one too"
+572:     }
+573:   ]
+574: }
+575: ```
+576: 
+577: Each child object has the same identity shape as a top-level entity:
+578: 
+579: ```
+580: {API_URL}/{ChildClassName}/{child_id}
+581: ```
+582: 
+583: | Segment | Source | Example |
+584: |---------|--------|---------|
+585: | `API_URL` | `config.API_URL` | `http://localhost:5000` |
+586: | `ChildClassName` | Child model class name | `Comment` |
+587: | `child_id` | Child record ID | `2` |
+588: 
+589: ### Resolving Child Objects
+590: 
+591: Each child's `$id` is a standard class-name URL. Fetching it returns the full
+592: child object:
+593: 
+594: ```
+595: GET /Comment/1
+596: -> { "$schema": "http://localhost:5000/Comment", "$id": "http://localhost:5000/Comment/1", "id": 1, "name": "Great!" }
+597: ```
+598: 
+599: No generated nested routes are needed. Relationship ownership is represented by
+600: the model field and storage contract, not by a parent-scoped URL segment.
+601: 
+602: ### Why Hydrated Objects
+603: 
+604: - **Schema-driven rendering** — relationship values already include `$schema` and `$id` metadata.
+605: - **Flat identity** — every entity resolves through `/{ClassName}/{id}` regardless of where it appears.
+606: - **Simpler storage** — owned local collection order is the parent row's JSON id array.
+607: - **Model-first behavior** — app-specific append/toggle rules live in `@expose_route` methods.
+608: 
+609: ### Backend Type: `list[T]`
+610: 
+611: On the backend, local owned collection fields use normal Python list typing:
+612: 
+613: ```python
+614: class Product(ProtoModel):
+615:     comments: list[Comment] = Field(default=[])
+616: ```
+617: 
+618: `list[T]` stores local child ids in SQLite and hydrates them into `T` instances
+619: when the parent is read. Use `list[Ref[T]]` instead when the field is a pointer
+620: array that may include distributed references.
+621: 
+622: ### Schema Representation
+623: 
+624: The JSON schema for a local `list[T]` field is an array of the child schema:
+625: 
+626: ```json
+627: {
+628:   "comments": {
+629:     "type": "array",
+630:     "items": { "$ref": "#/$defs/Comment" }
+631:   }
+632: }
+633: ```
+634: 
+635: This tells the frontend that `comments` values are child objects. The backend
+636: keeps those objects self-describing in API responses.
+637: 
+638: ---
+639: 
+640: ## 9. Web Components API
+641: 
+642: ### `<ntx-list>`
+643: 
+644: Renders all records for a model as a grid of `<ntx-item>` cards.
+645: 
+646: ```html
+647: <ntx-list model="Product"></ntx-list>
+648: ```
+649: 
+650: | Attribute | Required | Description |

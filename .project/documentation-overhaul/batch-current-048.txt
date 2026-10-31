@@ -1,0 +1,458 @@
+
+### tests/LATEST.md (248 total lines)
+1: # Test Audit Reports
+2: 
+3: Updated on 2026-04-24 from the latest full multi-suite test audit.
+4: 
+5: ## Current snapshot
+6: 
+7: | Metric | Before | Now |
+8: |---|---:|---:|
+9: | `P0–P2` tracked phases resolved | 0 / 3 | 3 / 3 |
+10: | P0 tracked boundary tests passing | 24 / 37 | 37 / 37 |
+11: | P1 tracked boundary tests passing | red contract boundary | 48 / 48 |
+12: | P2 tracked runtime boundary tests passing | red runtime boundary | 130 / 130 |
+13: 
+14: Quick take:
+15: 
+16: - **P0 resolved** — grants users/auth actor-routing storage regression fixed
+17: - **P1 resolved** — transport tests/docs aligned to the TX-native Socket contract
+18: - **P2 resolved (tracked scope)** — core NTT/DynamicClass runtime boundary suites now green
+19: - **Next biggest remaining clusters** — agent `threads` routing/bootstrap, method-response contract drift, Formidable/UI drift
+20: 
+21: ## Starting state
+22: 
+23: This README originally reflected the **2026-04-24 baseline audit** before the tracked `P0–P2` recovery work landed.
+24: 
+25: - `P0–P2` tracked phases resolved: **0 / 3**
+26: - grants users/auth actor-routing storage was still a live blocker
+27: - frontend transport contract tests were still red
+28: - NTT/DynamicClass runtime boundary suites were still red
+29: 
+30: ## Overall state
+31: 
+32: | Metric | Starting state | Current full rerun | Latest full rerun | Post P4-P5 rerun | After P5 / latest |
+33: |---|---:|---:|---:|---:|---:|
+34: | Total collected | 4761 | 4708 | 4740 | 4739 | — |
+35: | Passed | 4397 | 4459 | 4485 | 4292 | — |
+36: | Failed | 328 | 240 | 222 | 362 | — |
+37: | Errors | 5 | 2 | 2 | 53 | — |
+38: | Skipped | 7 | 7 | 7 | 7 | — |
+39: | Not run | 24 (frontend Playwright) | 24 (frontend Playwright) | 24 (frontend Playwright) | 25 | — |
+40: 
+41: Populate new columns only from a fresh full multi-suite rerun. This keeps the baseline intact while making longitudinal test progress easy to track through the refactor.
+42: 
+43: Current full rerun values were refreshed from a cross-suite rerun on 2026-04-27.
+44: 
+45: Latest full rerun values were refreshed from another cross-suite rerun on 2026-04-28. The frontend Vitest failed count includes suite/import-level red files so the longitudinal totals remain internally consistent.
+46: 
+47: Post P4-P5 rerun values were refreshed from a new cross-suite rerun on 2026-04-28. This pass exposed substantial regression in example E2E server readiness and broad browser surfaces; the frontend Vitest failed count again includes suite/import-level red files so the totals reconcile against the collected count.
+48: 
+49: ## Suite-by-suite movement
+50: 
+51: | Suite | Previous rerun | Post P4-P5 rerun | Delta | Main shift |
+52: |---|---|---|---|---|
+53: | `packages/n3tx-core` | `1074 passed, 5 skipped` | `1074 passed, 5 skipped` | stable | no change |
+54: | `packages/n3tx-actors` | `635 passed` | `635 passed` | stable | no change |
+55: | `packages/n3tx-agents` | `23 failed, 122 passed` | `23 failed, 122 passed` | stable | `threads` routing/bootstrap still red |
+56: | `examples/core` | `4 failed, 429 passed` | `4 failed, 415 passed, 14 errors` | regressed | E2E server readiness failures added on top of existing like/favorite contract drift |
+57: | `examples/actors` | `8 failed, 438 passed` | `5 failed, 418 passed, 23 errors` | regressed | some pure test failures dropped, but broad E2E startup failures appeared |
+58: | `examples/grants` | `20 failed, 147 passed, 1 skipped, 1 error` | `10 failed, 143 passed, 1 skipped, 15 errors` | mixed / regressed | direct failures dropped, but many E2E startup errors appeared |
+59: | `apps/veille` Python | `7 failed, 14 passed` | `7 failed, 14 passed` | stable | bool deserialization + source fetch still red |
+60: | `apps/veille` Node `.mjs` | `2 failed, 17 passed` | `1 failed, 18 passed` | improved | return-to-index checks mostly resolved; one grant-card render failure remains |
+61: | Frontend Vitest | `11 failed, 1205 passed, 1 skipped, 1 error` | `11 failed, 1205 passed, 1 skipped, 1 error` | stable | remaining failures concentrated in ref-picker, profile, row, schema-bootstrap, display constants, import-level suites |
+62: | Frontend Playwright | `138 failed, 405 passed, 24 not run` | `294 failed, 248 passed, 25 not run` | sharply regressed | widespread browser failures plus one extra not-run due to performance/visual follow-on interruption |
+63: 
+64: Interpretation:
+65: 
+66: - The **framework package backend layer** remained stable.
+67: - The strongest regressions came from **example E2E startup/server-readiness** and **broad Playwright/browser** surfaces.
+68: - `apps/veille` browser-style node tests improved overall, but that improvement was outweighed by the broader cross-stack regressions.
+69: 
+70: ## Current report set
+71: 
+72: - `./README.md`
+73: - `./contract-triage-p-1.md`
+74: - `./n3tx-core.md`
+75: - `./n3tx-actors.md`
+76: - `./n3tx-agents.md`
+77: - `./examples-core.md`
+78: - `./examples-actors.md`
+79: - `./examples-grants.md`
+80: - `./full-test-failure-audit-2026-04-24.md`
+81: 
+82: ## Coverage in the 2026-04-24 audit
+83: 
+84: - Framework backend suites
+85:   - `packages/n3tx-core`
+86:   - `packages/n3tx-actors`
+87:   - `packages/n3tx-agents`
+88: - Example applications
+89:   - `examples/core`
+90:   - `examples/actors`
+91:   - `examples/grants`
+92: - App-specific suites
+93:   - `apps/veille` Python tests
+94:   - `apps/veille` Node `.mjs` tests
+95: - Frontend shared suites
+96:   - Vitest runtime/component/integration tests
+97:   - Playwright browser tests
+98: 
+99: ## Cross-cutting observations
+100: 
+101: - Before fixing any failing test, apply `./contract-triage-p-1.md`: classify the failure as product regression, stale test contract, test infrastructure issue, or unresolved contract decision. Do not change production code solely to satisfy stale tests.
+102: - Framework package backend suites are green.
+103: - The largest regression surfaces are currently:
+104:   - grants auth/users routing
+105:   - frontend transport/runtime (`Socket`, `NetworkAdapter`, `NTT`, `DynamicClass`)
+106:   - form/method/navigation UI contract drift
+107:   - Veille bool deserialization and shell navigation regressions
+108: - The comprehensive per-failure catalog now lives in `./full-test-failure-audit-2026-04-24.md`.
+109: 
+110: ## Progress review — current implementation status
+111: 
+112: This section tracks progress made **after** the 2026-04-24 baseline audit. The totals above remain the historical baseline snapshot; the notes below describe what has since been fixed and what remains.
+113: 
+114: ### Phase advancement against the test triage plan
+115: 
+116: | Phase | Status | Notes |
+117: |---|---|---|
+118: | `P-1` Contract triage | active | still the required gate before any production-code change |
+119: | `P0` Grants users/auth actor-routing storage | ✅ done | original grants auth/bootstrap blocker fixed |
+120: | `P1` Frontend transport contract | ✅ done | Socket/NetworkAdapter tests and docs aligned to current TX-native contract |
+121: | `P2` NTT/DynamicClass lifecycle | ◐ partial | core runtime/lifecycle tests now mostly green, but response-contract edges remain |
+122: | `P3` Formidable + method UI contracts | ⏳ not done | now one of the largest remaining frontend Vitest clusters |
+123: | `P4` Router/topbar/browser polish | ⏳ not done | broad Playwright/browser-visible contract drift remains |
+124: | `P5` Suite hardening | ⏳ not done | worker OOMs, fixture drift, and broad-suite instability remain |
+125: 
+126: ### Completed since the baseline audit
+127: 
+128: #### `P0` completed
+129: 
+130: The original grants users/auth storage regression was fixed.
+
+### tests/LATEST.md (248 total lines)
+131: 
+132: Previously failing grants tests that now pass include:
+133: 
+134: - `examples/grants/tests/test_boot.py::TestAppBoot::test_all_routes_accessible`
+135: - `examples/grants/tests/test_auth_flow.py::TestRegistrationFlow::*`
+136: - `examples/grants/tests/test_auth_flow.py::TestLoginFlow::*`
+137: - `examples/grants/tests/test_auth_flow.py::TestCompleteFlow::*`
+138: 
+139: Root fix:
+140: 
+141: - actor-routing bootstrap now re-syncs Matrix children to the finalized registered actor model classes after storage registration, preventing stale import-time actor classes from handling requests with `storage=None`.
+142: 
+143: #### `P1` completed
+144: 
+145: Frontend transport contract cleanup is complete.
+146: 
+147: Green transport boundaries:
+148: 
+149: - `tests/frontend/tests/transport/Socket.test.js`
+150: - `tests/frontend/tests/transport/NetworkAdapter.test.js`
+151: 
+152: Supporting docs updated:
+153: 
+154: - `docs/frontend/TRANSPORT.md`
+155: 
+156: Decision preserved:
+157: 
+158: - keep the simplified TX-native Socket contract
+159: - do **not** restore the legacy Socket API just to satisfy stale tests
+160: 
+161: #### `P2` partially advanced
+162: 
+163: The runtime substrate is in a substantially better state than the baseline audit.
+164: 
+165: Now green:
+166: 
+167: - `tests/frontend/tests/core/NTT.test.js`
+168: - `tests/frontend/tests/core/DynamicClassFunctor.test.js`
+169: - `tests/frontend/tests/integration/actor-messaging.test.js`
+170: - `tests/frontend/tests/integration/schema-bootstrap.test.js`
+171: - `tests/frontend/tests/integration/entity-lifecycle.test.js`
+172: - `tests/frontend/tests/integration/nested-entities.test.js`
+173: - `tests/frontend/tests/integration/method-execution.test.js`
+174: - `tests/frontend/tests/integration/method-response-flow.test.js`
+175: 
+176: This means transport is no longer the main frontend blocker, and core entity lifecycle behavior is much healthier than in the baseline audit.
+177: 
+178: ### Current major remaining clusters
+179: 
+180: #### 1. Agent thread routing / storage bootstrap
+181: 
+182: A newly exposed backend/agent cluster is now prominent:
+183: 
+184: ```text
+185: No route to 'threads'
+186: ```
+187: 
+188: This is affecting:
+189: 
+190: - `packages/n3tx-agents` test suite
+191: - `examples/grants` agent/chat/streaming tests
+192: - some `examples/actors` agent streaming paths
+193: 
+194: This is now one of the highest-leverage remaining backend/runtime blockers.
+195: 
+196: #### 2. Method response contract drift (`pull` vs no-pull)
+197: 
+198: Remaining frontend integration tests disagree about whether `_response_()` should trigger a follow-up `pull()` after action responses.
+199: 
+200: Examples:
+201: 
+202: - `tests/frontend/tests/integration/method-response-pull.test.js`
+203: - `tests/frontend/tests/integration/response-no-pull.test.js`
+204: 
+205: This remains a `P2`/contract-decision surface and should be resolved explicitly before broader UI work.
+206: 
+207: #### 3. Formidable / method / UI contract drift
+208: 
+209: The largest current frontend Vitest cluster is now centered on:
+210: 
+211: - `tests/frontend/tests/integration/form-entity-binding.test.js`
+212: - component contract drift like `ntx-ref-picker`, `ntx-profile`, `ntx-row`
+213: - display-mode / `Component.SIZES` contract drift
+214: 
+215: This is the clearest `P3` workstream.
+216: 
+217: #### 4. Veille regressions remain intact
+218: 
+219: Still failing:
+220: 
+221: - empty-string bool deserialization
+222: - source fetch persistence / change detection
+223: 
+224: These remain separate from the P0/P1 work already completed.
+225: 
+226: #### 5. Broad browser-level Playwright failures remain
+227: 
+228: Playwright reruns still show broad failures in:
+229: 
+230: - authentication dropdown/favorites visibility
+231: - authorization contract expectations
+232: - comments/favorites/likes UI
+233: - navigation/back-button behavior
+234: - data-integrity and error-structure expectations
+235: 
+236: These should be revisited only after the remaining runtime/backend blockers are stabilized.
+237: 
+238: ### Recommended next focus
+239: 
+240: Best next high-leverage targets, in order:
+241: 
+242: 1. `threads` actor routing / storage bootstrap
+243: 2. `_response_()` contract decision (`pull` vs no-pull)
+244: 3. Formidable / method / UI contract drift
+245: 
+246: ### Important note on totals
+247: 
+248: The summary numbers at the top of this file are still the **baseline 2026-04-24 audit totals**. They should not be interpreted as the current post-fix totals. Use this progress review plus fresh reruns to understand current advancement.
+
+### tests/frontend/CHANGELOG.md (84 total lines)
+1: # N3TXTX Frontend Change Log
+2: 
+3: # 0.7.0 (2026-02)
+4: 
+5: ## Core
+6: - **N3TX.js** — Instance `href` derived from entity `$id` when available (correct nested CRUD path for join entities)
+7: - **N3TX.js** — ATTACH handler updates `href` from `tx.meta.href` when component provides a more specific URL
+8: - **N3TX.js** — Instance `READ` handler runs `normalizePopulated()` on pull responses (converts `{data, meta}` wrappers to href arrays)
+9: - **N3TX.js** — `DynamicClass.CREATE` static handler: registers new instances in registry, notifies list watchers
+10: - **N3TX.js** — Instance `READ` handler for `pull()` responses (updates entity data in-place)
+11: - **N3TX.js** — Instance `_response_` handler: auto-pulls entity after method calls (e.g., comment)
+12: - **N3TX.js** — Pagination meta storage (`_paginationMeta`) on DynamicClass
+13: - **N3TX.js** — READ handler detects paginated response format `{data, meta}`
+14: - **N3TX.js** — DELETE handler removes instances and notifies watchers
+15: - **N3TX.js** — ATTACH fetches individual entities when instance doesn't exist in registry
+16: - **N3TX.js** — Pending ATTACH queue replayed after READ completes
+17: - **NTTElement.js** — `DESCRIBE()` subscribes to entity signal for live updates; components auto-refresh on data changes
+18: - **NTTElement.js** — `disconnectedCallback()` cleans up entity signal subscriptions
+19: - **Component.js** — `ref` setter routes URL refs through ATTACH when `data-model` is present (caching/dedup)
+20: - **NetworkAdapter.js** — Fixed DELETE to not send request body (`HTTP.remove(target, callback, onError)`)
+21: - **NetworkAdapter.js** — Encodes `tx.data` objects as URL query params for READ transactions
+22: - **Permissions.js** — `canAction()` accepts resource data for resource-aware OWNER evaluation
+23: - **Permissions.js** — `#evaluateOwner()` compares resource owner field to current user ID; handles FK-hydrated hrefs
+24: 
+25: ## Components
+26: - **`<ntx-method>`** — New "button" layout: compact icon + count pill for social actions (like, favorite)
+27:   - SVG icon library (heart, star, reply, default) with hover/active transitions
+28:   - `count-field` attribute reads collection length from entity data; handles populated wrappers (`{data, meta}`)
+29:   - `renderButton()` alongside existing `renderFieldset()` / `renderInline()`
+30:   - `#postCall()` extracted for shared post-invoke logic across all layouts
+31:   - Observes new attributes: `icon`, `count-field`
+32: - **`<ntx-item>`** — sm() renders button-layout methods (like/favorite) and reply button inline
+33:   - Reply button toggles inline input box with submit (Enter key or click); parent auto-refreshes
+34:   - `reply-indent` CSS class for comments with `parent_id` (selfref) — left border + margin indent
+35:   - Handles populated `$ref` fields: extracts `$id` from objects for avatar rendering (no more `[object Object]`)
+36:   - `#patchListField()` normalizes populated wrappers for correct diff comparison
+37:   - Passes `ref` to `Formidable.getForm()` context
+38:   - Standalone methods receive `layout`, `icon`, `count-field` attributes from schema UI hints
+39: - **`<ntx-favorites>`** — New page component for `#@favorites` route; wraps `<ntx-list model="ProductLike">`
+40: - **`<ntx-topbar>`** — Favorites nav link for authenticated users; `topbar-nav` CSS block
+41: - **`<ntx-logs>`** — Depth guard (max 8) on JSON renderer to prevent stack overflow
+42: - **`<ntx-user>`** — New component extending NTTItem with circular avatar rendering (xs/sm sizes)
+43:   - Fallback to ui-avatars.com when no image is set
+44:   - Wired automatically via User model `__ui__.renderer` config
+45: - **`<ntx-item>`** — Resource-aware permission checks: passes entity data to `canAction()` for real OWNER evaluation
+46:   - Delete routes through DynamicClass for proper registry cleanup; uses `ref` URL for nested entities
+47:   - sm size: edit/delete action buttons with hover reveal and CSS transitions
+48:   - sm edit mode delegates to md() for full form experience
+49:   - Layout size adjusts when editing in compact sizes (sm/xs → md layout)
+50:   - Delete button with confirmation dialog in md/lg/xl sizes (ABAC-gated)
+51:   - Edit/delete buttons grouped in `card-actions` container
+52:   - sm display: respects `field_order`, renders `$ref` fields as leading avatars
+53:   - Replaced `#topFields()` with `#smFields()` for better field selection
+54:   - Added `#resolveChildTag()` for schema-driven child component lookup
+55: - **`ListElement`** — Pagination with `loadMore()`, page tracking, "Load More" button
+56:   - Count display shows "current / total" when paginated
+57: - **`<ntx-topbar>`** — Minor style refinements
+58: - **`<ntx-method>`** — Removed manual `setTimeout` pull(); entity signal handles post-method updates
+59: - **Formidable (`form.js`)** — Passes `icon` and `count-field` attributes to `<ntx-method>` for button layout
+60:   - Normalizes populated wrappers in `getListInput()` (`{data: [...], meta: {...}}` → plain array)
+61:   - Handles populated objects' `$id` as refs alongside plain href strings
+62: - **Formidable (`form.js`)** — Protected fields (`ui.protected`) hidden in edit mode, forced to display-only
+63: 
+64: ## Pages
+65: - **schema.html** — Complete rewrite as kitchen sink demo page
+66:   - Hero with brand, version badge, live auth status
+67:   - Adaptive display sizes: xs pill, sm row, md card, lg detail (Product + User)
+68:   - Live `<ntx-list>` + `<ntx-router>` with hash-sync navigation
+69:   - Collapsible JSON schema inspector with syntax-colored values
+70:   - ABAC permission check panel with allowed/denied badges
+71:   - Glass morphism sections, `ks-` prefixed CSS, responsive grid
+72: - **index.html** — Added ntx-user import
+73: 
+74: ## Pages
+75: - **index.html** — Added `ntx-favorites.js` import (modulepreload + module)
+76: 
+77: ## Tests
+78: - **test_routing.py** — Playwright test verifying like/reply/favorite POST to correct nested API paths
+79: - **test_social.py** — Playwright test suite: schema validation, toggle actions, reply, collection routes, frontend rendering (15 checks)
+80: 
+81: ## Documentation
+82: - Updated COMPONENTS.md with ntx-user, delete, and pagination docs
+83: - Updated MESSAGE_PROTOCOL.md with DELETE handling and paginated READ format
+84: - Updated TRANSPORT.md with query parameter encoding
+
+### tests/frontend/QUICKSTART.md (118 total lines)
+1: # N3TXTX Quickstart
+2: 
+3: ## 1. Setup
+4: 
+5: Point the framework to your backend in `config.js`:
+6: 
+7: ```js
+8: export const config = {
+9:     API_URL: 'http://localhost:5000',
+10:     // ...
+11: };
+12: ```
+13: 
+14: ## 2. Minimal Page
+15: 
+16: ```html
+17: <!DOCTYPE html>
+18: <html lang="en">
+19: <head>
+20:     <meta charset="UTF-8">
+21:     <title>My App</title>
+22:     <link rel="stylesheet" href="./dark-theme.css">
+23: </head>
+24: <body>
+25: 
+26:     <!-- Display a list of Products from the backend -->
+27:     <ntx-list model="Product"></ntx-list>
+28: 
+29:     <script type="module">
+30:         import { Matrix, matrix } from './core/Matrix.js';
+31:         import { N3TX } from './core/N3TX.js';
+32:         import { config } from './config.js';
+33:         import './components/ntx-item.js';
+34:         import './components/ntx-list.js';
+35:     </script>
+36: 
+37: </body>
+38: </html>
+39: ```
+40: 
+41: That's it. The `<ntx-list>` component will:
+42: 1. Fetch the schema from `GET /Product`
+43: 2. Discover the CRUD endpoint from `__tablename__` (e.g. `/products`)
+44: 3. Pull all records and render editable `<ntx-item>` cards
+45: 
+46: ## 3. Key Concepts
+47: 
+48: | Concept | What it is |
+49: |---------|-----------|
+50: | **Matrix** | The root actor — routes all messages between local actors and the backend |
+51: | **N3TX** | Named Transfer Type — type registry (static) + entity base class (instance) |
+52: | **DynClass** | DynamicClass — runtime-generated N3TX subclass per model (e.g. "Product"), holds schema and instances |
+53: | **TX** | A message (transaction) flowing through the actor system |
+54: | **Component** | Base class for web components — connects HTML elements to the actor system |
+55: 
+56: ## 4. Web Components
+57: 
+58: ### `<ntx-list>`
+59: 
+60: Displays all records for a model.
+61: 
+62: ```html
+63: <ntx-list model="Product"></ntx-list>
+64: ```
+65: 
+66: - `model` — the backend model name (must match the registered name, e.g. `Product`, `User`)
+67: 
+68: ### `<ntx-item>`
+69: 
+70: Displays a single record. Usually created automatically by `<ntx-list>`, but can be used standalone:
+71: 
+72: ```html
+73: <ntx-item ref="Product/4"></ntx-item>
+74: ```
+75: 
+76: - `ref` — the N3TX address (`ModelName/id`)
+77: - Click the pencil icon to edit, click save to persist changes to the backend
+78: 
+79: ## 5. How It Works
+80: 
+81: ```
+82: Browser                          Backend
+83: -------                          -------
+84: <ntx-list model="Product">
+85:    |
+86:    +- ATTACH --> N3TX (static)
+87:    |              +- GET /Product -----------> Schema
+88:    |              +- Creates DynClass "Product"
+89:    |              +- GET /products -----------> [records]
+90:    |              |
+91:    |              +- DynClass.READ creates N3TX instances
+92:    |                    (Product/1, Product/2, ...)
+93:    |
+94:    +- Renders <ntx-item ref="Product/1">
+95:                    |
+96:                    +- ATTACH --> N3TX --> DynClass --> N3TX instance
+97:                    |              +- DESCRIBE --> Item
+98:                    |
+99:                    +- On save: UPDATE --> N3TX --> PUT /products/1
+100: ```
+101: 
+102: ## 6. Configuration Reference
+103: 
+104: | Key | Default | Description |
+105: |-----|---------|-------------|
+106: | `API_URL` | `http://localhost:5000` | Backend base URL |
+107: | `WS_URL` | `ws://localhost:8765` | WebSocket URL (when using WS transport) |
+108: | `LOGGING` | `3` | Log verbosity (0=off, 3=verbose) |
+109: | `DEBUG` | `true` | Enable debug output |
+110: 
+111: ## Further Reading
+112: 
+113: See the `docs/` folder:
+114: - `ARCHITECTURE.md` — full system design
+115: - `ACTORS.md` — the actor model in depth
+116: - `COMPONENTS.md` — web component API
+117: - `MESSAGE_PROTOCOL.md` — TX message format and flows
+118: - `TRANSPORT.md` — HTTP and WebSocket transport layer

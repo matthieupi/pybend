@@ -1,0 +1,420 @@
+
+### .project/reports/audits/frontend-test-harness-and-contracts/01-architecture.md (517 total lines)
+1: # Frontend Test Harness And Contracts — Architecture Audit
+2: 
+3: ## 1. Executive Summary
+4: 
+5: 1. This subsystem is not a single runtime module; it is the boundary between the frontend product contracts and the test harness contracts that verify them.
+6: 2. The product contract is explicitly schema-driven: backend schemas carry fields, methods, UI hints, access rules, and `$defs` as the universal frontend contract (`docs/CORE.md:109`, `docs/CORE.md:133`, `FRONTEND.md:218`).
+7: 3. The product frontend is split by responsibility: `n3tx-core` owns non-visual runtime, `n3tx-ui` owns visual Web Components, and package static dirs merge at runtime (`FRONTEND.md:20`, `FRONTEND.md:24`, `FRONTEND.md:194`).
+8: 4. The test harness has two runner families: Vitest for `tests/**/*.test.js` and Playwright for browser specs under `tests/e2e/*.spec.js` (`scripts/run-frontend-tests.py:4`, `scripts/run-frontend-tests.py:6`, `scripts/run-frontend-tests.py:7`).
+9: 5. The failing run shows a systemic problem: several tests assert older or example-local contracts while the product code and docs describe newer package boundaries and DOM/CSS behavior.
+10: 6. The highest-risk finding is alias/path drift: Vitest aliases all `../../components/*` imports to `n3tx-ui`, but `ntx-favorites.js` and `ntx-logs.js` exist only under example app static dirs, not under `n3tx-ui`.
+515: 291. Product contracts and test harness contracts are explicitly separated throughout the report.
+516: 292. Claims are tied to file:line citations from docs, runner files, tests, and product runtime/component code.
+517: 293. Recommendations are framed as audit findings and propositions, not applied fixes.
+
+### .project/reports/audits/frontend-test-harness-and-contracts/02-api-contracts.md (165 total lines)
+1: # Frontend Test Harness And Contracts — API Contracts Audit
+2: 
+3: ## Scope
+4: 
+5: This audit is read-only for product and test source. The only written artifact is this report. The audited subsystem is the frontend unit/browser harness and the public contracts asserted by the listed failing frontend tests.
+6: 
+7: Evidence sources include the frontend runner, Vitest config/setup, Playwright configs/setup/teardown, failing Vitest files, referenced implementation files, frontend docs, and test-triage plans. The reproduced command was `npx vitest run tests/components/ntx-ref-picker.test.js tests/components/ntx-row.test.js tests/components/ntx-profile.test.js tests/components/ntx-favorites.test.js tests/components/ntx-logs.test.js tests/core/Component.test.js tests/integration/display-mode-cascade.test.js tests/integration/schema-bootstrap.test.js --reporter=verbose` from `/workspace/tests/frontend`.
+8: 
+9: ## Classification Rubric
+10: 
+163: 3. Update schema-bootstrap fixtures/tests so method assertions come from the fixture schema keys, not legacy Product method names.
+164: 4. Keep the row validation/save test as a live contract unless deeper inspection proves the failure is test setup or mock leakage.
+165: 5. Either remove/deprecate stale component tests for missing `ntx-favorites` and `ntx-logs`, or document and implement those components as intentional public surfaces.
+
+### .project/reports/audits/frontend-test-harness-and-contracts/03-quality-risks.md (115 total lines)
+1: # Frontend Test Harness And Contracts — Quality Risks
+2: 
+3: ## Scope
+4: 
+5: This report audits the frontend test harness and frontend contract tests around the reproduced command:
+6: 
+7: ```bash
+8: python3 scripts/run-frontend-tests.py
+9: ```
+10: 
+113: Even after stale assertions are cleaned up, browser-visible social/comment/favorite failures may still contain real product regressions because they depend on method rendering, auth, schema hints, and `_response_` refresh behavior. Treat them as mixed until the runtime/generated-method tests are green.
+114: 
+115: The aggregate command should not be used as the primary signal for product correctness until grants/perf startup paths are repaired or excluded. In its current shape, a red `python3 scripts/run-frontend-tests.py` run can mean missing files, stale component contracts, wrong server roots, memory pressure, or actual UI regressions.
+
+### .project/reports/audits/frontend-test-harness-and-contracts/04-extensibility.md (302 total lines)
+1: # Frontend Test Harness and Contracts — Extensibility Audit
+2: 
+3: ## Scope
+4: 
+5: This audit covers the frontend verification subsystem that connects the Python suite runner, Vitest/jsdom tests, Playwright browser harnesses, app-specific E2E configs, frontend component contracts, schema mocks, and recovery plans. The harness is explicitly split into Vitest for `tests/**/*.test.js` and Playwright for `tests/e2e/*.spec.js`, with specialized Playwright configs for grants, veille, and performance suites. Evidence: `scripts/run-frontend-tests.py:4`, `scripts/run-frontend-tests.py:6`, `scripts/run-frontend-tests.py:7`, `scripts/run-frontend-tests.py:9`.
+6: 
+7: The product contract being tested is schema-driven frontend rendering: backend JSON Schema is the single frontend/backend contract, carrying properties, UI hints, access rules, methods, nested `$defs`, and identifiers. Evidence: `docs/CORE.md:109`, `docs/CORE.md:111`, `docs/CORE.md:133`, `docs/CORE.md:145`, `FRONTEND.md:218`, `FRONTEND.md:220`.
+8: 
+9: The key implementation boundary is runtime versus visual UI: `n3tx-core` provides non-visual JS runtime files such as `NTT.js` and `Component.js`, while `n3tx-ui` provides visual components such as `ntx-item`, `ntx-list`, `ntx-row`, `ntx-ref-picker`, and `ntx-profile`. Evidence: `FRONTEND.md:20`, `FRONTEND.md:21`, `FRONTEND.md:22`, `FRONTEND.md:42`, `FRONTEND.md:57`.
+10: 
+300: The frontend test subsystem is extensible, but the safe extension path is narrow: preserve schema as the source of truth, keep jsdom mocks synchronized with backend-generated contracts, use core/veille E2E isolation patterns for new apps, and classify red tests before changing product behavior. Evidence: `docs/CORE.md:109`, `docs/CORE.md:111`, `tests/frontend/tests/setup.js:131`, `tests/frontend/tests/e2e/playwright.config.js:16`, `tests/frontend/tests/e2e/veille.playwright.config.js:17`, `.project/plans/tests/contract-triage-p-1.md:14`, `.project/plans/tests/contract-triage-p-1.md:16`.
+301: 
+302: The highest-leverage evolution is not more component-specific assertions; it is shared harness primitives plus schema-derived fixtures, so test failures point to real contract drift instead of stale mocks, marker collisions, or local server reuse. Evidence: `.project/plans/tests/p5-suite-hardening-plan.md:153`, `.project/plans/tests/p5-suite-hardening-plan.md:168`, `.project/plans/tests/p3-p5-test-recovery-plan.md:190`, `.project/plans/tests/README.md:207`, `.project/plans/tests/README.md:226`.
+
+### .project/reports/audits/frontend-test-harness-and-contracts/05-improvements.md (537 total lines)
+1: # Frontend Test Harness And Contracts - Strategic Improvements
+2: 
+3: ## Executive Recommendation
+4: 
+5: The frontend test subsystem is failing for two different reasons that should not be solved with the same motion. First, the Playwright harness still has infrastructure defects: core E2E starts the web server with `cat '${E2E_MARKER}'` before the marker file exists in practice, while grants and perf still point at non-existent pre-split application paths. Second, several Vitest failures are contract-governance problems: tests assert stale DOM details, stale component locations, or stale schema method names even though the current product/docs point elsewhere.
+6: 
+7: The investment recommendation is to create one small shared harness contract module and one explicit frontend contract fixture layer. The harness module should own run IDs, DB marker paths, app roots, Python env, server command construction, and teardown. The contract fixture layer should own canonical schema mocks and DOM contract helpers so component tests stop re-encoding backend/application facts ad hoc.
+8: 
+9: The immediate sequence should be:
+10: 
+535: ## Governance Rule
+536: 
+537: No product code should be changed for any of the above clusters until the classification is written. The current evidence strongly suggests infrastructure changes for Playwright marker/path issues and test contract changes for schema/style/profile/favorites ownership. Row validation remains the main cluster that should be treated as unresolved until a lifecycle-faithful test confirms whether production code is wrong.
+
+### .project/reports/audits/frontend-test-harness-and-contracts/06-frontend-test-harness-and-contracts-audit.md (498 total lines)
+1: # Frontend Test Harness and Contracts — Deep Audit Report
+2: 
+3: ## Executive Summary
+4: 
+5: The frontend test harness and contracts subsystem is the verification boundary for N3TX's schema-driven frontend. The product side is intentionally split between `n3tx-core` non-visual runtime (`NTT`, `Component`, Actor/TX/Matrix, transport) and `n3tx-ui` visual Web Components (`ntx-item`, `ntx-list`, `ntx-row`, `ntx-ref-picker`, `ntx-profile`, widgets, themes). The backend JSON Schema remains the universal backend/frontend contract: it carries properties, UI hints, access rules, methods, nested `$defs`, `$id`, and `$schema`, and the frontend adapts at runtime from that schema rather than duplicating model facts (`docs/CORE.md:109-168`, `FRONTEND.md:20-24`, `FRONTEND.md:218-247`).
+6: 
+7: The harness side is a hybrid verification system. `python3 scripts/run-frontend-tests.py` orchestrates Vitest/jsdom unit and integration tests plus Playwright browser suites for core, grants, veille, and perf (`scripts/run-frontend-tests.py:85-148`). Vitest provides fast runtime/component coverage through aliases into package static dirs and a shared jsdom setup (`tests/frontend/vitest.config.js:8-35`, `tests/frontend/tests/setup.js:8-199`). Playwright boots seeded apps with temp SQLite DBs and package `PYTHONPATH`, but the app-specific configs have drifted: core and veille rely on marker-file shell substitution, grants points to `/workspace/example_grants`, and perf points to pre-split `src/n3tx/...` paths (`tests/frontend/tests/e2e/playwright.config.js:50-64`, `tests/frontend/tests/e2e/playwright.grants.config.js:33-41`, `tests/frontend/tests/e2e/playwright.perf.config.js:6-14`).
+8: 
+9: The reproduced command, `python3 scripts/run-frontend-tests.py`, should not currently be interpreted as a pure product-correctness signal. The red clusters mix stale tests, infrastructure drift, unresolved contract governance, and a few real runtime coverage risks. The clearest infrastructure problems are Playwright marker/path drift and example-local component imports routed through package aliases. The clearest stale contracts are inline/static CSS expectations for `ntx-ref-picker`, Product `like()` instead of `favorite()`, `.placeholder` instead of `.profile-note`, and tests expecting only five display sizes. The highest product-risk gap is not one of those stale assertions; it is DynamicClass generated method argument mapping in `NTT.js`, which is likely under-tested because current tests often bypass generated wrappers and call lower-level methods directly (`03-quality-risks.md:39`, `03-quality-risks.md:96`).
+10: 
+496: | SYN1 | Synthesis | Decision | High | Treat `row` as current intended contract, not product regression. | `Component.js`, `ntx-row.js`, package docs | Resolved contradiction |
+497: | SYN2 | Synthesis | Decision | High | Treat `ntx-row` failure as current intended behavior with likely brittle test/setup until reproduced. | `ntx-row.js`, reports | Resolved contradiction |
+498: | SYN3 | Synthesis | Decision | Critical | Do not change product code for stale import/style/profile/schema assertions. | Reports 01-05 | Governance rule |
+
+### .project/reports/audits/streaming/01-architecture.md (514 total lines)
+1: # Streaming Subsystem: Architecture & Design Patterns Audit
+2: 
+3: **Audit date:** 2026-03-26
+4: **Scope:** Every component, pattern, data flow, and coupling relationship in the N3TX streaming subsystem.
+5: **Method:** Full source read of all 22 core files listed in the audit brief.
+6: 
+7: ---
+8: 
+9: ## 1. Component Inventory
+10: 
+512: - **"Primitives, not opinions"** -- UPPERCASE handler dispatch is a convention that can be overridden at any level.
+513: 
+514: The main deviation from "Modular where it simplifies, coupled where it must" is the NTTStreamAgent/NTTAgentLive duplication -- this is a boundary that should be collapsed since NTTAgentLive is genuinely just NTTStreamAgent with panel chrome.
+
+### .project/reports/audits/streaming/02-api-contracts.md (646 total lines)
+1: # Streaming Subsystem Audit: API Surface & Contracts
+2: 
+3: **Auditor:** Claude Opus 4.6
+4: **Date:** 2026-03-26
+5: **Scope:** Every public API in the streaming subsystem -- parameters, return types, contracts, error handling, type safety, naming, and usage patterns across 22 core files.
+6: 
+7: ---
+8: 
+9: ## 1. Public API Inventory
+10: 
+644: | QA-3 | `meta.model_cls` leaks into TX envelope on Level 3 SSE | `network_api.py:512-513` | Produces `"<class 'Product'>"` in JSON; harmless but noisy |
+645: | QA-4 | Code duplication in NTTStreamAgent and NTTAgentLive | Both files | Nearly identical UPPERCASE handlers (~150 lines duplicated) |
+646: | QA-5 | `test_streaming_shutdown.py:77` uses deprecated `stream_end()` alias | `test_streaming_shutdown.py:77` | Tests should use current API |
+
+### .project/reports/audits/streaming/03-quality-risks.md (642 total lines)
+1: # Streaming Subsystem: Quality & Risk Assessment
+2: 
+3: **Auditor:** Claude Opus 4.6
+4: **Date:** 2026-03-26
+5: **Scope:** All streaming infrastructure across backend (Python), transport (SSE/WS), and frontend (JS)
+6: **Files reviewed:** 22 core + test files as specified in audit brief
+7: 
+8: ---
+9: 
+10: ## Table of Contents
+640: | 8 | Two incompatible SSE formats between Level 1/2 and Level 3 | Debt | MEDIUM | `routes_fastapi.py` vs `network_api.py` |
+641: | 9 | WS stream tasks not cancelled on client disconnect | Resource | LOW | `network_ws.py:201` |
+642: | 10 | `dataclasses.asdict()` deep-copies every TX in Level 3 SSE | Performance | LOW | `network_api.py:478` |
+
+### .project/reports/audits/streaming/04-extensibility.md (620 total lines)
+1: # Streaming Subsystem Audit: Extensibility & Integration
+2: 
+3: **Auditor**: Claude Opus 4.6
+4: **Date**: 2026-03-26
+5: **Scope**: Full-stack streaming — backend protocol, actor plumbing, transport bridges, frontend consumers
+6: **Dimension**: Extensibility, integration boundaries, dependency graph, evolution trajectory
+7: 
+8: ---
+9: 
+10: ## Dependency Graph
+618: | WebSocket streaming lacks dedicated tests | Test gap | Medium | `_stream_to_ws()` untested |
+619: | JWT not re-validated during long streams | Auth gap | Low | Auth checked once at initiation |
+620: | `events=` schema not consumed by frontend | Unused infrastructure | Low | Published in schema but no frontend reader |
+
+### .project/reports/audits/streaming/05-improvements.md (823 total lines)
+1: # Streaming Subsystem: Strategic Improvements
+2: 
+3: **Audit dimension**: Strategic improvements and propositions
+4: **Date**: 2026-03-26
+5: **Scope**: Full-stack streaming — backend protocol, actor transport, SSE/WS bridging, frontend components
+6: **Audience**: Technical CEO and engineering team deciding investment priorities
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+821: | `packages/n3tx-core/src/n3tx_core/static/core/transport/NetworkAdapter.js` | :119-171 (send with stream routing) |
+822: | `examples/core/tests/test_streaming.py` | :78 (Level 1/2 data access pattern) |
+823: | `examples/actors/tests/test_streaming.py` | :79-80 (Level 3 data access pattern) |
+
+### .project/reports/audits/streaming/06-streaming-audit.md (1012 total lines)
+1: # Streaming -- Deep Audit Report
+2: 
+3: **Auditor:** Claude Opus 4.6
+4: **Date:** 2026-03-26
+5: **Scope:** Full-stack streaming subsystem -- backend protocol, actor transport, SSE/WS bridging, frontend components
+6: **Method:** Synthesis of five dimension reports covering architecture, API contracts, quality/risks, extensibility, and strategic improvements
+7: 
+8: ---
+9: 
+10: ## Executive Summary
+1010: | P8 | Resilience | Proposition | -- | Unified SSE wire format | `routes_fastapi.py`, `network_api.py` | Proposed |
+1011: | P9 | Configuration | Proposition | -- | Centralize timeout config | `config.py`, 4 consumer files | Proposed |
+1012: | P10 | Resilience | Proposition | -- | SSE keepalive comments | `network_api.py`, `routes_fastapi.py` | Proposed |
+
+### .project/reports/n3tx-ref-system-map.md (452 total lines)
+1: # N3TX Ref System Map and Cleanup Direction
+2: 
+3: ✅ **Recommendation:** treat this as the current-state map for a larger reference-system overhaul. The clearest cleanup path is to make **one canonical identity grammar** authoritative across models, storage, actors, remote transport, methods, and frontend:
+4: 
+5: ```text
+6: Local entity identity:      /ClassName/id             and response $id = {API_URL}/ClassName/id
+7: Distributed entity identity: n3tx://service/ClassName/id
+8: Actor execution address:    tablename[/id]            internal dispatch only
+9: Transport route path:       schema-declared route     from @expose_route metadata
+10: ```
+450: ## Saved Plan
+451: 
+452: - `.project/reports/research/n3tx-ref-system-map.md`
+
+### .project/reports/profiling/backend-performance-audit-0.md (750 total lines)
+1: # N3TX Backend Performance Audit
+2: 
+3: **Date**: 2026-02-25  
+4: **Scope**: Complete performance analysis of N3TX backend (Python/FastAPI)  
+5: **Methodology**: Comprehensive code review of all critical paths
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+748: 
+749: **Estimated Total Effort**: 10-12 hours  
+750: **Estimated Performance Gain**: 5-10x on paginated lists, 10-50x on schema endpoints, 2-5s startup improvement
+
+### .project/reports/profiling/frontend-performance-audit-0.md (502 total lines)
+1: # Frontend Performance Audit — N3TX v0.8
+2: 
+3: **Date:** 2026-03-02
+4: **Scope:** `/workspace/src/n3tx/static/` core framework, components, generators, utils
+5: **Method:** Source code review + execution flow tracing + bottleneck identification
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+500: - `src/n3tx/static/utils/Permissions.js` — Permission evaluation, rule cache
+501: - `src/n3tx/static/utils/Logging.js` — Logging system
+502: - `src/n3tx/static/generators/form.js` — Form generator, layout cache
+
+### .project/reports/profiling/frontend-performance-audit-1.md (419 total lines)
+1: # N3TX Frontend Performance Audit
+2: 
+3: **Date**: 2026-02-25
+4: **Scope**: Complete performance analysis of N3TX frontend (Vanilla JS Web Components / N3TX)
+5: **Methodology**: Comprehensive code review of all critical paths
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+417: ## Conclusion
+418: 
+419: The N3TX frontend has a **clean architecture** but suffers from **missing caching layers** and **aggressive DOM rebuilding**. The most impactful fixes are schema caching (eliminates redundant network round-trips), list virtualization (eliminates synchronous rendering of all items), and event listener cleanup (eliminates memory leaks). These three changes alone would make the app feel 5-10× faster to the user.
+
+### .project/reports/profiling/inbox-bottleneck-analysis.md (201 total lines)
+1: # Actor._inbox() Bottleneck Analysis
+2: 
+3: **Date**: 2026-03-02
+4: **Observed**: `Actor._inbox()` — 355 calls, Σ1050.9ms (avg 3.0ms/call)
+5: **Scope**: Full message routing chain (send → Matrix.inbox → Actor._inbox → handler)
+6: 
+7: ---
+8: 
+9: ## Message Chain Per TX
+10: 
+199: 
+200: Fixes 1+2+5+8 alone would eliminate ~2300 unnecessary allocations per page load
+201: and cut the per-message overhead from ~0.5ms routing tax to ~0.1ms.
+
+### .project/reports/profiling/perf-report-1.md (200 total lines)
+1: # N3TX Frontend Performance Audit
+2: 
+3: **Date**: 2026-03-02
+4: **Branch**: v0.8
+5: **Tools**: Lighthouse (Puppeteer), Playwright CDP, Static Code Analysis
+6: **Target**: `http://localhost:5000/matrix.html`
+7: 
+8: ## Lighthouse Score: 59/100
+9: 
+10: | Metric | Value | Score |
+198: | 24 | MEDIUM | Schema | N3TX.js:622 | normalizePopulated scales with depth |
+199: | 25 | NONE | Actor | Matrix.js:26 | Profiling overhead is opt-in |
+200: | 26 | LOW | Actor | Matrix.js | No message queue throttling |
+
+### .project/reports/research/agent-loop-build-vs-buy.md (736 total lines)
+1: # Agent Loop: Build Your Own vs. Use a Framework
+2: 
+3: **Research Date:** March 2026
+4: **Context:** N3TX has an actor system (Matrix/TX message routing) with tool discovery. Currently uses pydantic-ai for the LLM agent loop. Evaluating whether to build our own.
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: > **Key Insight:** The agent loop itself is trivially simple -- 9 lines of code. The complexity is in everything around it: streaming, retries, multi-provider normalization, context window management, structured output, and keeping up with API changes every 3-6 months. The right question is not "can we build it?" but "what's the ongoing maintenance cost of owning the LLM-provider abstraction layer?"
+734: 20. [State of AI Agents](https://www.langchain.com/state-of-agent-engineering) -- LangChain, 2025
+735: 21. [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs/) -- OpenAI API Docs
+736: 22. [Comparing Streaming Response Structures for Different LLM APIs](https://medium.com/percolation-labs/comparing-the-streaming-response-structure-for-different-llm-apis-2b8645028b41) -- Percolation Labs, Medium
+
+### .project/reports/research/ai-agents/01-industry-landscape.md (641 total lines)
+1: # AI Agent Orchestration: Industry Landscape
+2: 
+3: **Date:** February 2026
+4: **Audience:** Technical CEOs and Engineering Teams
+5: **Scope:** Framework ecosystem, market dynamics, orchestration patterns, enterprise readiness, and the schema-driven opportunity
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+639: ---
+640: 
+641: *Research compiled February 2026. Market data, GitHub star counts, and funding figures are subject to rapid change in this fast-moving market.*
+
+### .project/reports/research/ai-agents/02-technical-deep-dive.md (1460 total lines)
+1: # AI Agent Architectures and Orchestration: A Technical Deep Dive
+2: 
+3: **Date:** February 2026
+4: **Audience:** Technical CEOs and Engineering Teams
+5: **Scope:** Agent architecture patterns, tool use protocols, memory systems, multi-agent orchestration, security, and observability
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+1458: - [Pydantic AI: Type-Safe Python Framework](https://pydantic.dev/pydantic-ai)
+1459: - [How to Use Pydantic for LLMs](https://pydantic.dev/articles/llm-intro)
+1460: - [JSON for LLMs: Complete Guide to Structured Outputs](https://superjson.ai/blog/2025-08-17-json-schema-structured-output-apis-complete-guide/)
+
+### .project/reports/research/ai-agents/03-decision-framework.md (861 total lines)
+1: # Decision Framework: AI Agent Orchestration for Schema-Driven Frameworks
+2: 
+3: **Date:** February 2026
+4: **Audience:** Technical CEOs, Engineering Leadership, Architecture Teams
+5: **Context:** Evaluating whether a schema-driven framework (e.g., N3TX) should incorporate AI agent orchestration capabilities, and how to navigate the build-vs-adopt decision.
+6: 
+7: ---
+8: 
+9: ## Table of Contents
+10: 
+859: ---
+860: 
+861: *This document was produced in February 2026. The AI agent landscape is evolving rapidly. Pricing, framework capabilities, and regulatory requirements should be verified against current sources before making investment decisions.*
+
+### .project/reports/research/ai-agents/04-our-stack-relevance.md (1478 total lines)
+1: # AI Agent Orchestration Mapped to N3TX's Architecture
+2: 
+3: **Research Document -- Relevance to Our Stack**
+4: Date: 2026-02-26 | Audience: Technical CEO + Engineering Team
+5: 
+6: ---
+7: 
+8: ## Executive Summary
+9: 
+10: N3TX is a schema-driven framework where a Python model definition is the
+1476: whether the team wants to compete in the agent framework space or stay
+1477: focused on the web framework story. The architecture supports both paths
+1478: without conflict.
+
+### .project/reports/research/ai-agents/05-schema-as-agent-contract.md (1418 total lines)
+1: # Schema as the Universal Agent Contract
+2: 
+3: **How JSON Schema became the lingua franca of AI agent systems --- and why
+4: a schema-driven framework holds a structural advantage in the agent
+5: orchestration space.**
+6: 
+7: *Research Document -- February 2026*
+8: *Audience: Technical CEO + Engineering Team*
+9: 
+10: ---
+1416: in the agent ecosystem. The question is how quickly they move from
+1417: "happens to produce the right format" to "deliberately serves as the
+1418: agent interface layer."**
+
+### .project/reports/research/ai-agents/06-ai-agents-analysis.md (993 total lines)
+1: # N3TX as Schema-Driven AI Agent Orchestration: Strategic Analysis Report
+2: 
+3: ## For: CEO & Engineering Team
+4: ## Date: February 2026
+5: ## Prepared by: Architecture Team
+6: 
+7: ---
+8: 
+9: ### How to Read This Document
+10: 
+991: ---
+992: 
+993: *This analysis was prepared in February 2026. The AI agent landscape is evolving rapidly. Market data, pricing, and framework capabilities should be verified against current sources before making investment decisions. The codebase analysis reflects the state of the `profiling` branch as of February 26, 2026.*
+
+### .project/reports/research/category-theory/01-industry-landscape.md (679 total lines)
+1: # Category Theory in Production Software: Industry Landscape
+2: 
+3: **Research Date:** 2026-02-26
+4: **Audience:** Technical CEO + Engineering Leadership
+5: **Scope:** Who applies category theory in production? What are the real-world outcomes? How does N3TX relate?
+6: 
+7: ---
+8: 
+9: ## Executive Summary: Why This Matters to You
+10: 
+677: | **Algebra** | A set with operations that follow laws | N3TX's `AccessRule` hierarchy with `OrRule`, `AndRule`, `NotRule` |
+678: | **Yoneda embedding** | Knowing everything about an object by knowing all the ways to map into it | An entity with `$schema` (its type) and `$id` (its identity) -- fully self-describing |
+679: | **Free category** | The most general category you can build from a graph | The Actor message-routing system -- any path through actors is a valid message route |
+
+### .project/reports/research/category-theory/02-technical-deep-dive.md (1478 total lines)
+1: # Category Theory and N3TX: A Technical Deep Dive
+2: 
+3: **How CT Concepts Map to Software Engineering Patterns -- and Where N3TX's Abstractions Already Embody Them**
+4: 
+5: ---
+6: 
+7: ## Executive Summary
+8: 
+9: Category theory (CT) is the mathematics of structure and composition. It provides a
+10: language for describing how things relate, transform, and compose -- the same
+1476: ---
+1477: 
+1478: *Document generated 2026-02-26. Analysis based on N3TX codebase at commit 7550aeb (profiling branch).*
+
+### .project/reports/research/category-theory/03-decision-framework.md (772 total lines)
+1: # Category Theory and N3TX: A Decision Framework
+2: 
+3: **When CT-Inspired Abstractions Help, When They Hurt, and Where N3TX Sits on the Spectrum**
+4: 
+5: *Research Document -- February 2026*
+6: 
+7: ---
+8: 
+9: ## Executive Summary
+10: 
+770: - [ArjanCodes, "Python Functors and Monads: A Practical Guide"](https://arjancodes.com/blog/python-functors-and-monads/)
+771: - [TypeScript Handbook: Unions and Intersections](https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html)
+772: - N3TX source code: `proto_model.py`, `N3TX.js`, `rules.py`, `Actor.js`, `Matrix.js`, `resolver.py`, `app.py`, `routes_fastapi.py`, `Observable.js`
