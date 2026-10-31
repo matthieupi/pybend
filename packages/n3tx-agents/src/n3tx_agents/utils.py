@@ -1,4 +1,4 @@
-"""Pure helpers for agent policy and runtime code."""
+"""Shared policy, routing and caller-normalization helpers."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 
 from n3tx_core import config
-from n3tx_core.models.proto_schema import run_pipeline
 
 
 def _resolve_llm(llm):
     """Resolve an LLM string to a pydantic-ai model instance."""
+    # 0. Preserve native provider selection and the explicit test-model path.
     if not llm:
         raise ValueError(
             "No LLM provided. Pass an llm= argument "
@@ -24,7 +24,7 @@ def _resolve_llm(llm):
         return TestModel(call_tools=[])
     if not isinstance(llm, str) or not llm.startswith('ollama:'):
         return llm
-
+    # 1. Adapt Ollama configuration without changing other provider inputs.
     model_name = llm.split(':', 1)[1]
     base_url = config.OLLAMA_BASE_URL.rstrip('/')
     if not base_url.endswith('/v1'):
@@ -35,14 +35,14 @@ def _resolve_llm(llm):
     )
 
 
-
 def _build_instance_text(target) -> str:
     """Append current instance state to context."""
+    # 0. Read native model data, retaining the existing presentation fallback.
     try:
         data = target.model_dump()
     except Exception:
         return ''
-
+    # 1. Format the instance context without affecting persistence encoding.
     try:
         data_str = json.dumps(data, indent=2, default=str)
     except Exception:
@@ -52,16 +52,9 @@ def _build_instance_text(target) -> str:
     return f'\n\nCurrent instance (id={instance_id}):\n{data_str}'
 
 
-def _agent_scope(agent_addr: str, cls=None) -> str:
-    if isinstance(agent_addr, str) and agent_addr:
-        return agent_addr.split('/', 1)[0]
-    if cls is not None:
-        return getattr(cls, '__tablename__', cls.__name__)
-    return ''
-
-
 def _agent_addr(target, cls) -> str:
     """Resolve a concrete string actor address for class or instance calls."""
+    # 0. Prefer concrete actor routing and otherwise use the model table.
     addr = getattr(target, '_addr', '')
     if isinstance(addr, str) and addr:
         return addr
@@ -73,16 +66,9 @@ def _agent_addr(target, cls) -> str:
     return getattr(cls, '__tablename__', cls.__name__)
 
 
-def _thread_matches_agent(thread_data: dict, agent_addr: str, cls=None) -> bool:
-    thread_agent = (thread_data or {}).get('agent_addr', '')
-    if not thread_agent:
-        return True
-    scope = _agent_scope(agent_addr, cls=cls)
-    return thread_agent == agent_addr or thread_agent == scope
-
-
 def _thread_user(user):
     """Normalize route-injected users for Thread CRUD authorization."""
+    # 0. Retain dictionaries or translate native user-model identity fields.
     if user is None or isinstance(user, dict):
         return user
     user_id = getattr(user, 'id', None)
@@ -93,3 +79,10 @@ def _thread_user(user):
         'email': getattr(user, 'email', None),
         'role': getattr(user, 'role', 'user'),
     }
+
+
+# Changelog (Python has no block-comment syntax):
+# - 2026-10-31: Replace legacy address matching with exact owner/scope binding.
+#   Normalize documentation and source layout.
+#   Replace binding grants with identity/scope checks under native source ACLs.
+#   Remove task-added Thread context checks; retain native caller handling.

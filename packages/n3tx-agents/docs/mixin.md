@@ -80,23 +80,15 @@ result with `default=str`.
 
 ## Thread lifecycle
 
-Every prepared run loads the supplied thread or creates one when `thread_id`
-is absent. There is no `create_thread` switch in CallConfig. `N3TXApp.build()`
-adds Thread infrastructure when an agent-enabled model is registered; raw
-registration must register Thread with storage and the active Matrix itself.
-
-- Thread fields: `agent_addr`, `messages`, `user_owner`. Messages are persisted
-  as TX-shaped dictionaries containing serialized Pydantic AI messages in `data`.
-- `Thread.to_history()` and `from_history()` convert stored and runtime forms.
-- Declared policy is authenticated creation, owner-or-admin read/update/delete.
-  Runtime `user=None` still takes the actor internal bypass.
-- Reuse checks exact agent address **or its table scope**; legacy empty agent
-  addresses are accepted. This is not strict per-instance thread isolation.
-- User-model normalization to `{user_id, email, role}` occurs for thread CRUD;
-  tool AgentDeps retains the original caller value.
-- History is replaced after execution. Concurrent turns on the same thread can
-  overwrite one another; serialize turns in the application. Update errors are
-  logged, not raised as a failed agent result.
+See [Thread and TXRecord](thread.md) for the current storage, codec, authorization,
+owner/admin policy and timestamp-based record pagination. Thread stores owner and
+optional business scope; TXRecord rows snapshot native TXs. `Thread.history()`
+converts records directly to Pydantic AI history via `HISTORY_CODEC`; runtime
+`agent_addr` still routes tools but is not persisted on Thread. Scope does not
+inherit source permissions. The approved Colgen exception removes its prior
+Thread-specific policy override; generic TXRecord CRUD remains denied. Preserve
+the actual authenticated caller on HTTP/Matrix execution; do not trust body
+identity or claim that a trusted internal call proves an external caller.
 
 ## Streaming and errors
 

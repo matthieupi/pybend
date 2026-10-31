@@ -72,6 +72,16 @@ propagation on each real entrypoint. The existing
 [tool auth tests](../src/n3tx_agents/tests/test_tool_call_auth.py) explicitly
 exercise the internal bypass; they are not proof of external-user isolation.
 
+Current Thread history is not stored in a mutable message list. See
+[Thread/TXRecord](thread.md): runtime agent addresses still route tools, while
+Thread access follows native owner/admin policy; `scope` is business metadata,
+not inherited authorization. Colgen's approved removal of its prior Thread
+override restores native Thread routes, but generic TXRecord CRUD remains
+denied. Presentation filtering is not an access rule. Notes uses the actual
+trusted Matrix `tx.meta.user` or named HTTP `user` injection, plus its existing
+explicit action policy and parent read/update checks; no separate Thread grant
+or caller-binding capability is used. Never trust body-supplied identity.
+
 ## Streaming tools
 
 Streaming specs route through `Matrix.stream()`. The tool consumes the stream

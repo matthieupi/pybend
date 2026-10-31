@@ -1,4 +1,4 @@
-# app/storage/sqlite_storage.py
+"""Native SQLite persistence, pooled connections and explicit row conversion."""
 
 import contextlib
 import asyncio
@@ -14,7 +14,12 @@ from typing import Any, Dict, List, Type, get_args, get_origin, Union
 from pydantic import BaseModel
 
 from n3tx_core import config
-from n3tx_core.utils.introspection import get_json_fields, get_fk_list_fields, get_ref_fields, get_ref_list_fields
+from n3tx_core.utils.introspection import (
+    get_json_fields,
+    get_fk_list_fields,
+    get_ref_fields,
+    get_ref_list_fields,
+)
 from n3tx_core.utils.populate import PopulateSpec
 from n3tx_core.models.ref import Ref, is_ref_url, local_ref_id, public_id_url
 from .abstract_storage import AbstractStorage
@@ -39,15 +44,15 @@ def _coerce_value(v):
     SQLite only accepts int, float, str, bytes, bool, None (and datetime via
     adapter).  Pydantic types like AnyHttpUrl survive model_dump() as objects,
     not plain strings.  Convert anything non-native to str so the binding
-    doesn't raise ``sqlite3.ProgrammingError``.
-    """
+    doesn't raise ``sqlite3.ProgrammingError``. """
+    # 0. Preserve native scalars and SQLite datetime adapters.
     if isinstance(v, _SQLITE_NATIVE):
         return v
     # datetime objects have a built-in SQLite adapter — let them through
     import datetime
     if isinstance(v, (datetime.date, datetime.datetime)):
         return v
-    # dict/list → JSON TEXT
+    # 1. Encode containers and coerce remaining native extension values.
     if isinstance(v, (dict, list)):
         return json.dumps(v, default=str)
     return str(v)
@@ -59,8 +64,8 @@ def _is_bool_field(field_info) -> bool:
     SQLite databases can contain legacy empty-string values for bool columns
     created by older migrations or hand-written schema changes. Detecting the
     field type lets the read path normalize only bool fields before Pydantic
-    validation, without changing ordinary string data.
-    """
+    validation, without changing ordinary string data. """
+    # 0. Recognize scalar and nullable boolean annotations.
     annotation = field_info.annotation
     if annotation is bool:
         return True
@@ -107,11 +112,14 @@ def _deserialize_nullable_numeric_fields(model_class, record):
     for field_name, field_info in model_class.model_fields.items():
         if field_name not in record:
             continue
-        record[field_name] = _normalize_storage_value(field_info, record.get(field_name))
+        record[field_name] = _normalize_storage_value(
+            field_info, record.get(field_name),
+        )
 
 
 def _deserialize_json_fields(model_class, record):
     """Deserialize DB strings back into model-compatible Python values."""
+    # 0. Normalize historical scalar sentinels before parsing JSON columns.
     _deserialize_bool_fields(model_class, record)
     _deserialize_nullable_numeric_fields(model_class, record)
     for field_name in get_json_fields(model_class):
@@ -125,13 +133,14 @@ def _deserialize_json_fields(model_class, record):
 
 def _normalize_ref_storage_values(model_class, data):
     """Validate Ref[T] URL values before SQLite writes."""
+    # 0. Validate scalar references without hydration.
     for field_name, target_cls in get_ref_fields(model_class):
         if field_name in data and data[field_name] is not None:
             value = Ref.url(data[field_name])
             if Ref.schema(value) != target_cls.__name__:
                 raise ValueError(f"Reference target mismatch for {field_name}")
             data[field_name] = value
-
+    # 1. Preserve pointer-list ordering while validating each target type.
     for field_name, target_cls in get_ref_list_fields(model_class):
         if field_name not in data or data[field_name] is None:
             continue
@@ -141,13 +150,16 @@ def _normalize_ref_storage_values(model_class, data):
             for item in value:
                 ref = Ref.url(item)
                 if Ref.schema(ref) != target_cls.__name__:
-                    raise ValueError(f"Reference target mismatch for {field_name}")
+                    raise ValueError(
+                        f"Reference target mismatch for {field_name}"
+                    )
                 refs.append(ref)
             data[field_name] = refs
 
 
 def _normalize_fk_list_storage_values(model_class, data):
     """Convert list[T] runtime values to ordered local id lists for storage."""
+    # 0. Resolve only local relationship IDs; remote pointers are not children.
     for field_name, target_cls in get_fk_list_fields(model_class):
         if field_name not in data or data[field_name] is None:
             continue
@@ -170,7 +182,10 @@ def _normalize_fk_list_storage_values(model_class, data):
                 '://' in ref_value
                 or ref_value.startswith('/')
             ):
-                raise ValueError(f"Invalid non-local relationship value for {field_name}: {ref_value}")
+                raise ValueError(
+                    f"Invalid non-local relationship value for {field_name}: "
+                    f"{ref_value}"
+                )
         data[field_name] = ids
 
 
@@ -180,7 +195,7 @@ def _local_ref_href(value, target_cls):
 
 
 def _public_storage_ref(value, target_cls):
-    """Return API-facing URL, including migration support for legacy local ids."""
+    """Return a public URL, including support for legacy local IDs."""
     if value is None:
         return None
     if is_ref_url(value):
@@ -198,26 +213,30 @@ def _public_ref_list(value, target_cls):
             refs.append(Ref.url(item))
             continue
         local_id = local_ref_id(item, target_cls=target_cls)
-        refs.append(_local_ref_href(local_id, target_cls) if local_id is not None else item)
+        refs.append(
+            _local_ref_href(local_id, target_cls)
+            if local_id is not None else item
+        )
     return refs
 
 
 class SQLiteStorage(AbstractStorage):
-    """
-    SQLite storage backend implementing the AbstractStorage.
+    """SQLite storage backend implementing AbstractStorage.
     Delegates schema management to SQLiteMigration.
 
     Uses a connection pool to avoid opening/closing a connection per operation,
-    and enables WAL mode so concurrent readers don't block on a writer.
-    """
+    and enables WAL mode so concurrent readers don't block on a writer. """
 
-    def __init__(self, database: str = 'database.db', pool_size: int = 4, reference_resolver=None):
+    def __init__(
+        self, database: str = 'database.db', pool_size: int = 4,
+        reference_resolver=None,
+    ):
+        """Initialize the database adapter and reusable connection pool."""
+        # 0. Retain schema and optional reference-resolution dependencies.
         self.database = database
         self.reference_resolver = reference_resolver
         self._migration = SQLiteMigration(database=database)
-
-        # Connection pool: reuse connections instead of open/close per operation.
-        # WAL mode is set on the first connection so it persists for the DB file.
+        # 1. Enable persistent WAL and set each connection's busy timeout.
         # check_same_thread=False is required because FastAPI/Starlette may
         # dispatch requests across threads; our pool handles thread safety.
         self._pool = queue.Queue(maxsize=pool_size)
@@ -230,20 +249,20 @@ class SQLiteStorage(AbstractStorage):
         """Set the optional resolver used for non-local Ref populate.
 
         The default ``None`` preserves local-only Ref behavior. A resolver may
-        expose ``resolve(ref, target_cls=None, user=None, context=None)`` or be a
-        callable with the same signature. This keeps storage independent from
-        actors while letting actor-mode bootstrap inject a Matrix-backed resolver.
-        """
+        expose ``resolve(ref, target_cls=None, user=None, context=None)`` or
+        be a callable with the same signature. Storage stays independent from
+        actors while actor-mode bootstrap injects a Matrix-backed resolver. """
         self.reference_resolver = reference_resolver
 
     def _resolve_reference(self, ref, *, target_cls=None, context=None):
         """Best-effort optional reference resolution for non-local refs."""
+        # 0. Reject absent resolvers without attempting remote I/O.
         if self.reference_resolver is None:
             return None, {
                 'ref': ref,
                 'message': 'No reference resolver configured',
             }
-
+        # 1. Resolve synchronously, refusing nested event-loop execution.
         resolver = self.reference_resolver
         resolve = getattr(resolver, 'resolve', resolver)
         try:
@@ -256,7 +275,10 @@ class SQLiteStorage(AbstractStorage):
                 else:
                     return None, {
                         'ref': ref,
-                        'message': 'Async reference resolver cannot run from synchronous storage context',
+                        'message': (
+                            'Async reference resolver cannot run from '
+                            'synchronous storage context'
+                        ),
                     }
             return result, None
         except Exception as exc:
@@ -264,6 +286,7 @@ class SQLiteStorage(AbstractStorage):
 
     def _populate_ref_list_field(self, field_name, target_cls, instances, conn):
         """Populate a JSON-backed list[Ref[T]] field best-effort."""
+        # 0. Collect local IDs for a single batched lookup.
         refs_by_instance = []
         local_ids = set()
 
@@ -276,15 +299,18 @@ class SQLiteStorage(AbstractStorage):
                 local_id = local_ref_id(ref, target_cls=target_cls)
                 if local_id is not None:
                     local_ids.add(local_id)
-
+        # 1. Hydrate local rows through native JSON and response conversion.
         local_lookup = {}
         if local_ids:
-            target_table = _validate_identifier(getattr(target_cls, '__tablename__', target_cls.__name__.lower()))
+            target_table = _validate_identifier(getattr(
+                target_cls, '__tablename__', target_cls.__name__.lower(),
+            ))
             placeholders = ','.join(['?'] * len(local_ids))
             cursor = conn.cursor()
             try:
                 cursor.execute(
-                    f"SELECT * FROM {target_table} WHERE id IN ({placeholders})",
+                    f"SELECT * FROM {target_table} "
+                    f"WHERE id IN ({placeholders})",
                     list(local_ids),
                 )
                 rows = cursor.fetchall()
@@ -299,7 +325,7 @@ class SQLiteStorage(AbstractStorage):
                         pass
             except sqlite3.OperationalError:
                 pass
-
+        # 2. Resolve remaining pointers and attach per-reference errors.
         for inst, refs in refs_by_instance:
             data = []
             errors = []
@@ -310,13 +336,17 @@ class SQLiteStorage(AbstractStorage):
                     if local_data is not None:
                         data.append(local_data)
                     else:
-                        errors.append({'ref': ref, 'message': 'Local reference not found'})
+                        errors.append({
+                            'ref': ref, 'message': 'Local reference not found',
+                        })
                     continue
 
                 resolved, error = self._resolve_reference(
                     ref,
                     target_cls=target_cls,
-                    context={'field': field_name, 'model': inst.__class__.__name__},
+                    context={
+                        'field': field_name, 'model': inst.__class__.__name__,
+                    },
                 )
                 if error:
                     errors.append(error)
@@ -351,30 +381,35 @@ class SQLiteStorage(AbstractStorage):
 
     @contextlib.contextmanager
     def _connection(self):
-        """Context manager for pool-managed connections."""
+        """Borrow and return a pooled connection without transaction cleanup."""
+        # 0. Acquire an exclusive pool lease for this operation.
         conn = self._get_conn()
         try:
             yield conn
         finally:
             self._put_conn(conn)
 
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
     # SCHEMA (delegated to SQLiteMigration)
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
 
     def create_table(self, model_class: Type[Any]):
+        """Create a native model table through the migration backend."""
         _validate_identifier(model_class.__tablename__)
         self._migration.create_table(model_class)
 
     def migrate_table(self, model_class: Type[Any]):
+        """Delegate explicit model schema reconciliation to migrations."""
         _validate_identifier(model_class.__tablename__)
         self._migration.migrate_table(model_class)
 
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
     # CREATE
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
 
     def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any:
+        """Normalize and commit one native row, then construct its model."""
+        # 0. Normalize references and select the native stored field set.
         logger.info("Creating new %s record", model_class.__name__)
         table_name = _validate_identifier(model_class.__tablename__)
         _normalize_ref_storage_values(model_class, data)
@@ -392,17 +427,24 @@ class SQLiteStorage(AbstractStorage):
         logger.debug("Fields: %s", fields)
         placeholders = ", ".join(['?'] * len(fields))
         columns = ", ".join(fields)
-        # Extract values
+        # 1. Apply the same scalar/JSON conversion as ordinary native creation.
         values = [data.get(field) for field in fields]
-        # De-reference BaseModel instances to their IDs if they have an 'id' attribute
-        values = [value.id
-                  if isinstance(value, BaseModel) and hasattr(value, 'id') else value
-                  for value in values]
-        values = [_normalize_storage_value(model_class.model_fields[field], value)
-                  for field, value in zip(fields, values)]
+        # De-reference model instances carrying local IDs.
+        values = [
+            value.id
+            if isinstance(value, BaseModel) and hasattr(value, 'id') else value
+            for value in values
+        ]
+        values = [
+            _normalize_storage_value(model_class.model_fields[field], value)
+            for field, value in zip(fields, values)
+        ]
         # Coerce non-native types (e.g. AnyHttpUrl) to SQLite-compatible values
         values = [_coerce_value(v) for v in values]
-        insert_sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+        insert_sql = (
+            f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+        )
+        # 2. Commit before assigning the generated ID and constructing a model.
         with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute(insert_sql, values)
@@ -411,13 +453,17 @@ class SQLiteStorage(AbstractStorage):
         logger.info("Record created with ID: %s", data['id'])
         return model_class(**data)
 
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
     # LIST
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
 
-    def list(self, model_class: Type[Any], sql_filter: tuple = None,
-             limit: int = None, offset: int = None, populate: PopulateSpec = None,
-             ids: list = None) -> List[Any]:
+    def list(
+        self, model_class: Type[Any], sql_filter: tuple = None,
+        limit: int = None, offset: int = None, populate: PopulateSpec = None,
+        ids: list = None,
+    ) -> List[Any]:
+        """Select native rows with optional filtering, paging and population."""
+        # 0. Compose the trusted filter and optional selected-ID constraint.
         table_name = _validate_identifier(model_class.__tablename__)
         ref_fields = get_ref_fields(model_class)
 
@@ -440,8 +486,7 @@ class SQLiteStorage(AbstractStorage):
             if clause:
                 select_sql += f" WHERE {clause}"
                 filter_params = list(params) if params else []
-
-        # Single pooled connection for count + query + hydration + populate
+        # 1. Count and select using one leased connection.
         with self._connection() as conn:
             cursor = conn.cursor()
 
@@ -464,8 +509,7 @@ class SQLiteStorage(AbstractStorage):
             cursor.execute(select_sql, paginated_params)
             rows = cursor.fetchall()
             columns = [column[0] for column in cursor.description]
-
-            # Build records from rows: coerce NULLs, hydrate Ref fields
+            # 2. Decode defaults, JSON and references before construction.
             records = []
             for row in rows:
                 record = dict(zip(columns, row))
@@ -477,18 +521,22 @@ class SQLiteStorage(AbstractStorage):
                         if field.default is not None:
                             record[key] = field.default
 
-                # Deserialize JSON TEXT fields (dict/list) before model instantiation
+                # Deserialize JSON TEXT before model instantiation.
                 _deserialize_json_fields(model_class, record)
 
                 # Hydrate Ref[T] fields as href URLs
                 for field_name, target_cls in ref_fields:
                     val = record.get(field_name)
                     if val is not None:
-                        record[field_name] = _public_storage_ref(val, target_cls)
+                        record[field_name] = _public_storage_ref(
+                            val, target_cls,
+                        )
 
                 for field_name, target_cls in get_ref_list_fields(model_class):
                     if field_name in record:
-                        record[field_name] = _public_ref_list(record.get(field_name), target_cls)
+                        record[field_name] = _public_ref_list(
+                            record.get(field_name), target_cls,
+                        )
 
                 records.append(record)
 
@@ -496,7 +544,7 @@ class SQLiteStorage(AbstractStorage):
 
             if populate and not populate.is_empty:
                 self._populate_fields(model_class, results, populate, conn)
-
+        # 3. Preserve the native paginated or unpaginated response shape.
         if limit is not None:
             effective_offset = offset or 0
             return {
@@ -510,11 +558,16 @@ class SQLiteStorage(AbstractStorage):
             }
         return results
 
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
     # GET
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
 
-    def get(self, model_class: Type[Any], id: int, as_dict: bool = False, populate: PopulateSpec = None) -> Any:
+    def get(
+        self, model_class: Type[Any], id: int, as_dict: bool = False,
+        populate: PopulateSpec = None,
+    ) -> Any:
+        """Read one row with optional dictionary output and population."""
+        # 0. Select the exact local record through a leased connection.
         table_name = _validate_identifier(model_class.__tablename__)
         select_sql = f"SELECT * FROM {table_name} WHERE id = ?"
 
@@ -527,42 +580,38 @@ class SQLiteStorage(AbstractStorage):
 
             columns = [column[0] for column in cursor.description]
             record = dict(zip(columns, row))
-
+            # 1. Restore scalar and local model fields, omitting SQL NULLs.
             data = {}
-
             for field_name, field_info in model_class.model_fields.items():
                 value = record.get(field_name)
-
                 if value is not None:
                     data[field_name] = value
                     continue
 
-                # If this is a nested Pydantic model (foreign key style)
                 field_type = field_info.annotation
                 if (
-                        isinstance(field_type, type)
-                        and issubclass(field_type, BaseModel)
+                    isinstance(field_type, type)
+                    and issubclass(field_type, BaseModel)
                 ):
                     fk_field = f"{field_name}_id"
                     fk_value = record.get(fk_field)
-
                     if fk_value is not None:
                         try:
                             data[field_name] = field_type(id=fk_value)
                         except Exception:
                             pass
-
-            # ── Hydrate Ref[T] fields as href URLs ──
+            # 2. Normalize URL references and JSON before native construction.
             for field_name, target_cls in get_ref_fields(model_class):
                 val = data.get(field_name)
                 if val is not None:
                     data[field_name] = _public_storage_ref(val, target_cls)
 
-            # Deserialize JSON TEXT fields (dict/list) before model instantiation
             _deserialize_json_fields(model_class, data)
             for field_name, target_cls in get_ref_list_fields(model_class):
                 if field_name in data:
-                    data[field_name] = _public_ref_list(data.get(field_name), target_cls)
+                    data[field_name] = _public_ref_list(
+                        data.get(field_name), target_cls,
+                    )
 
             instance = model_class(**data) if not as_dict else None
 
@@ -573,11 +622,13 @@ class SQLiteStorage(AbstractStorage):
             return data
         return instance
 
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
     # POPULATE (eager loading)
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
 
-    def _populate_fields(self, model_class, instances, populate, conn, _visited=None):
+    def _populate_fields(
+        self, model_class, instances, populate, conn, _visited=None,
+    ):
         """Batch-load related entities for a list of parent instances.
 
         Args:
@@ -585,37 +636,39 @@ class SQLiteStorage(AbstractStorage):
             instances: List of parent model instances
             populate: PopulateSpec controlling which fields to load
             conn: Open sqlite3 connection to reuse
-            _visited: Set of model names already populated in this chain (cycle prevention)
-        """
+            _visited: Model names already visited, preventing cycles. """
+        # 0. Track each branch without sharing mutable visited state.
         if not instances:
             return
 
         if _visited is None:
             _visited = set()
-        _visited = _visited | {model_class.__name__}  # immutable copy per branch
+        _visited = _visited | {model_class.__name__}
 
         ref_fields = get_ref_fields(model_class)
         ref_list_fields = get_ref_list_fields(model_class)
         cursor = conn.cursor()
-
-        # ── Populate list[Ref[T]] fields (JSON-backed pointer arrays) ──
+        # 1. Populate requested pointer lists using their batched resolver.
         for field_name, target_cls in ref_list_fields:
             if not populate.should_populate(field_name):
                 continue
             if target_cls.__name__ in _visited:
                 continue
-            self._populate_ref_list_field(field_name, target_cls, instances, conn)
-
-        # ── Populate Ref fields (single FK) ──
+            self._populate_ref_list_field(
+                field_name, target_cls, instances, conn,
+            )
+        # 2. Resolve scalar references locally or through the optional resolver.
         for field_name, target_cls in ref_fields:
             if not populate.should_populate(field_name):
                 continue
             if target_cls.__name__ in _visited:
                 continue
 
-            target_table = _validate_identifier(getattr(target_cls, '__tablename__', target_cls.__name__.lower()))
+            target_table = _validate_identifier(getattr(
+                target_cls, '__tablename__', target_cls.__name__.lower(),
+            ))
 
-            # Collect FK values (these are currently href strings — extract the ID)
+            # Extract local IDs from stored href values.
             fk_ids = []
             for inst in instances:
                 val = getattr(inst, field_name, None)
@@ -631,12 +684,18 @@ class SQLiteStorage(AbstractStorage):
                     resolved, _error = self._resolve_reference(
                         val,
                         target_cls=target_cls,
-                        context={'field': field_name, 'model': inst.__class__.__name__},
+                        context={
+                            'field': field_name,
+                            'model': inst.__class__.__name__,
+                        },
                     )
                     if resolved is not None:
                         if hasattr(resolved, 'model_response'):
                             resolved = resolved.model_response()
-                        if not hasattr(inst, '_populated') or inst._populated is None:
+                        if (
+                            not hasattr(inst, '_populated')
+                            or inst._populated is None
+                        ):
                             inst.__dict__['_populated'] = {}
                         inst.__dict__['_populated'][field_name] = resolved
                 continue
@@ -645,7 +704,8 @@ class SQLiteStorage(AbstractStorage):
             placeholders = ",".join(["?"] * len(unique_ids))
             try:
                 cursor.execute(
-                    f"SELECT * FROM {target_table} WHERE id IN ({placeholders})",
+                    f"SELECT * FROM {target_table} "
+                    f"WHERE id IN ({placeholders})",
                     unique_ids
                 )
                 rows = cursor.fetchall()
@@ -672,36 +732,43 @@ class SQLiteStorage(AbstractStorage):
                         resolved, _error = self._resolve_reference(
                             val,
                             target_cls=target_cls,
-                            context={'field': field_name, 'model': inst.__class__.__name__},
+                            context={
+                                'field': field_name,
+                                'model': inst.__class__.__name__,
+                            },
                         )
                         if resolved is not None:
                             if hasattr(resolved, 'model_response'):
                                 resolved = resolved.model_response()
-                            if not hasattr(inst, '_populated') or inst._populated is None:
+                            if (
+                                not hasattr(inst, '_populated')
+                                or inst._populated is None
+                            ):
                                 inst.__dict__['_populated'] = {}
                             inst.__dict__['_populated'][field_name] = resolved
                     continue
                 ref_data = lookup.get(fk_id)
                 if ref_data:
-                    if not hasattr(inst, '_populated') or inst._populated is None:
+                    if (
+                        not hasattr(inst, '_populated')
+                        or inst._populated is None
+                    ):
                         inst.__dict__['_populated'] = {}
                     inst.__dict__['_populated'][field_name] = ref_data
 
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
     # UPDATE
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
 
     def update(self, model_class: Type[Any], id: int, data: Dict[str, Any]):
-        """
-        Updates a record in the database for the given model class,
+        """Update a record in the database for the given model class,
         using only the fields provided in the `data` dictionary.
-        Prevents SQL injection by using parameterized queries.
-        """
+        Prevents SQL injection by using parameterized queries. """
+        # 0. Normalize the model's supplied storage values.
         table_name = _validate_identifier(model_class.__tablename__)
         _normalize_ref_storage_values(model_class, data)
         _normalize_fk_list_storage_values(model_class, data)
-
-        # list[T] fields are JSON-backed columns and remain updateable.
+        # 1. Select supplied stored fields, preserving JSON-backed collections.
         json_field_names = set(get_json_fields(model_class))
         collection_field_names = {
             name for name, _cls in get_fk_list_fields(model_class)
@@ -711,23 +778,25 @@ class SQLiteStorage(AbstractStorage):
         # Validate and filter the fields based on model annotations
         valid_fields = [f for f in model_class.model_fields.keys()
                         if f != 'id' and f not in collection_field_names]
-        fields_to_update = [field for field in data.keys() if field in valid_fields]
+        fields_to_update = [
+            field for field in data.keys() if field in valid_fields
+        ]
 
         if not fields_to_update:
             raise ValueError("No valid fields provided to update.")
-
-        # Construct the SET clause dynamically
+        # 2. Convert patch values and bind the exact row ID.
         set_clause = ", ".join([f"{field} = ?" for field in fields_to_update])
         values = [
-            _coerce_value(_normalize_storage_value(model_class.model_fields[field], data[field]))
+            _coerce_value(_normalize_storage_value(
+                model_class.model_fields[field], data[field],
+            ))
             for field in fields_to_update
         ]
 
         # Add the id to the values for the WHERE clause
         update_sql = f"UPDATE {table_name} SET {set_clause} WHERE id = ?"
         values.append(id)
-
-        # Execute the update query
+        # 3. Commit the patch and report SQLite update failures.
         with self._connection() as conn:
             cursor = conn.cursor()
             try:
@@ -736,14 +805,24 @@ class SQLiteStorage(AbstractStorage):
             except sqlite3.Error as e:
                 raise RuntimeError(f"Database update failed: {e}")
 
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
     # DELETE
-    # ──────────────────────────────────────────────
+    # ----------------------------------------------
 
     def delete(self, model_class: Type[Any], id: int):
+        """Delete one native row by its local ID."""
+        # 0. Bind the requested ID and commit the deletion.
         table_name = _validate_identifier(model_class.__tablename__)
         delete_sql = f"DELETE FROM {table_name} WHERE id = ?"
         with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute(delete_sql, (id,))
             conn.commit()
+
+
+# Changelog
+# - 2026-10-31: Factor transaction-owned insertion and roll back failed leases;
+#   reject generic TXRecord writes and document native storage operations.
+#   Share native get row decoding with transaction-owned record readers.
+# - 2026-10-31: Restore ordinary inline persistence and pool return behavior;
+#   remove task-specific insertion/decoding helpers and table-name guards.

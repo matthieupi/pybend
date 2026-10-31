@@ -128,8 +128,9 @@ for your shell before deployment.
 
 Factory build mounts `/_meta` and `/.well-known/agent.json`. Treat app_meta and
 discovery descriptions as public metadata, not secret configuration. Discovery
-is not authorization. Discovery base construction uses HOST/PORT in this
-revision; verify advertised URLs behind a proxy separately from schema API_URL.
+is not authorization. Discovery uses `config.API_URL` for its public base URL,
+model links and login URL, preserving the configured HTTP or HTTPS origin rather
+than deriving it from the listener's HOST/PORT.
 
 ### Optional App Assistant Provisioning
 

@@ -103,6 +103,14 @@ Without limit, `list()` returns model instances in a list. With limit it returns
 HTTP serialization turns instances into response dictionaries. Count and page
 selection are not a stable snapshot under concurrent writes.
 
+### Datetime limitations
+
+Datetime values use SQLite's native adapter and Pydantic validation/serialization,
+without custom offset decoding, response normalization or UTC-overflow guards.
+UTC offsets containing seconds or fractional seconds are intentionally unsupported:
+stored values may fail hydration and JSON output may lose offset precision.
+Use ordinary minute-aligned offsets or UTC; timestamp microseconds remain supported.
+
 ### JSON Field Handling
 
 Dicts and lists use TEXT columns and JSON encoding. Primitive lists, local

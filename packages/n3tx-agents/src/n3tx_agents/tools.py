@@ -6,9 +6,9 @@ and wraps them as Pydantic AI Tool objects.
 
 The generated functions use exec() for dynamic signatures — same approach
 as dataclasses, namedtuple, and attrs. All input comes from trusted model
-schemas (our own code), not user input.
-"""
+schemas (our own code), not user input."""
 
+import inspect
 import json
 import logging
 from dataclasses import dataclass
@@ -36,12 +36,14 @@ class ToolSpec:
     tool_name: str      # LLM-facing name (e.g., 'products_create')
     description: str    # Human-readable description
     parameters: dict    # JSON Schema for parameters
-    stream: bool = False  # Whether the tool method is backed by a stream=True route
+    stream: bool = False  # Whether the method uses a streaming route.
 
 
-# ── Discovery ─────────────────────────────────────────────────────
+# Discovery
 
-def discover_tools(actor_addrs: list, root, caller_addr: str = None) -> list[ToolSpec]:
+def discover_tools(
+    actor_addrs: list, root, caller_addr: str = None,
+) -> list[ToolSpec]:
     """Discover all tools from a list of actor addresses.
 
     Reads schemas from Matrix children. Includes CRUD operations for
@@ -50,17 +52,19 @@ def discover_tools(actor_addrs: list, root, caller_addr: str = None) -> list[Too
     Args:
         actor_addrs: List of actor addresses (e.g., ['grants', 'web_tools'])
         root: Matrix root instance
-        caller_addr: Address of the calling agent (excluded to prevent self-loops)
+        caller_addr: Exact calling address to exclude from discovery.
 
     Returns:
-        List of ToolSpec objects for all discovered tools.
-    """
+        List of ToolSpec objects for all discovered tools."""
+    # 0. Resolve registered schema providers without granting execution access.
     from n3tx_core.models.storable_mixin import StorableMixin
     from n3tx_agents.actor import AgentActor
 
     specs = []
-    children = root._children if not isinstance(root, type) else root.__children__
-
+    children = (
+        root._children if not isinstance(root, type) else root.__children__
+    )
+    # 1. Collect native CRUD and exposed methods from each selected provider.
     for addr in actor_addrs:
         # Self-exclusion: an agent never needs itself as a tool
         if caller_addr and addr == caller_addr:
@@ -69,13 +73,17 @@ def discover_tools(actor_addrs: list, root, caller_addr: str = None) -> list[Too
 
         child = children.get(addr)
         if child is None:
-            logger.warning("Tool discovery: actor '%s' not found in Matrix", addr)
+            logger.warning(
+                "Tool discovery: actor '%s' not found in Matrix", addr,
+            )
             continue
 
         # Get the class (works for both class actors and instance actors)
         cls = child if isinstance(child, type) else child.__class__
         if not hasattr(cls, 'schema'):
-            logger.warning("Tool discovery: actor '%s' has no schema() method", addr)
+            logger.warning(
+                "Tool discovery: actor '%s' has no schema() method", addr,
+            )
             continue
 
         schema = cls.schema()
@@ -97,13 +105,16 @@ def discover_tools(actor_addrs: list, root, caller_addr: str = None) -> list[Too
             agent_methods = {'run', 'stream_run'}
 
         # Custom method tools from @expose_route
-        specs.extend(_method_tool_specs(addr, tablename, model_name, schema, exclude=agent_methods))
+        specs.extend(_method_tool_specs(
+            addr, tablename, model_name, schema, exclude=agent_methods,
+        ))
 
     return specs
 
 
 def _crud_tool_specs(addr, tablename, model_name, schema):
     """Generate ToolSpecs for CRUD operations from a model schema."""
+    # 0. Select schema-visible writable fields for the existing CRUD surface.
     properties = schema.get('properties', {})
     required = schema.get('required', [])
 
@@ -115,21 +126,26 @@ def _crud_tool_specs(addr, tablename, model_name, schema):
         ui = prop.get('ui', {})
         if ui.get('protected') or ui.get('display') is False:
             continue
-        writable[name] = {k: v for k, v in prop.items() if k not in ('ui', 'access')}
+        writable[name] = {
+            k: v for k, v in prop.items() if k not in ('ui', 'access')
+        }
 
     writable_required = [r for r in required if r in writable]
-
+    # 1. Describe the native actions without changing their authorization.
+    id_property = {'type': 'integer', 'description': f'{model_name} ID'}
     crud_ops = [
         ('list', f'List {model_name} records', {
             'type': 'object',
             'properties': {
-                'limit': {'type': 'integer', 'description': 'Max records to return'},
+                'limit': {
+                    'type': 'integer', 'description': 'Max records to return',
+                },
                 'offset': {'type': 'integer', 'description': 'Records to skip'},
             },
         }),
         ('get', f'Get a {model_name} by ID', {
             'type': 'object',
-            'properties': {'id': {'type': 'integer', 'description': f'{model_name} ID'}},
+            'properties': {'id': dict(id_property)},
             'required': ['id'],
         }),
         ('create', f'Create a new {model_name}', {
@@ -139,12 +155,12 @@ def _crud_tool_specs(addr, tablename, model_name, schema):
         }),
         ('update', f'Update an existing {model_name}', {
             'type': 'object',
-            'properties': {'id': {'type': 'integer', 'description': f'{model_name} ID'}, **writable},
+            'properties': {'id': dict(id_property), **writable},
             'required': ['id'],
         }),
         ('delete', f'Delete a {model_name} by ID', {
             'type': 'object',
-            'properties': {'id': {'type': 'integer', 'description': f'{model_name} ID'}},
+            'properties': {'id': dict(id_property)},
             'required': ['id'],
         }),
     ]
@@ -161,6 +177,7 @@ def _crud_tool_specs(addr, tablename, model_name, schema):
 
 def _method_tool_specs(addr, tablename, model_name, schema, exclude=None):
     """Generate ToolSpecs for @expose_route custom methods."""
+    # 0. Preserve native descriptor scope and omit caller-injected parameters.
     exclude = exclude or set()
     specs = []
     for method_name, method_info in schema.get('methods', {}).items():
@@ -185,23 +202,28 @@ def _method_tool_specs(addr, tablename, model_name, schema, exclude=None):
                 **filtered,
             }
             required = ['id'] + required
-
+        # 1. Advertise the existing action contract, including streaming.
         specs.append(ToolSpec(
             actor_addr=addr,
             method_name=method_name,
             tool_name=f'{tablename}_{method_name}',
-            description=method_info.get('description', f'{model_name}.{method_name}()'),
-            parameters={'type': 'object', 'properties': filtered, 'required': required},
+            description=method_info.get(
+                'description', f'{model_name}.{method_name}()',
+            ),
+            parameters={
+                'type': 'object', 'properties': filtered, 'required': required,
+            },
             stream=bool(method_info.get('stream')),
         ))
 
     return specs
 
 
-# ── Tool function generation ──────────────────────────────────────
+# Tool function generation
 
 def _extract_stream_text(payload: dict) -> str:
     """Best-effort text extraction from streamed payloads."""
+    # 0. Select text from direct or native nested application events.
     if not isinstance(payload, dict):
         return ''
 
@@ -224,6 +246,7 @@ def _extract_stream_text(payload: dict) -> str:
 
 async def _route_stream_tool_call(root, tx: TX) -> str:
     """Consume a streaming route and collapse it into one tool result."""
+    # 0. Consume correlated chunks with their existing result shape.
     from pydantic_ai import ModelRetry
 
     explicit_result = None
@@ -243,10 +266,16 @@ async def _route_stream_tool_call(root, tx: TX) -> str:
         if isinstance(payload, dict):
             if payload.get('name') == 'error':
                 error_data = payload.get('data', {})
-                message = error_data.get('message', 'Tool call failed') if isinstance(error_data, dict) else 'Tool call failed'
+                message = (
+                    error_data.get('message', 'Tool call failed')
+                    if isinstance(error_data, dict) else 'Tool call failed'
+                )
                 raise ModelRetry(message)
 
-            if payload.get('name') == 'done' and isinstance(payload.get('data'), dict):
+            if (
+                payload.get('name') == 'done'
+                and isinstance(payload.get('data'), dict)
+            ):
                 explicit_result = payload['data']
                 continue
 
@@ -255,7 +284,7 @@ async def _route_stream_tool_call(root, tx: TX) -> str:
                 text_parts.append(text)
         elif isinstance(payload, str):
             text_parts.append(payload)
-
+    # 1. Prefer explicit completion, then text, then collected events.
     if explicit_result is not None:
         return json.dumps(explicit_result, default=str)
     if text_parts:
@@ -265,12 +294,38 @@ async def _route_stream_tool_call(root, tx: TX) -> str:
     return json.dumps({'events': events}, default=str)
 
 
-async def _route_tool_call(ctx, target_addr: str, method_name: str, data: dict, *, stream: bool = False) -> str:
+async def _observe_tool(ctx, tx: TX, status: str) -> None:
+    """Send optional metadata-only observation without changing tool results."""
+    # 0. Keep observation opt-in and exclude arguments, results and error text.
+    sink = getattr(ctx.deps, 'activity_sink', None)
+    if sink is None:
+        return
+    summary = {
+        'phase': 'tool',
+        'status': status,
+        'tool': tx.name[:64],
+        'target': tx.target[:64],
+        'tx_uuid': tx.uuid,
+    }
+    # 1. Observation failures are logged, not retried or used as dispatch gates.
+    try:
+        result = sink(summary)
+        if inspect.isawaitable(result):
+            await result
+    except Exception:
+        logger.warning('Tool observation failed')
+
+
+async def _route_tool_call(
+    ctx, target_addr: str, method_name: str, data: dict,
+    *, stream: bool = False,
+) -> str:
     """Route a tool call through Matrix as TX. Used by generated tool functions.
 
     Creates a TX, sends via Matrix.request() for correlation, returns
     the response as a JSON string (tool results are always text for the LLM).
-    """
+    Optional observation contains metadata only and cannot trigger retries."""
+    # 0. Construct one native envelope with the existing caller propagation.
     from n3tx_actors.actor import Actor
 
     root = Actor.root()
@@ -282,13 +337,25 @@ async def _route_tool_call(ctx, target_addr: str, method_name: str, data: dict, 
         data=data,
         meta=meta,
     )
-    if stream:
-        return await _route_stream_tool_call(root, tx)
-    response = await root.request(tx)
-    if response.is_error:
-        from pydantic_ai import ModelRetry
-        raise ModelRetry(response.data.get('message', 'Tool call failed'))
-    return json.dumps(response.data, default=str)
+    # 1. Observe the existing native dispatch without introducing replay.
+    await _observe_tool(ctx, tx, 'started')
+    status = 'unknown'
+    try:
+        if stream:
+            result = await _route_stream_tool_call(root, tx)
+        else:
+            response = await root.request(tx)
+            if response.is_error:
+                from pydantic_ai import ModelRetry
+                raise ModelRetry(
+                    response.data.get('message', 'Tool call failed'),
+                )
+            result = json.dumps(response.data, default=str)
+        status = 'completed'
+        return result
+    finally:
+        # 2. Report completion or unknown outcome without claiming rollback.
+        await _observe_tool(ctx, tx, status)
 
 
 def create_tool_function(spec: ToolSpec):
@@ -298,8 +365,8 @@ def create_tool_function(spec: ToolSpec):
     for JSON Schema generation. Tool calls route through Matrix via TX.
 
     Returns:
-        An async function suitable for wrapping in pydantic_ai.Tool.
-    """
+        An async function suitable for wrapping in pydantic_ai.Tool."""
+    # 0. Read the trusted schema and normalize its generated function name.
     properties = spec.parameters.get('properties', {})
     required_set = set(spec.parameters.get('required', []))
 
@@ -307,8 +374,7 @@ def create_tool_function(spec: ToolSpec):
     func_name = spec.tool_name.replace('-', '_').replace('.', '_')
     if not func_name.isidentifier():
         func_name = f'tool_{abs(hash(spec.tool_name)) & 0xFFFFFF:x}'
-
-    # Build parameter list: required first, then optional with defaults
+    # 1. Build required and optional parameters in native schema order.
     required_params = []
     optional_params = []
     param_names = []
@@ -316,7 +382,9 @@ def create_tool_function(spec: ToolSpec):
     for pname, prop in properties.items():
         safe_name = pname.replace('-', '_')
         if not safe_name.isidentifier():
-            logger.warning("Skipping parameter '%s' (not a valid identifier)", pname)
+            logger.warning(
+                "Skipping parameter '%s' (not a valid identifier)", pname,
+            )
             continue
 
         param_names.append(safe_name)
@@ -330,19 +398,21 @@ def create_tool_function(spec: ToolSpec):
     # ctx first (RunContext, handled by takes_ctx=True), then typed params
     all_params = ['ctx'] + required_params + optional_params
     params_str = ', '.join(all_params)
-
-    # Build dict from local variables (strip None only for optional params)
+    # 2. Collect inputs, omitting None only for optional parameters.
     if param_names:
         kvs = ', '.join(f'"{n}": {n}' for n in param_names)
         collect = (
             f'_d = {{{kvs}}}\n'
-            f'    _d = {{k: v for k, v in _d.items() if not (v is None and k not in _required)}}'
+            '    _d = {k: v for k, v in _d.items() '
+            'if not (v is None and k not in _required)}'
         )
     else:
         collect = '_d = {}'
-
-    # Escape description for docstring
-    desc = (spec.description or spec.tool_name).replace('\\', '\\\\').replace('"""', "'''")
+    # 3. Compile the wrapper from trusted schema text and private routing data.
+    desc = (
+        (spec.description or spec.tool_name)
+        .replace('\\', '\\\\').replace('"""', "'''")
+    )
 
     code = (
         f'async def {func_name}({params_str}) -> str:\n'
@@ -370,8 +440,8 @@ def make_tool(spec: ToolSpec):
     """Create a Pydantic AI Tool from a ToolSpec.
 
     Returns a Tool object with a properly-typed function, ready to
-    register on a Pydantic AI Agent.
-    """
+    register on a Pydantic AI Agent."""
+    # 0. Wrap the generated callable without changing tool retry policy.
     from pydantic_ai.tools import Tool
 
     fn = create_tool_function(spec)
@@ -381,3 +451,12 @@ def make_tool(spec: ToolSpec):
         name=spec.tool_name,
         description=spec.description,
     )
+
+
+# Changelog (Python has no block-comment syntax):
+# - 2026-10-31: Add payload-free tool observation; retain Matrix routing.
+#   Normalize documentation and source layout.
+#   Stop later dispatch across parallel tools after observer failure.
+#   Bind trusted callers only to registered opt-in native notes actions.
+#   Remove the observation latch and retain optional start/end summaries.
+#   Use native caller metadata for notes; remove tool-specific caller bindings.

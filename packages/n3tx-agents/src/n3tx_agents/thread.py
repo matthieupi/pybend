@@ -1,103 +1,145 @@
-"""Thread — Per-conversation history persistence for agents.
+"""Native owner/admin Threads with record-backed conversation history.
 
-Thread is a static ActorModel — standard CRUD IS the API. No custom
-handlers, no ThreadManager. Agents read/update threads via TX:
+Scope is business metadata, not permission inheritance. Record appends use
+ordinary persistence: batches can partially succeed and retries can duplicate
+records. History and pages have no transactional snapshot guarantee. Explicit
+user=None denotes trusted internal Python execution, as in native ActorModel;
+authenticated entrypoints remain responsible for supplying their caller."""
 
-    TX(name='get', target='threads', data={'id': thread_id})
-    TX(name='update', target='threads', data={'id': thread_id, 'messages': [...]})
+from __future__ import annotations
 
-Messages are stored as TX-shaped dicts (JSONified TX envelopes), each
-wrapping a pydantic-ai message in its `data` field:
-
-    {'name': 'request', 'source': 'user', 'target': 'agents/1',
-     'data': {kind: 'request', parts: [...]}, 'meta': {}, 'timestamp': ...}
-
-Thread vs Memory (orthogonal modules):
-    Thread — per-conversation, session-scoped, request/response pairs
-    Memory — long-term, cross-session, facts/preferences (separate module)
-"""
-
-import logging
-import time
-from typing import ClassVar, Optional
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import Field
 
 from n3tx_actors.models.actor_model import ActorModel
-from n3tx_core.authorize import AUTHENTICATED, OWNER, ROLE
+from n3tx_actors.tx import TX
+from n3tx_core.authorize import (
+    AUTHENTICATED, OWNER, ROLE, AccessContext, DefaultResolver,
+)
+from n3tx_core.models.ref import Ref, public_id_url
 
-logger = logging.getLogger('n3tx.agents.thread')
+if TYPE_CHECKING:
+    from .tx_record import TXRecord
+
+
+HISTORY_CODEC = "pydantic-ai/v1"
 
 
 class Thread(ActorModel):
-    """Per-conversation history. Standard CRUD — the model IS the manager.
+    """Store owner/scope metadata and expose authorized TX record operations."""
 
-    Fields:
-        agent_addr: Actor address of the agent this thread belongs to.
-        messages: Conversation history as TX-shaped dicts (JSON auto-serialized).
-        user_owner: Protected field — auto-injected from JWT on create.
-    """
-
-    __tablename__: ClassVar[str] = 'threads'
+    __tablename__: ClassVar[str] = "threads"
     __storable__: ClassVar[bool] = True
-    __protected_fields__: ClassVar[set] = {'user_owner'}
+    __protected_fields__: ClassVar[set] = {"user_owner", "scope"}
     __access__: ClassVar[dict] = {
-        'read':   OWNER | ROLE('admin'),
-        'create': AUTHENTICATED,
-        'update': OWNER | ROLE('admin'),
-        'delete': OWNER | ROLE('admin'),
+        "read": OWNER | ROLE("admin"),
+        "list": OWNER | ROLE("admin"),
+        "create": AUTHENTICATED,
+        "update": OWNER | ROLE("admin"),
+        "delete": OWNER | ROLE("admin"),
     }
 
-    agent_addr: str = Field(default='', description='Actor address of the agent')
-    messages: list = Field(default=[], description='Conversation history (TX-shaped dicts)')
-    user_owner: Optional[int] = Field(default=None, description='Owner user ID')
+    user_owner: int | None = Field(default=None, description="Owner user ID")
+    scope: Ref | None = Field(default=None, description="Business scope")
 
-    @staticmethod
-    def to_history(tx_messages: list) -> list:
-        """Convert stored TX dicts → pydantic-ai ModelMessage list.
+    def _authorize_records(
+        self, *, user: dict | None, action: str = "read",
+    ) -> Thread:
+        """Apply native policy, retaining trusted internal calls for None."""
+        # 0. Match the native actor boundary without changing public ingress.
+        if user is not None:
+            DefaultResolver().authorize(AccessContext(
+                user=user, action=action, model_class=type(self), resource=self,
+            ))
+        return self
 
-        Extracts the pydantic-ai message from each TX envelope's `data`
-        field and validates it back into ModelMessage objects.
+    def append(
+        self, tx: TX, *, user: dict | None,
+        predecessor: Ref[TXRecord] | None = None,
+    ) -> TXRecord:
+        """Authorize and save a snapshot without dispatch or deduplication."""
+        from .tx_record import TXRecord
+        # 0. Apply native update policy and convert the supplied envelope.
+        self._authorize_records(user=user, action="update")
+        record = TXRecord.from_tx(
+            tx, thread=Ref[Thread](public_id_url(self.id, target_cls=Thread)),
+            predecessor=predecessor,
+        )
+        # 1. Stamp this insertion and persist through ordinary native CRUD.
+        record.recorded_at = datetime.now(timezone.utc)
+        record.recorded_by = user["user_id"] if user is not None else None
+        return TXRecord.create(record)
 
-        Args:
-            tx_messages: List of TX-shaped dicts from Thread.messages.
+    def append_many(
+        self, txs: list[TX], *, user: dict | None,
+        predecessor: Ref[TXRecord] | None = None,
+    ) -> list[TXRecord]:
+        """Append sequentially, linking batch entries without atomicity.
 
-        Returns:
-            List of pydantic-ai ModelMessage objects for the LLM's message_history.
-        """
-        if not tx_messages:
-            return []
+        A later failure leaves earlier successful insertions saved. Retrying a
+        batch creates new rows; no UUID deduplication is performed."""
+        from .tx_record import TXRecord
+        # 0. Chain each successful insertion to the preceding batch record.
+        records = []
+        for tx in txs:
+            record = self.append(tx, user=user, predecessor=predecessor)
+            records.append(record)
+            predecessor = Ref[TXRecord](
+                public_id_url(record.id, target_cls=TXRecord)
+            )
+        return records
+
+    def history(
+        self, *, user: dict | None, codec: str = HISTORY_CODEC,
+    ) -> list:
+        """Read codec-selected protocol messages under native Thread policy."""
         from pydantic_ai.messages import ModelMessagesTypeAdapter
-        raw = [msg['data'] for msg in tx_messages]
-        return list(ModelMessagesTypeAdapter.validate_python(raw))
+        from .tx_record import TXRecord
+        # 0. Authorize before selecting and ordering stored protocol messages.
+        self._authorize_records(user=user)
+        records = TXRecord._records(
+            Ref[Thread](public_id_url(self.id, target_cls=Thread)),
+        )
+        # 1. Let the native adapter restore complete protocol message objects.
+        return list(ModelMessagesTypeAdapter.validate_python([
+            row.data for row in records if row.meta.get("codec") == codec
+        ]))
 
-    @staticmethod
-    def from_history(model_messages: list, source: str = '', target: str = '') -> list:
-        """Convert pydantic-ai ModelMessage list → TX-shaped dicts for storage.
+    def records(
+        self, *, user: dict | None, cursor: str = "", limit: int = 50,
+    ) -> dict:
+        """Read a descending timestamp page with an ISO timestamp cursor.
 
-        Wraps each serialized pydantic-ai message in a TX envelope with
-        name, source, target, data, meta, and timestamp fields.
+        Equal timestamps at a page boundary can be omitted from older pages;
+        this is not an exhaustive or stable replay cursor."""
+        from .tx_record import TXRecord
+        # 0. Authorize and fetch one timestamp-ordered page plus its lookahead.
+        self._authorize_records(user=user)
+        records = TXRecord._records(
+            Ref[Thread](public_id_url(self.id, target_cls=Thread)),
+            cursor=cursor, limit=limit + 1, descending=True,
+        )
+        # 1. Return a timestamp-only continuation for older records.
+        page = records[:limit]
+        has_more = len(records) > len(page)
+        next_cursor = ""
+        if has_more and page:
+            last = page[-1]
+            next_cursor = last.recorded_at.isoformat()
+        return {"data": page, "cursor": next_cursor, "has_more": has_more}
 
-        Args:
-            model_messages: List of pydantic-ai ModelMessage from result.all_messages().
-            source: TX source address (e.g., 'user' or adapter addr).
-            target: TX target address (e.g., agent addr).
-
-        Returns:
-            List of TX-shaped dicts suitable for Thread.messages storage.
-        """
-        if not model_messages:
-            return []
-        from pydantic_ai.messages import ModelMessagesTypeAdapter
-        serialized = ModelMessagesTypeAdapter.dump_python(model_messages, mode='json')
-        return [
-            {
-                'name': msg.get('kind', 'message'),
-                'source': source,
-                'target': target,
-                'data': msg,
-                'meta': {},
-                'timestamp': time.time(),
-            }
-            for msg in serialized
-        ]
+# Changelog
+# - 2026-10-31: Apply owner/admin policy to collection reads as well as members.
+# - 2026-10-31: Replace mutable messages/routing fields with scoped TX records.
+#   - Preserve the supplied transaction during native read-policy evaluation.
+#   - Separate private record authorization from the native actor CRUD hook.
+#   - Share native row decoding for transactional NULL/default parity.
+#   - Replace binding grants with uniform source-read/source-update policy.
+#   - Restore native owner/admin policy and ordinary sequential persistence;
+#     remove basis checks, transaction binding and high-water cursor machinery.
+#   - Decode history directly with the native Pydantic AI message adapter.
+#   - Remove ID ordering and incremental tails; poll a latest timestamp window.
+#   - Retain native trusted-internal user=None behavior and unset provenance.
+#   - Query timestamp pages in SQLite and remove the redundant updates method.

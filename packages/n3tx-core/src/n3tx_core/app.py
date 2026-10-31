@@ -11,58 +11,71 @@ Provides three levels of bootstrapping:
         pb.model(Product).model(User)
         app = pb.build()
 
-    Level 3 -- Raw primitives (existing code in main.py, unchanged).
-"""
+    Level 3 -- Raw primitives (existing code in main.py, unchanged)."""
 
 from types import MethodType
 from typing import List, Optional, Tuple, Type, Union
 
-_SSR_MODES = ('off', 'schema', 'bundle', 'full')
-
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.storage.abstract_storage import AbstractStorage
-from n3tx_core.utils.registrar import registered_models, prepare_model, apply_registration
+from n3tx_core.utils.registrar import (
+    registered_models, prepare_model, apply_registration,
+)
 from n3tx_core.utils.logging import setup_logging
 from n3tx_core.models.relationships import generate_relationship_models
 from n3tx_core.api.backend import FastAPIBackend
 from n3tx_core import config
 import n3tx_core.authorize as authorize
 
+_SSR_MODES = ('off', 'schema', 'bundle', 'full')
+
 
 def _uses_agents(model_classes: List[Type]) -> bool:
-    """Return True when an app registers an agent-enabled model.
+    """Return True when selected models require native history infrastructure.
 
-    Agent execution persists conversation history in n3tx_agents.thread.Thread.
-    Core keeps the dependency optional by detecting agent models structurally
-    and importing Thread only when needed.
-    """
+    Agent execution and opt-in notes both persist through Thread/TXRecord.
+    Core detects selected capabilities structurally, never from optional-package
+    import state. Unrelated models do not activate history storage."""
+    # 0. Detect selected agent/notes capabilities or explicit history models.
     for model_class in model_classes:
-        if getattr(model_class, '__agent__', False):
-            return True
         if (
-            getattr(model_class, '__module__', '').startswith('n3tx_agents')
-            and getattr(model_class, '__tablename__', '') == 'agents'
+            getattr(model_class, '__agent__', False)
+            or getattr(model_class, '__notes__', False)
+        ):
+            return True
+        if any(
+            getattr(base, '__module__', '').startswith('n3tx_agents.')
+            and base.__name__ in {'AgentActor', 'Thread', 'TXRecord'}
+            for base in model_class.__mro__
         ):
             return True
     return False
 
 
-def _agent_infrastructure_models(model_classes: List[Type]) -> List[Type]:
-    """Return required agent infrastructure models not already registered."""
-    if not _uses_agents(model_classes):
+def _agent_infrastructure_models(
+    model_classes: List[Type], *, app_agent: bool = False,
+) -> List[Type]:
+    """Return infrastructure for selected agent/notes models or app assistant.
+
+    app_agent indicates explicit assistant configuration; optional-package
+    import state never activates infrastructure for an unrelated app."""
+    # 0. Scope infrastructure to this builder's selected capabilities.
+    if not (_uses_agents(model_classes) or app_agent):
         return []
 
     try:
-        from n3tx_agents.thread import Thread
+        from n3tx_agents import Thread, TXRecord
     except ImportError:
         return []
-
-    if any(model_class is Thread for model_class in model_classes):
-        return []
-    if any(getattr(model_class, '__tablename__', None) == Thread.__tablename__
-           for model_class in model_classes):
-        return []
-    return [Thread]
+    # 1. Add only infrastructure not already explicitly registered.
+    return [
+        model for model in (Thread, TXRecord)
+        if not any(
+            selected is model
+            or getattr(selected, '__tablename__', None) == model.__tablename__
+            for selected in model_classes
+        )
+    ]
 
 
 def _resolve_storage(storage) -> AbstractStorage:
@@ -72,8 +85,8 @@ def _resolve_storage(storage) -> AbstractStorage:
         - An existing AbstractStorage instance (returned as-is).
         - A string like ``"sqlite:///path/to/db.sqlite"`` (parsed and
           instantiated).
-        - ``None`` (falls back to ``config.SQLITE_DB_FILE``).
-    """
+        - ``None`` (falls back to ``config.SQLITE_DB_FILE``)."""
+    # 0. Resolve supported native storage declarations.
     if storage is None:
         return SQLiteStorage(config.SQLITE_DB_FILE)
     if isinstance(storage, AbstractStorage):
@@ -99,8 +112,8 @@ def _resolve_ssr(ssr) -> str:
         - ``None`` → read from ``config.SSR``
         - ``True`` → ``"schema"`` (backward compatibility)
         - ``False`` → ``"off"``
-        - A mode string (``"off"``, ``"schema"``, ``"bundle"``, ``"full"``)
-    """
+        - A mode string (``"off"``, ``"schema"``, ``"bundle"``, ``"full"``)"""
+    # 0. Normalize the supported optimization modes.
     if ssr is None:
         return config.SSR
     if ssr is True:
@@ -118,7 +131,8 @@ def _resolve_ssr(ssr) -> str:
 
 
 def _set_reference_resolver(storages, resolver) -> None:
-    """Inject an optional reference resolver into storage backends that support it."""
+    """Inject a reference resolver into backends that support it."""
+    # 0. Configure each distinct backend once.
     seen = set()
     for storage in storages:
         if storage is None or id(storage) in seen:
@@ -135,10 +149,9 @@ class N3TXApp:
     Collects model registrations and configuration, then produces a
     fully configured ASGI application via :meth:`build`.
 
-    Supports three routing modes:
+    Supports two routing modes:
         - ``'direct'`` (default): routes_fastapi.py route factories (Level 1/2)
-        - ``'actor'``: NetworkAPI adapter routes everything through Matrix (Level 3)
-    """
+        - ``'actor'``: NetworkAPI adapter routes through Matrix."""
 
     def __init__(
         self,
@@ -156,7 +169,8 @@ class N3TXApp:
         service_name: Optional[str] = None,
         service_token: Optional[str] = None,
     ):
-        """
+        """Collect bootstrap configuration without registering models.
+
         Args:
             storage: A storage backend instance (e.g. ``SQLiteStorage``) or a
                 string like ``"sqlite:///path/to/db.sqlite"`` that will be
@@ -185,8 +199,8 @@ class N3TXApp:
             service_name: Optional local distributed service name. Overrides
                 ``config.SERVICE_NAME`` when provided.
             service_token: Optional local service token. Overrides
-                ``config.SERVICE_TOKEN`` when provided.
-        """
+                ``config.SERVICE_TOKEN`` when provided."""
+        # 0. Apply explicit process configuration before resolving storage.
         setup_logging()
         if remotes is not None:
             config.configure(remotes=remotes)
@@ -194,7 +208,7 @@ class N3TXApp:
             config.configure(service_name=service_name)
         if service_token is not None:
             config.configure(service_token=service_token)
-
+        # 1. Retain resolved configuration and ordered model registrations.
         self._storage = _resolve_storage(storage)
         self._routing = routing
         self._ws = ws
@@ -212,7 +226,7 @@ class N3TXApp:
         self._models: List[Tuple[Type, Optional[AbstractStorage]]] = []
         self._static_dirs: List[str] = []
 
-    # ── Builder methods (chainable) ──────────────────────
+    # Builder methods (chainable).
 
     def model(self, model_class: Type, storage=None) -> "N3TXApp":
         """Register a model.  Returns ``self`` for chaining.
@@ -220,19 +234,19 @@ class N3TXApp:
         Args:
             model_class: A ``ProtoModel`` subclass to register.
             storage: Optional per-model storage override.  If ``None``,
-                the builder-level storage is used.
-        """
+                the builder-level storage is used."""
+        # 0. Defer all registration effects until build.
         self._models.append((model_class, storage))
         return self
 
     def static(self, directory: str) -> "N3TXApp":
         """Mount an additional static-file directory for app-specific
-        frontend assets.  Returns ``self`` for chaining.
-        """
+        frontend assets.  Returns ``self`` for chaining."""
+        # 0. Preserve application asset lookup order.
         self._static_dirs.append(directory)
         return self
 
-    # ── Build ────────────────────────────────────────────
+    # Build.
 
     def build(
         self,
@@ -244,39 +258,41 @@ class N3TXApp:
         instance).
 
         The returned object is a standard FastAPI ``app`` that can be
-        served with Uvicorn or any ASGI server.
-        """
-
+        served with Uvicorn or any ASGI server."""
         # 1. Configure auth
         authorize.configure(
             jwt_secret=self._jwt_secret or config.JWT_SECRET,
             jwt_expiry_hours=self._jwt_expiry_hours,
         )
-
-        # 2. Prepare all model registrations (pure — no side effects)
+        # 2. Prepare explicit models and optional native infrastructure.
         preparations = []
-        explicit_model_classes = [model_class for model_class, _ in self._models]
-
+        explicit_model_classes = [model for model, _ in self._models]
         for model_class, per_model_storage in self._models:
             effective_storage = (
                 _resolve_storage(per_model_storage)
-                if per_model_storage is not None
-                else self._storage
+                if per_model_storage is not None else self._storage
             )
-            preparations.append(prepare_model(model_class, storage=effective_storage))
-
-        for model_class in _agent_infrastructure_models(explicit_model_classes):
-            preparations.append(prepare_model(model_class, storage=self._storage))
-
+            preparations.append(prepare_model(
+                model_class, storage=effective_storage,
+            ))
+        for model_class in _agent_infrastructure_models(
+            explicit_model_classes, app_agent=self._app_agent is not None,
+        ):
+            preparations.append(prepare_model(
+                model_class, storage=self._storage,
+            ))
         # 3. Generate and prepare field-declared relationship link models.
         #    Generation is deterministic; registration/table side effects are
         #    still centralized in apply_registration().
-        for relationship_model in generate_relationship_models(explicit_model_classes):
-            preparations.append(prepare_model(relationship_model, storage=self._storage))
-
-        # 4. Apply all registrations (side effects: storage, tables, global dicts)
+        for relationship_model in generate_relationship_models(
+            explicit_model_classes,
+        ):
+            preparations.append(prepare_model(
+                relationship_model, storage=self._storage,
+            ))
+        # 4. Apply registrations (storage, tables and global dictionaries).
         #    Clear first so reloads (e.g. uvicorn --reload) start from a clean
-        #    slate.  Using .clear() preserves dict identity — existing references
+        #    slate. Using .clear() preserves dictionary identity; references
         #    (e.g. FastAPIBackend.registered_models) see the updated contents.
         registered_models.clear()
         for result in preparations:
@@ -285,7 +301,6 @@ class N3TXApp:
         if self._app_agent:
             from n3tx_agents.app_agent import provision_app_agent
             provision_app_agent(self._app_agent, registered_models)
-
         # 5. Create FastAPIBackend instance
         backend = FastAPIBackend(
             name=name,
@@ -294,11 +309,12 @@ class N3TXApp:
             port=config.PORT,
             ssr_mode=self._ssr_mode,
         )
-
         # 6. Register routes — direct (Level 1/2) or actor (Level 3)
         if self._routing == 'actor':
             from n3tx_actors.actor import Actor
-            from n3tx_actors.api.network_api import NetworkAPI, create_api_routes
+            from n3tx_actors.api.network_api import (
+                NetworkAPI, create_api_routes,
+            )
             from n3tx_actors.api.auth_interceptor import auth_interceptor
             from n3tx_actors.matrix import matrix
 
@@ -306,6 +322,7 @@ class N3TXApp:
 
             def add_alias(app, url: str):
                 """Register a local Matrix URL alias and return this app."""
+                # 0. Extend local actor routing without changing persistence.
                 matrix.add_alias(url)
                 return app
 
@@ -325,7 +342,9 @@ class N3TXApp:
             api.use(auth_interceptor, on='request')
 
             if self._remotes:
-                from n3tx_actors.api.remote_matrix import RemoteMatrix, MatrixReferenceResolver
+                from n3tx_actors.api.remote_matrix import (
+                    RemoteMatrix, MatrixReferenceResolver,
+                )
 
                 remote = RemoteMatrix(
                     remotes=self._remotes,
@@ -338,14 +357,16 @@ class N3TXApp:
                 _set_reference_resolver(
                     [self._storage]
                     + [storage for _model, storage in self._models]
-                    + [getattr(model_cls, 'storage', None) for model_cls in registered_models.values()],
+                    + [
+                        getattr(model_cls, 'storage', None)
+                        for model_cls in registered_models.values()
+                    ],
                     resolver,
                 )
 
             backend.app.include_router(
                 create_api_routes(api, registered_models)
             )
-
             # 6a. WebSocket bridge (requires actor routing)
             if self._ws:
                 from n3tx_actors.api.network_ws import (
@@ -361,7 +382,6 @@ class N3TXApp:
                         model_cls._subscribers.append('ws')
         else:
             backend.register_routes(registered_models)
-
         # 6b. TX Inspector (optional — requires n3tx-trace installed)
         if self._debug and self._routing == 'actor':
             try:
@@ -369,11 +389,10 @@ class N3TXApp:
                 enable_tracing(backend.app, matrix)
             except ImportError:
                 pass  # n3tx-trace not installed — skip
-
         # 6c. Mount discovery endpoints (/_meta, /.well-known/agent.json)
         from n3tx_core.api.discovery import create_discovery_routes
 
-        base_url = f'http://{config.HOST}:{config.PORT}'
+        base_url = config.API_URL
         backend.app.include_router(create_discovery_routes(
             registered_models=registered_models,
             name=name,
@@ -382,7 +401,6 @@ class N3TXApp:
             description=description,
             app_meta=self._app_meta,
         ))
-
         # 7. Return the FastAPI app instance
         #    get_app() mounts the framework's own static directory last
         #    so that HTML routes take precedence over the catch-all mount.
@@ -439,14 +457,14 @@ def create_app(
         description: Application description.
 
     Returns:
-        A configured FastAPI application instance.
-    """
+        A configured FastAPI application instance."""
+    # 0. Reject retired relationship registration before creating the builder.
     if 'join_models' in kwargs:
         raise TypeError(
             "create_app() no longer accepts join_models; declare owned "
             "collections as list[T] on the parent model instead."
         )
-
+    # 1. Assemble declarations and delegate bootstrap to the native builder.
     builder = N3TXApp(
         storage=storage,
         routing=routing,
@@ -467,3 +485,14 @@ def create_app(
     if static_dir:
         builder.static(static_dir)
     return builder.build(name=name, version=version, description=description)
+
+
+# Changelog
+# - 2026-10-31: Refuse legacy Thread column removal before registration;
+#   validate exact target tables before registration or refuse the cutover.
+#   Declare Thread/TXRecord infrastructure without storage import effects.
+#   Scope cutover guards to selected models/assistant, never package imports.
+#   Install immutable guards transactionally only on fresh native bootstrap;
+#   reopen exact validated targets without repairing existing schemas.
+#   Include selected __notes__ models in guarded history initialization.
+#   Remove Thread cutover checks and retain ordinary native registration.

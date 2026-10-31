@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -18,15 +19,17 @@ from pydantic_ai.messages import (
     TextPartDelta,
     ThinkingPartDelta,
     FunctionToolResultEvent,
+    ModelMessagesTypeAdapter,
 )
 
 from n3tx_core import config
 from n3tx_actors.actor import Actor
 from n3tx_actors.tx import TX
+from n3tx_core.models.ref import Ref
 
-from .thread import Thread
+from .thread import HISTORY_CODEC, Thread
 from .tools import discover_tools, make_tool
-from .utils import _agent_addr, _resolve_llm, _thread_matches_agent, _thread_user
+from .utils import _agent_addr, _resolve_llm, _thread_user
 
 
 logger = logging.getLogger('n3tx.agents')
@@ -34,10 +37,14 @@ logger = logging.getLogger('n3tx.agents')
 
 @dataclass
 class AgentDeps:
-    """Context passed to Pydantic AI tool functions via RunContext."""
+    """Trusted caller/routing inputs for Pydantic AI tools.
+
+    activity_sink is an optional Python-only metadata observer. It is never
+    accepted from a call body, tool argument or stored agent configuration."""
 
     user: Optional[dict]
     agent_addr: str
+    activity_sink: Callable[[dict], Awaitable[None] | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -53,8 +60,11 @@ class CallConfig:
     result_type: Any = None
     llm: Any = None
     has_llm_override: bool = False
+    scope: Ref | None = None
 
     def runtime_args(self) -> dict:
+        """Forward trusted adapter inputs without exposing runtime callbacks."""
+        # 0. Keep scope independent of routing and preserve explicit overrides.
         args = {
             'task': self.task,
             'prompt': self.prompt,
@@ -63,6 +73,7 @@ class CallConfig:
             'constraints': self.constraints,
             'thread_id': self.thread_id,
             'result_type': self.result_type,
+            'scope': self.scope,
         }
         if self.has_llm_override:
             args['llm'] = self.llm
@@ -87,11 +98,14 @@ class Agent:
 
     @staticmethod
     def _value_or_call(obj, name, default=None):
+        """Read native result attributes across callable/property variants."""
         value = getattr(obj, name, default)
         return value() if callable(value) else value
 
     @classmethod
     async def _get_thread(cls, root, thread_id, user=None):
+        """Read one exact Thread through its existing Matrix authorization."""
+        # 0. Preserve native caller propagation and actor authorization.
         auth_user = _thread_user(user)
         thread_tx = TX(
             name='get', source=root.addr, target='threads',
@@ -107,74 +121,76 @@ class Agent:
         return thread_resp.data
 
     @classmethod
-    async def _create_thread(cls, root, agent_addr: str, user=None, model_cls=None):
+    async def _create_thread(cls, root, scope: Ref | None = None, user=None):
+        """Create Thread metadata through native Matrix authorization."""
+        # 0. Derive ownership from the native caller, not a payload argument.
         auth_user = _thread_user(user)
-        payload = {
-            'agent_addr': agent_addr or getattr(model_cls, '__tablename__', model_cls.__name__),
-            'messages': [],
-        }
+        payload = {'scope': Ref(scope) if scope is not None else None}
         if isinstance(auth_user, dict) and auth_user.get('user_id') is not None:
             payload['user_owner'] = auth_user['user_id']
-
+        # 1. Retain the native request and response contract.
         create_tx = TX(
-            name='create', source=root.addr, target='threads',
-            data=payload,
+            name='create', source=root.addr, target='threads', data=payload,
             meta={'user': auth_user} if auth_user else {},
         )
         create_resp = await root.request(create_tx)
         if create_resp.is_error:
             raise RuntimeError(
-                "Failed to create thread: "
+                'Failed to create thread: '
                 f"{create_resp.data.get('message', 'unknown error')}"
             )
         return create_resp.data
 
     @classmethod
-    async def _load_or_create_thread(cls, root, agent_addr: str, user=None,
-                                     thread_id=None, model_cls=None):
-        thread_data = None
+    async def _load_or_create_thread(
+        cls, root, scope: Ref | None = None, user=None, thread_id=None,
+    ):
+        """Load record-backed history for a native saved or new Thread."""
+        # 0. Use the existing native Matrix read/create path.
         if thread_id is not None:
             thread_data = await cls._get_thread(root, thread_id, user=user)
-            if not _thread_matches_agent(thread_data, agent_addr, cls=model_cls):
-                raise RuntimeError(
-                    f"Thread {thread_id} belongs to {thread_data.get('agent_addr', 'another agent')}, "
-                    f"not {agent_addr or getattr(model_cls, '__tablename__', model_cls.__name__)}"
-                )
         else:
-            thread_data = await cls._create_thread(root, agent_addr, user=user, model_cls=model_cls)
+            thread_data = await cls._create_thread(root, scope, user=user)
             thread_id = thread_data.get('id')
-
-        message_history = None
-        if thread_data is not None:
-            message_history = Thread.to_history(thread_data.get('messages', []))
-
-        return thread_data, thread_id, message_history
+        # 1. Decode protocol records rather than a persisted message array.
+        thread = Thread.model_validate(thread_data)
+        history = thread.history(user=_thread_user(user))
+        return thread_data, thread_id, history
 
     @classmethod
-    async def _update_thread(cls, root, thread_id, all_messages, user=None, source='', target=''):
-        auth_user = _thread_user(user)
-        update_tx = TX(
-            name='update', source=root.addr, target='threads',
-            data={
-                'id': thread_id,
-                'messages': Thread.from_history(
-                    all_messages,
-                    source=source,
-                    target=target,
-                ),
-            },
-            meta={'user': auth_user} if auth_user else {},
+    async def _append_thread(
+        cls, prepared: PreparedCall, all_messages: list,
+    ) -> None:
+        """Append only new protocol messages, logging persistence failures.
+
+        Earlier records are untouched. Persistence is ordinary native storage,
+        not an atomic batch, stale-history check or retry mechanism."""
+        # 0. Serialize only messages produced after the loaded history.
+        suffix = all_messages[len(prepared.message_history or []):]
+        messages = ModelMessagesTypeAdapter.dump_python(
+            suffix, mode='json',
         )
-        update_resp = await root.request(update_tx)
-        if update_resp.is_error:
+        txs = [
+            TX(
+                name=message['kind'], source=prepared.root.addr,
+                target=prepared.agent_addr, data=message,
+                meta={'codec': HISTORY_CODEC},
+            )
+            for message in messages
+        ]
+        # 1. Keep native results available for independent history verification.
+        try:
+            thread = Thread.get(prepared.thread_id)
+            thread.append_many(txs, user=_thread_user(prepared.deps.user))
+        except Exception as error:
             logger.warning(
-                "Failed to update thread %s: %s",
-                thread_id,
-                update_resp.data.get('message', 'unknown'),
+                'Failed to append thread %s: %s', prepared.thread_id, error,
             )
 
     @classmethod
     async def prepare(cls, target, call: 'CallConfig') -> PreparedCall:
+        """Prepare one native agent with record-backed protocol history."""
+        # 0. Resolve runtime routing/provider inputs, not persisted authority.
         model_cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(model_cls, '__agent__', False)
         model_conf = agent_flag if isinstance(agent_flag, dict) else {}
@@ -194,19 +210,20 @@ class Agent:
             raise RuntimeError(
                 "No Matrix root. Initialize a Matrix before running agents."
             )
-
+        # 1. Load native history and carry scope only as creation metadata.
+        scope = Ref(call.scope) if call.scope is not None else None
         _, thread_id, message_history = await cls._load_or_create_thread(
             root=root,
-            agent_addr=agent_addr,
+            scope=scope,
             user=call.user,
             thread_id=call.thread_id,
-            model_cls=model_cls,
         )
-
+        # 2. Reuse native tool discovery, Pydantic AI and request limits.
         tool_specs = discover_tools(call.tools, root, caller_addr=agent_addr)
         if not tool_specs:
             logger.warning(
-                "[%s] No tools discovered from addresses: %s", agent_addr, call.tools
+                "[%s] No tools discovered from addresses: %s",
+                agent_addr, call.tools,
             )
         ai_tools = [make_tool(spec) for spec in tool_specs]
 
@@ -243,6 +260,8 @@ class Agent:
 
     @classmethod
     async def run(cls, prepared: PreparedCall, task: str) -> dict:
+        """Execute once and append only its new protocol messages."""
+        # 0. Pass the exact prepared history to the existing Pydantic AI loop.
         run_kwargs = {'deps': prepared.deps}
         if prepared.usage_limits:
             run_kwargs['usage_limits'] = prepared.usage_limits
@@ -253,17 +272,10 @@ class Agent:
 
         usage = cls._value_or_call(result, 'usage')
         all_messages = cls._value_or_call(result, 'all_messages', [])
-
+        # 1. Append the new suffix without replaying native execution.
         if prepared.thread_id is not None:
-            await cls._update_thread(
-                root=prepared.root,
-                thread_id=prepared.thread_id,
-                all_messages=all_messages,
-                user=prepared.deps.user,
-                source=prepared.root.addr,
-                target=prepared.agent_addr,
-            )
-
+            await cls._append_thread(prepared, all_messages)
+        # 2. Preserve the native result contract for independent host auditing.
         result_dict = {
             'answer': result.output,
             'usage': {
@@ -282,6 +294,8 @@ class Agent:
 
     @classmethod
     async def run_stream(cls, prepared: PreparedCall, task: str):
+        """Stream native events and attempt protocol-suffix persistence."""
+        # 0. Reuse the prepared native loop and its existing event vocabulary.
         seq = 0
         try:
             run_kwargs = {'deps': prepared.deps}
@@ -298,6 +312,7 @@ class Agent:
                     if isinstance(node, ModelRequestNode):
                         async with node.stream(agent_run.ctx) as request_stream:
                             async for event in request_stream:
+                                meta = {'stream': True, 'seq': seq}
                                 if isinstance(event, PartStartEvent):
                                     if isinstance(event.part, ToolCallPart):
                                         tool_call_count += 1
@@ -305,59 +320,79 @@ class Agent:
                                         if isinstance(args, str):
                                             try:
                                                 args = json.loads(args)
-                                            except (json.JSONDecodeError, TypeError):
+                                            except (
+                                                json.JSONDecodeError, TypeError,
+                                            ):
                                                 args = {'raw': args}
+                                        call_id = event.part.tool_call_id
                                         yield {
                                             'name': 'tool_call',
                                             'data': {
                                                 'tool': event.part.tool_name,
                                                 'args': args,
-                                                'call_id': event.part.tool_call_id,
+                                                'call_id': call_id,
                                             },
-                                            'meta': {'stream': True, 'seq': seq},
+                                            'meta': meta,
                                         }
                                         seq += 1
                                     elif isinstance(event.part, ThinkingPart):
                                         if event.part.content:
+                                            text = event.part.content
                                             yield {
                                                 'name': 'thinking',
-                                                'data': {'text': event.part.content},
-                                                'meta': {'stream': True, 'seq': seq},
+                                                'data': {'text': text},
+                                                'meta': meta,
                                             }
                                             seq += 1
                                     elif isinstance(event.part, TextPart):
                                         if event.part.content:
-                                            streamed_text += event.part.content
+                                            text = event.part.content
+                                            streamed_text += text
                                             yield {
                                                 'name': 'text',
-                                                'data': {'text': event.part.content},
-                                                'meta': {'stream': True, 'seq': seq},
+                                                'data': {'text': text},
+                                                'meta': meta,
                                             }
                                             seq += 1
                                 elif isinstance(event, PartDeltaEvent):
                                     if isinstance(event.delta, TextPartDelta):
-                                        streamed_text += event.delta.content_delta
+                                        text = event.delta.content_delta
+                                        streamed_text += text
                                         yield {
                                             'name': 'text',
-                                            'data': {'text': event.delta.content_delta},
-                                            'meta': {'stream': True, 'seq': seq},
+                                            'data': {'text': text},
+                                            'meta': meta,
                                         }
                                         seq += 1
-                                    elif isinstance(event.delta, ThinkingPartDelta):
+                                    elif isinstance(
+                                        event.delta, ThinkingPartDelta,
+                                    ):
+                                        text = event.delta.content_delta
                                         yield {
                                             'name': 'thinking',
-                                            'data': {'text': event.delta.content_delta},
-                                            'meta': {'stream': True, 'seq': seq},
+                                            'data': {'text': text},
+                                            'meta': meta,
                                         }
                                         seq += 1
                     elif isinstance(node, CallToolsNode):
                         async with node.stream(agent_run.ctx) as tools_stream:
                             async for event in tools_stream:
                                 if isinstance(event, FunctionToolResultEvent):
-                                    result_part = getattr(event, 'result', None) or getattr(event, 'part', None)
-                                    tool_name = getattr(result_part, 'tool_name', '')
-                                    content = getattr(result_part, 'content', getattr(event, 'content', ''))
-                                    call_id = getattr(result_part, 'tool_call_id', getattr(event, 'tool_call_id', ''))
+                                    result_part = (
+                                        getattr(event, 'result', None)
+                                        or getattr(event, 'part', None)
+                                    )
+                                    tool_name = getattr(
+                                        result_part, 'tool_name', '',
+                                    )
+                                    content = getattr(
+                                        result_part, 'content',
+                                        getattr(event, 'content', ''),
+                                    )
+                                    call_id = getattr(
+                                        result_part, 'tool_call_id',
+                                        getattr(event, 'tool_call_id', ''),
+                                    )
                                     yield {
                                         'name': 'tool_result',
                                         'data': {
@@ -375,17 +410,10 @@ class Agent:
                 if not output and streamed_text:
                     output = streamed_text
                 all_messages = cls._value_or_call(agent_run, 'all_messages', [])
-
+                # 1. Attempt suffix persistence before native completion.
                 if prepared.thread_id is not None:
-                    await cls._update_thread(
-                        root=prepared.root,
-                        thread_id=prepared.thread_id,
-                        all_messages=all_messages,
-                        user=prepared.deps.user,
-                        source=prepared.root.addr,
-                        target=prepared.agent_addr,
-                    )
-
+                    await cls._append_thread(prepared, all_messages)
+                # 2. Preserve native completion; host effects remain separate.
                 done_data = {
                     'answer': str(output),
                     'usage': {
@@ -416,3 +444,15 @@ class Agent:
             }
 
     call_stream = run_stream
+
+
+# Changelog (Python has no block-comment syntax):
+# - 2026-10-31: Append scoped protocol suffixes against an atomic history basis.
+#   Preserve native execution and add trusted tool observation dependencies.
+#   Reauthorize before inference and retain run-wide observation failure.
+#   Bound complete output history and use the distinct record-auth hook.
+#   Use native scope ACLs and recheck source read/update before inference.
+#   Authorize server-built Thread drafts before trusted native creation.
+#   Restore native owner/admin routing and ordinary suffix persistence.
+#   Remove basis, output-limit, scope-policy and observation-latch guards.
+#   Serialize new protocol messages directly with the native message adapter.

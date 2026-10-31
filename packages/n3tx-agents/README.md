@@ -20,25 +20,32 @@ using raw registration. App bootstrap registers Thread for agent-enabled models.
 |---|---|---|
 | `AgentMixin` | Model-context reasoning through `agentic()` | [Mixin](docs/mixin.md) |
 | `AgentActor`, `AgentTool` | Agents and tool references as stored models | [AgentActor](docs/agent-actor.md) |
-| `Thread` | Stored conversation messages | [Thread lifecycle](docs/mixin.md#thread-lifecycle) |
-| `AgentDeps` | Runtime caller context and agent address | [Tools](docs/tool-discovery.md) |
+| `Thread`, `TXRecord` | Owner-associated thread and TX snapshot history | [Thread and history](docs/thread.md) |
+| `AgentDeps` | Runtime caller context and agent address for tool routing | [Tools](docs/tool-discovery.md) |
 | `ToolSpec`, `discover_tools`, `make_tool` | Schema-derived tools | [Discovery](docs/tool-discovery.md) |
 | `provision_app_agent` | Bootstrap a configured application agent | [Source](src/n3tx_agents/app_agent.py) |
 
 ```text
 model policy / stored agent -> shared runtime -> Pydantic AI
                                       |
-                               Matrix tools + Thread
+                               Matrix tools + Thread/TXRecord history
 ```
 
 ## Limits
 
 - Tool discovery is not authorization. Matrix tools do not inherit every HTTP
   boundary check; `user=None` is trusted internal execution.
-- The stock AgentActor HTTP signature does not explicitly request caller
-  injection. Audit caller propagation before exposing private tools or history.
+- Verify authenticated caller propagation on the actual HTTP/Matrix path; neither
+  a body-supplied identity nor a trusted internal call substitutes for it.
 - Every prepared call loads or creates a thread. This requires storage even
   with `tools=[]` and a test model.
+- Thread does not store messages or an agent address. `Thread.history()` converts
+  TXRecord protocol rows directly to Pydantic AI history; see
+  [Thread and history](docs/thread.md).
+- Thread uses native owner/admin policy; `scope` is business metadata only. The
+  approved removal of Colgen's prior Thread-specific override restores native
+  Thread routes. Generic TXRecord CRUD remains denied; see
+  [Thread and history](docs/thread.md).
 - `constraints.max_iterations` limits model requests only. No built-in scheduler,
   durable task queue, general spend ceiling, or tool-effect rollback is implied.
 

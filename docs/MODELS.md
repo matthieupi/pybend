@@ -56,6 +56,11 @@ populate`. Hydrated children run through their response pipelines. Populated
 values overlay the base output. A stored entity's public identity is flat:
 `http://localhost:5000/Comment/2`, not `/Product/1/Comment/2`.
 
+Datetime handling uses native Pydantic behavior. UTC offsets containing seconds
+or fractional seconds are intentionally unsupported; exact JSON round trips are
+not guaranteed for those values. This does not exclude timestamp microseconds or
+ordinary minute-aligned UTC offsets.
+
 Extension fragment:
 
 ```python
