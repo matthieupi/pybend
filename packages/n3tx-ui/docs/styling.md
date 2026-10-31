@@ -87,6 +87,13 @@ a broader token-only theme.
 | Components | `--ntx-card-bg`, `--ntx-input-bg`, `--ntx-button-primary-bg` |
 | Status | `--ntx-status-error-fg/bg/border`, corresponding success/warning/accent tokens |
 | Motion/shadow | `--ntx-duration-fast`, `--ntx-ease`, `--ntx-shadow-md` |
+| Native icon | `--icon-stroke-width` |
+
+`ntx-icon` SVGs inherit `--icon-stroke-width` from their host or an ancestor.
+When unset, each SVG keeps its resolved registry `strokeWidth`, falling back to
+`2`. An icon SVG's own `stroke-width` presentation attribute takes precedence
+for the paths that declare it, so the token does not override explicit
+per-path stroke widths.
 
 Use canonical tokens, not old aliases such as `--surface-*`, `--text-*`, or
 `--accent`. Keep app-only styling out of shared `ntx-item.css`.
