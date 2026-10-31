@@ -80,12 +80,48 @@ class AccessContext:
     model_class: Type    # The model class being accessed
     resource: Any = None # The specific instance (None for create/list)
     parent_id: int = None
+    patch: Mapping[str, Any] | None = None
 
     # Properties:
     user_id -> int | None
     user_role -> str | None
     is_authenticated -> bool
 ```
+
+`patch` is optional transport-supplied input, not a request-body context. Only
+the generated **direct HTTP PUT** routes populate it automatically. They load
+the resource, canonicalize aliases (rejecting duplicate spellings), remove
+`$id`/`$schema`, then remove `id` and `__protected_fields__` before authorization.
+Unknown keys remain visible so allowlist rules can reject them. Values are still
+input values, before merged-model validation/coercion. The same effective patch
+is passed to `instance.update`; normal model validation and supplied-key
+persistence remain authoritative.
+
+Before policy, the stripped patch must also be a fixed point of the model's
+canonicalizer: canonicalizing it again must leave the mapping unchanged. A
+field name that is also another field's input alias can otherwise redirect the
+second pass inside `instance.update`. Such unstable patches return 400 before
+authorization, including for admins. This uses the same native alias and
+`AliasChoices` resolution as persistence. Stable patches on the same schema
+remain usable; unknown keys remain visible and cannot bypass the field policy.
+
+The frozen context deep-copies the supplied mapping and wraps its outer level
+in a read-only mapping. Nested values are not recursively frozen, but mutations
+to them cannot change the update payload. It is a defensive snapshot, not a
+sandbox for untrusted policy code. Existing user/resource inputs are unchanged.
+
+Empty effective input is `{}`, distinct from absent input (`None`). A policy may
+deny empty input; an allowed empty patch retains the existing no-op behavior.
+For example, an owner-only field policy should require `ctx.patch is not None`
+and `set(ctx.patch) == {'active'}` as well as its authenticated owner check.
+Protected-field attempts are stripped, not exposed for auditing: an allowed
+field plus a protected field becomes the allowed field alone. Alias conflicts
+are rejected before stripping, including conflicts on protected fields.
+
+Other direct operations, exposed actions, actor transports and tools do **not**
+gain patch propagation from this extension. Patch-dependent rules must deny when
+it is absent. Never accept body-supplied `user` or `context` as authorization
+input; direct route identity still comes exclusively from middleware.
 
 ### DefaultResolver
 

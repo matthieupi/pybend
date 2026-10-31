@@ -38,6 +38,10 @@ them. The tutorial denies generic create/update/delete and uses inherited auth
 methods. BaseUser does not supply email verification, password-reset workflow,
 rate limiting or concurrent uniqueness enforcement.
 
+For a narrow generic User update, a custom rule can inspect `AccessContext.patch`
+on direct generated PUT and combine an exact field allowlist with ownership and
+role policy. This does not make all generic User writes safe automatically.
+
 ## Authorization (ABAC)
 
 ### Declaring Access Rules on Models
@@ -61,6 +65,34 @@ This is a class-body fragment; import rules from `n3tx_core.authorize` and decla
 claim. In direct generated create, protected `user_owner` is injected from JWT.
 Generated update strips all protected fields. Other protected fields are not
 generically stripped on create; define defaults/validators and policies accordingly.
+
+### Patch-Aware Direct Updates
+
+Direct generated PUT supplies `AccessContext.patch` after alias canonicalization,
+metadata (`$id`, `$schema`) removal, and `id`/protected-field stripping. Policy
+sees canonical keys with incoming values, before model validation/coercion;
+unknown keys remain visible. Alias conflicts return 400 before policy, including
+on protected fields. The authorized effective patch is the input passed to the
+ordinary model update boundary, not a separately reconstructed request.
+
+The stripped patch must be unchanged by a second native canonicalization.
+Overlapping aliases that would redirect its keys inside the model update return
+400 before policy, even for admins. Stable patches on such schemas still follow
+normal policy. This check covers string aliases and `AliasChoices` without
+discarding unknown keys or allowing protected fields to reappear downstream.
+
+The patch is deep-copied with a read-only outer mapping. Empty effective input
+is `{}` and still requires authorization; permissive policies retain the existing
+no-op. Rules restricting updates to one field should require exactly that
+nonempty key set in addition to ownership/role checks. Raw protected-field
+attempts are not retained: adding a protected key cannot change it, but does not
+itself cause denial when the remaining effective patch is allowed.
+
+Other entrypoints default to `patch=None`, including direct actions and actor/tool
+contexts. Patch-dependent policies must **deny when absent**; this change does
+not expand actor transport guarantees or authorize direct Python CRUD. Identity
+still comes from middleware, never body-supplied `user` or `context`. See the
+[AccessContext contract](../packages/n3tx-core/docs/authorization.md#accesscontext).
 
 ### Declaring Access Rules on Methods
 

@@ -87,14 +87,24 @@ Neither HTML nor schema discovery grants access to issue data.
 ### Write boundary
 
 ```text
-HTTP PUT patch -> policy -> canonical field names -> protected-field stripping
-              -> merge with current entity -> model validation
-              -> persist supplied fields -> read response
+HTTP PUT patch -> load current entity -> canonical field names
+              -> strip metadata/id/protected fields
+              -> require stable canonical keys on repeated normalization
+              -> policy (caller + entity + detached effective patch)
+              -> merge -> model validation -> persist -> response
 ```
 
 Collections are replaced, not merged. The read/validate/write sequence is not a
 compare-and-set. A domain action can centralize business logic but does not
 automatically create a transaction, lock or idempotency mechanism.
+
+Direct UPDATE supplies `AccessContext.patch` as a detached snapshot with read-only
+top-level keys. Other entrypoints leave it `None`; patch-dependent rules must deny
+when the required context is absent. This supports ordinary CRUD with narrow
+field-set policies without granting general self-service writes or adding setter
+endpoints. See [Authorization](AUTHORIZATION.md) for scope and snapshot semantics.
+Overlapping aliases that would redirect an effective field on the model's second
+canonicalization pass are rejected before authorization, including for admins.
 
 ## Design Patterns
 

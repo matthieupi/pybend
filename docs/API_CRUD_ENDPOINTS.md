@@ -91,9 +91,11 @@ x-access-token: <JWT>
 {"title":"Fix keyboard focus order"}
 ```
 
-The route fetches the entity, evaluates update policy, canonicalizes aliases,
-removes `id` and protected fields, then delegates to StorableMixin. The original
-model validates the complete merged state; storage receives only supplied keys.
+The direct route fetches the entity, canonicalizes aliases and removes metadata,
+then removes `id` and protected fields **before evaluating update policy**.
+`AccessContext.patch` exposes a defensive snapshot of this effective patch, and
+the route passes the same effective input to StorableMixin. The original model
+validates the complete merged state; storage receives only supplied keys.
 Python `Model.update(id, patch)`, actor CRUD updates and generated update tools
 reuse this model boundary, though their transport/error/auth handling differs.
 
@@ -105,8 +107,34 @@ reuse this model boundary, though their transport/error/auth handling differs.
 | `[]` or `{}` supplied | Whole field cleared if valid |
 | Null supplied | Accepted only if the model and field-specific update path permit it |
 | Alias and canonical name both supplied | Ambiguity rejected |
+| Effective patch changes on repeated canonicalization | 400 before policy, including for admins |
 | `$id` / `$schema` supplied | Removed from the canonical update patch |
 | Protected field supplied over generated HTTP | Stripped, not changed |
+| Unknown key supplied | Retained for policy inspection; no extra write grant |
+| Empty effective patch | Policy still runs; if allowed, the update is a no-op |
+
+The snapshot uses canonical field names and uncoerced input values. Its outer
+mapping is read-only and its nested values are deep-copied, so policy mutation
+cannot change the persisted payload. Unknown keys are not silently dropped before
+policy. An allowlist must reject unwanted keys and require a nonempty patch when
+appropriate. A protected-only request yields `{}`; an allowed-field request with
+protected additions exposes only the allowed field. Alias conflicts return 400
+before policy, even when the conflicting field would otherwise be stripped.
+
+After stripping, the patch must remain identical when canonicalized again,
+because the ordinary model update performs its own canonicalization. This
+fixed-point check rejects overlapping alias chains that would redirect an
+authorized key into a different field (including a protected field). It applies
+equally to aliases, validation aliases and string `AliasChoices`. Stable patches
+remain usable even on a schema containing overlapping aliases; admins do not
+bypass the stability requirement. Unknown keys retain native interpretation and
+remain visible to policy, rather than being silently discarded.
+
+Only direct generated PUT supplies this context field automatically; other
+entrypoints retain `patch=None`. Patch-dependent rules must fail closed when it
+is absent. Body keys such as `user` and `context` cannot replace trusted middleware
+identity or authorization context. See the
+[rule API](../packages/n3tx-core/docs/authorization.md#accesscontext).
 
 Prefer a narrow dictionary patch to resending a stale entity. `save()` and full
 object updates can overwrite newer values. Writes are last-write-wins: re-fetching
