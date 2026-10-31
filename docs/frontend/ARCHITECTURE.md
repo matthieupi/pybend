@@ -126,6 +126,12 @@ NTTElement.value -> update(prev,next) or scheduleRender() -> UI
 - Browser notifications synchronize local consumers. They do not by themselves
   prove cross-client live updates or conflict resolution.
 
+The flow above describes default READ/cache lists. Optional
+[`NTTList.query`](../../packages/n3tx-ui/docs/components.md#independent-method-query-lists)
+instead invokes a schema-declared collection POST and owns its returned IDs and
+pagination per instance. Two queries of the same model share NTT entities, not
+membership or page counts. Both modes use native list presentation.
+
 The backend model owns the contract. Components consume `properties`, `methods`,
 `$defs`, `ui`, and `access`; do not hand-copy those sections into app JavaScript.
 See [models](../MODELS.md) and [schema pipeline](../../packages/n3tx-core/docs/schema-pipeline.md).

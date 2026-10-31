@@ -10,7 +10,7 @@ the native combined static namespace, not separate package mounts.
 | Tag / module under `/components/` | Purpose | Main inputs |
 |---|---|---|
 | `ntx-item.js` | Entity display/edit, validation, methods, delete | `ref="Issue/1"`, `display` |
-| `ntx-list.js` | Paginated grid and create modal | `model`, `allow-create`, `headless`, `item-tag`, `item-display`, `router` |
+| `ntx-list.js` | Paginated grid and create modal | `model`, `allow-create`, `headless`, `item-tag`, `item-display`, `router`; optional `query` property or JSON attribute |
 | `ntx-table.js` | Sortable table, inline create | `model`, `allow-create`, `router` |
 | `ntx-row.js` | Table row with inline editing | Entity ref; normally created by table |
 | `ntx-user.js` | User avatar/summary, default larger views | Entity ref |
@@ -43,6 +43,10 @@ Size modes are `xs`, `sm`, `md`, `lg`, `xl`, with `row` reserved for table rows.
 See [adaptive display](../../packages/n3tx-ui/docs/components.md#adaptive-display-and-styles).
 List children are selected through templates, `childTag`, and schema hints; see
 [collection extension](../../packages/n3tx-ui/docs/components.md#collections).
+For separate filtered lists of the same model, use the optional
+[instance-owned method-query contract](../../packages/n3tx-ui/docs/components.md#independent-method-query-lists).
+It reuses the native list presentation while isolating membership and pagination;
+NTT continues sharing record values.
 
 ## Method controls
 

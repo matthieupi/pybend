@@ -35,6 +35,7 @@ picker do not all share this lifecycle. Agent-specific components belong to
 | `scheduleRender()` | Coalesces via animation frame and waits for pending stylesheet adoption |
 | `render()` | Schema-aware presentation; may run repeatedly |
 | `disconnectedCallback()` | Base observer/subscription cleanup; call `super` in overrides |
+| `connectedMoveCallback()` | Native Component preserves observers/subscriptions for browser state-preserving moves; actual disconnects still clean up. |
 
 Preserve structural DOM when it contains live children, stream output, or input
 state. This is an implementation responsibility, not a universal automatic
@@ -133,6 +134,121 @@ implement rendering and any pagination affordance it wants to expose.
 | `createChild(addr)` | Stamps a template or resolved tag with entity reference and select target |
 | `select`, `deselect`, `toggle`, `clearSelection` | Local Set-based selection |
 | `SELECT(data,tx)` | Toggles selection, forwards NAVIGATE when `router` is set |
+
+### Independent method-query lists
+
+Set `query` to give a native `NTTList` its own result membership and page
+metadata while continuing to share record values through NTT. Configure the query
+before connecting the element; the method must be declared on its runtime schema.
+
+```javascript
+const open = document.createElement('ntx-list');
+open.query = {
+  method: 'SEARCH',
+  query: '',
+  filters: {status: 'open'},
+  order_by: 'id',
+  direction: 'asc',
+  limit: 20,
+};
+open.setAttribute('model', 'Task');
+document.body.append(open);
+```
+
+The same configuration can be supplied declaratively as a JSON object:
+
+```html
+<ntx-list
+  model="Task"
+  query='{"filters":{"status":"open"},"limit":20}'>
+</ntx-list>
+```
+
+The JavaScript property accepts an object directly; attributes contain JSON text,
+not executable JavaScript. Changes to the observed attribute use the same query
+setter. A property assignment does not stringify or reflect itself back into the
+attribute. The latest explicit property/attribute assignment wins. Invalid JSON
+must fail closed rather than resurrect a previous query or use an unrestricted
+READ. Use `query`, not the superseded `searchQuery` property; no alias is retained.
+
+Native `query = null` or removing the attribute intentionally returns to legacy
+READ mode. The JSON text `null`, arrays and scalar attribute values are invalid.
+Only `method`, `query`, `filters`, `order_by`, `direction` and `limit` are accepted
+configuration keys; page offsets belong to `loadPage()`. Invalid JavaScript
+assignment throws `TypeError` after retiring the old query; invalid HTML displays
+an error instead of throwing from the element callback. Corrected explicit input
+recovers, including reassignment of the last valid configuration.
+
+Subclass adapters must respect readonly `queryInvalid` before automatically
+installing defaults or dispatching a page. `query` is null for both absent and
+invalid input; `hasQuery` distinguishes query mode (including failed configuration)
+from legacy mode. `invalidateQuery(message)` retires pending configuration and
+membership without enabling READ. Do not clear that latch from automatic refresh
+or reconnect; only an explicit valid assignment should recover it.
+
+This example assumes the application exposes a compatible `Task.SEARCH` method.
+N3TX does not add that backend method or interpret application filter semantics.
+The declared collection POST receives `query`, `filters`, `order_by`, `direction`,
+`limit` and `offset`, returning `{data, meta}` with canonical records and
+`meta={total, limit, offset, has_more}`. The method name resolves through schema;
+the browser does not accept a raw SQL expression or a replacement HTTP client.
+
+| Query-list surface | Ownership and behavior |
+|---|---|
+| `query` | Cloned configuration; changes retire pending replies immediately and start a fresh query when connected and ready. Query-to-query assignment preserves page state; switching query/legacy modes resets it. `null`, or removing the attribute, selects native legacy READ/cache mode. |
+| `value`, `meta` | This list's canonical record IDs and accepted page metadata, not every cached model instance. |
+| `loadPage(offset, {retain, append})` | Bounded native method request; replacement by default. `retain` keeps a confirmed same-context page during a refresh. |
+| `loadMore()` | Appends the next page to this query's membership, preserving returned order and shared record identity. |
+| `state`, `error`, `pending`, `hasCurrentPage` | Instance-owned loading, response and recovery state. |
+| `retainChild(child)` | Optional application hook to keep a draft/controller outside membership; never adds it to counts. |
+| `isVisibleRetainedChild(child)` | Presentation of retained work within the same caller/model context; failed reads and changed contexts still hide it. |
+| `isVisibleRecord(record)` | Optional presentation filter; not server authorization or a substitute for query filtering before pagination. |
+| `canCreate`, `openCreateModal()` | Native creation affordance and overridable creation intent. |
+
+Native query responses are correlated with the request, model, schema and current
+caller. Stale or invalid replies cannot replace membership. Failed queries do not
+fall back to an unrestricted READ. Records are registered through the native class
+before children attach; the class-wide pagination envelope is not replaced.
+
+Query-to-query assignment does not clear stored membership, metadata, selection
+or row subscriptions itself, but retires the previous pending request immediately,
+including when a subclass defers loading. Switching between query and legacy modes
+resets page state so cached legacy membership cannot masquerade as query results.
+Default `loadPage()` still marks the old page noncurrent,
+so the renderer hides it while loading; this is not an automatic visible-preview
+feature. Invalid configuration, model changes and disconnect retain their reset
+paths.
+
+`NTTList` exposes stable `items` (direct native card children), `heading`, `status`,
+`create`, `refresh`, `paging` and `next` DOM references. `next` is the native
+load-more/retry button, not a separate replacement-page Next button. The heading's
+text node is separate from the count. The stable native renderer retains keyed
+children across ordinary updates rather than replacing the entire shadow DOM.
+
+Reordering applies physical DOM order, not CSS-only visual order. Where supported,
+the list uses `moveBefore()` only after checking move-safe lifecycle support across
+light and open-shadow descendants. Native Component's move callback preserves
+subscriptions; it does not suppress lifecycle reactions in unrelated custom
+elements. A narrow fallback can move idle stock cards and rebind their native refs.
+If a foreign/opaque custom subtree or retained work prevents a safe move, the list
+keeps that controller mounted and shows **“Order not applied…”** with
+`data-order-deferred`. Later renders retry. Do not claim unconditional reordering
+of arbitrary third-party cards or historical-browser parity.
+
+Two composed, bubbling events support surrounding views:
+
+- `ntx:page-loaded`: accepted query result, detail `{value, meta}`.
+- `ntx:list-rendered`: native presentation reconciled; no additional detail.
+
+Authentication checks happen when requests, replies, updates and rendering occur;
+this does not introduce an identity polling service or replace server access rules.
+Legacy lists without `query` retain shared-cache READ semantics described in
+the table above. Applications with multiple filtered views should use query mode.
+
+The backend remains responsible for paging stability. Nonempty short pages may
+advance by their actual returned count; an empty page claiming more data is
+rejected. Load-more is not a cross-request database snapshot, and concurrent writes
+can still change subsequent pages.
 
 The template path takes precedence and retains the template's own display attrs:
 

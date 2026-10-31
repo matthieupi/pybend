@@ -6,6 +6,11 @@
     --ntx-list-packed-row-size: 8px;
 }
 
+[hidden],
+.list-grid > [hidden] {
+    display: none !important;
+}
+
 .list-header {
     display: flex;
     align-items: flex-start;
@@ -86,12 +91,14 @@
 }
 
 .load-more-btn,
+.refresh-btn,
 .add-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--ntx-radius-sm, 10px);
-    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    border: 1px solid
+        var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
     background: var(--ntx-button-secondary-bg, #ffffff);
     color: var(--ntx-color-text, #344041);
     font-family: var(--ntx-font-body, Inter, sans-serif);
@@ -108,6 +115,7 @@
 }
 
 .load-more-btn:hover,
+.refresh-btn:hover,
 .add-btn:hover {
     border-color: var(--ntx-border-interactive, rgba(20, 105, 109, 0.28));
     background: var(--ntx-button-secondary-hover-bg, #f2f4f5);
@@ -117,6 +125,25 @@
 .load-more-btn {
     margin: 1.5rem auto 0;
     padding: 0.82rem 1.35rem;
+}
+
+.refresh-btn {
+    padding: 0.82rem 1rem;
+}
+
+button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+button:focus-visible {
+    outline: 2px solid var(--ntx-color-accent-strong, #00464a);
+    outline-offset: 3px;
+}
+
+.list-status {
+    color: var(--ntx-color-text, #344041);
+    margin-block: 1rem;
 }
 
 .add-btn {
@@ -181,3 +208,12 @@
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    :host {
+        animation: none;
+    }
+}
+
+/* Changelog
+ * - 2026-10-26: Style query status, refresh and hidden retained items. */
