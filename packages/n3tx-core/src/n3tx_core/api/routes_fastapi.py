@@ -31,6 +31,7 @@ _SSE_FLUSH_PADDING = ':' + (' ' * 2048) + '\n'
 
 def _sse_frame(event: str, data: Any) -> str:
     """Serialize an SSE frame with padding to discourage transport buffering."""
+    # 0. Encode one named event and its JSON payload for the stream.
     return (
         f"{_SSE_FLUSH_PADDING}"
         f"event: {event}\n"
@@ -40,6 +41,7 @@ def _sse_frame(event: str, data: Any) -> str:
 
 def _sse_headers() -> dict:
     """Return headers that discourage SSE caching and proxy buffering."""
+    # 0. Disable common intermediary buffering and caching behaviors.
     return {
         "Cache-Control": "no-cache, no-transform",
         "X-Accel-Buffering": "no",
@@ -49,11 +51,13 @@ def _sse_headers() -> dict:
 
 def _get_user(request: Request) -> dict:
     """Extract user dict from request.state, set by JWTAuthMiddleware."""
+    # 0. Read the identity established by authentication middleware.
     return getattr(request.state, 'user', {}) or {}
 
 
 def _build_context(request, model_class, action, resource=None, patch=None):
     """Build policy input from trusted identity and optional effective patch."""
+    # 0. Combine the trusted caller with operation-specific policy context.
     return AccessContext(
         user=_get_user(request),
         action=action,
@@ -69,6 +73,7 @@ def _serialize(instance):
     model_response() runs the dump pipeline which includes the 'populate'
     stage — any eager-loaded data from _populate_fields() is overlaid
     automatically."""
+    # 0. Serialize using the model's canonical response pipeline.
     return instance.model_response()
 
 
@@ -91,6 +96,7 @@ def register_route(path, fn, method='GET'):
 
 def make_create_instance(model_class):
     """Build a create handler with policy and trusted ownership injection."""
+    # 0. Capture the model class for the generated request handler.
 
     async def create_instance(
         request: Request, data: model_class,
@@ -132,6 +138,7 @@ def make_create_instance(model_class):
 
 def make_get_all_instances(model_class):
     """Build a list handler using policy SQL filters and population options."""
+    # 0. Capture the model class for the generated collection handler.
 
     async def list_all_instances(
         request: Request,
@@ -139,6 +146,9 @@ def make_get_all_instances(model_class):
         offset: int = Query(default=None, ge=0),
         populate: str = Query(default=None),
         depth: int = Query(default=None, ge=0, le=3),
+        order_asc: str | None = Query(default=None),
+        order_desc: str | None = Query(default=None),
+        where: str | None = Query(default=None),
     ):
         """Apply the SQL policy and serialize a collection or paginated page."""
         # 0. Resolve list policy as a SQL filter, not member authorization.
@@ -149,10 +159,22 @@ def make_get_all_instances(model_class):
             raise HTTPException(status_code=403, detail=str(e))
         # 1. Fetch the requested population and page under the SQL restriction.
         pop_spec = parse_populate(populate, depth)
-        result = model_class.list(
-            sql_filter=auth_filter, limit=limit, offset=offset,
-            populate=pop_spec,
-        )
+        list_kwargs = {
+            'sql_filter': auth_filter, 'limit': limit, 'offset': offset,
+            'populate': pop_spec,
+        }
+        if order_asc is not None:
+            list_kwargs['order_asc'] = order_asc
+        if order_desc is not None:
+            list_kwargs['order_desc'] = order_desc
+        try:
+            if where is not None:
+                list_kwargs['where'] = json.loads(where)
+                if not isinstance(list_kwargs['where'], dict):
+                    raise ValueError('where must be an object')
+            result = model_class.list(**list_kwargs)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
         # 2. Preserve paginated and unpaginated response shapes.
         if isinstance(result, dict) and 'data' in result:
             return {
@@ -168,6 +190,7 @@ def make_get_all_instances(model_class):
 
 def make_get_schema(model_class):
     """Build a public schema or optional scaffold-source handler."""
+    # 0. Capture the model class for the generated schema handler.
 
     async def get_model_schema(scaffold: str = None):
         """Return schema metadata, or generate a requested scaffold kind."""
@@ -191,6 +214,7 @@ def make_get_schema(model_class):
 
 def make_get_instance(model_class):
     """Build a populated member read with resource-level authorization."""
+    # 0. Capture the model class for the generated read handler.
 
     async def read_instance(
         request: Request,
@@ -217,6 +241,7 @@ def make_get_instance(model_class):
 
 def make_update_instance(model_class):
     """Build a partial-update handler whose policy sees effective input keys."""
+    # 0. Capture the model class for the generated update handler.
 
     async def update_instance(
         request: Request,
@@ -300,6 +325,7 @@ def make_update_instance(model_class):
 
 def make_delete_instance(model_class):
     """Build a delete handler with resource-level authorization."""
+    # 0. Capture the model class for the generated delete handler.
 
     async def delete_instance(request: Request, id: int) -> Dict[str, str]:
         """Authorize an existing record and delete it through the model."""
@@ -685,8 +711,14 @@ __all__ = ["router", "register_routes", "register_route"]
 
 
 # Changelog
+# - 2026-11-04: Remove the retired instance-action capture bridge; invoke
+#   actions directly after the existing authorization and input handling.
+# - 2026-11-02: Resolve the authorized action bridge from n3tx-threads.
+# - 2026-10-31: Bridge opt-in instance actions after native HTTP authorization.
 # - 2026-10-26: Authorize canonical effective PUT patches before model updates;
 #   reject unstable alias mappings, document operations and standardize layout.
 # - 2026-10-31: Map initial CRUD get/list PermissionError to a constant 403.
 # - 2026-10-31: Remove task-added initial-read exception mapping; retain native
 #   CRUD policy evaluation and pre-existing effective-patch authorization.
+# - 2026-11-02: Add list ordering and wrap the generated route code.
+# - 2026-11-02: Decode JSON where conditions for native list filtering.

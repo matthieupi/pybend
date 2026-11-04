@@ -68,7 +68,30 @@ Where(price__gte=10)            # field >= value
 Where(price__lte=100)           # field <= value
 Where(status__ne='draft')       # field != value
 Where(role__in=['admin','mod']) # field IN (...)
+Where(name__contains='Hello')   # literal case-sensitive text substring
 ```
+
+`Where.sql_filter(ctx)` shares `utils.where.compile_where` with native
+`Model.list(where=...)`. The context must supply a model declaring the fields:
+unknown/private/dunder names and unknown operators raise `ValueError`. Values
+are bound scalar parameters, not SQL fragments. Contains requires a text field;
+membership requires a list/tuple. Empty membership matches nothing, and equality
+or inequality with `None` generates `IS NULL` or `IS NOT NULL`.
+
+The shared condition syntax also accepts `$or` with a nonempty array of nonempty
+condition objects. Each branch receives identical field/value validation;
+siblings remain AND conditions. Nesting is bounded to eight levels. Native list
+combines the complete caller predicate with trusted policy using AND outside the
+OR group. Temporal comparison values use the field's native date/datetime
+representation, including aware/naive annotations, without UTC normalization.
+
+Trusted authorization rules compile with internal `public=False`, allowing
+hidden/excluded declared fields. Caller filters and ordering reject
+those fields to prevent inference through counts or positions; the internal flag
+is not a route or LIST argument. These restrictions do not supply general response
+redaction. Write-protected readable fields remain queryable without changing
+write permissions or row policies. Other comparisons and membership retain
+SQLite's NULL semantics.
 
 ### AccessContext
 

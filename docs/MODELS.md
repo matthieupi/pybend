@@ -87,7 +87,7 @@ Constructing a model does not save it. Constructing a storable model with only
 |---|---|
 | `Model.create(Model(...))` | Persist a validated model instance; bare dict is not accepted by this mixin's create implementation |
 | `Model.get(id, as_dict=False, populate=None)` | Instance or None; optional raw dictionary/population |
-| `Model.list(sql_filter=None, limit=None, offset=None, populate=None, ids=None)` | List, or `{data, meta}` when paginated |
+| `Model.list(sql_filter=None, limit=None, offset=None, populate=None, ids=None, *, order_asc=None, order_desc=None, where=None)` | List, or `{data, meta}` when paginated; optional public-field ordering and ANDed field conditions |
 | `Model.update(id, patch)` / `instance.update(patch)` | Validate merged state; persist supplied keys |
 | `Model.delete(id)` | Delete row; no general relationship cascade |
 | `instance.save()` | Create if ID is falsey, otherwise update |

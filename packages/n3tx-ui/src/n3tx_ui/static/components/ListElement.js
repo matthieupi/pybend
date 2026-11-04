@@ -1,4 +1,4 @@
-/** Collection lifecycle with optional instance-owned method query pages. */
+/** Collection lifecycle with instance-owned native LIST query pages. */
 import {Component} from '../core/Component.js';
 import {NTT} from '../core/NTT.js';
 import {generateId} from '../core/Utils.js';
@@ -61,7 +61,7 @@ export class ListElement extends Component {
   get queryInvalid() { return this.#queryInvalid; }
 
   /** Retire old requests and reset pages only when changing query mode.
-   * @param {Object|null} query Method name and query arguments; null is legacy.
+   * @param {Object|null} query Native LIST options; null selects legacy mode.
    * @returns {void}
    * @throws {TypeError} Invalid configuration retires the previous query. */
   set query(query) {
@@ -69,23 +69,24 @@ export class ListElement extends Component {
     let next = null;
     try {
       if (query !== null) {
-        const keys = ['method', 'query', 'filters', 'order_by', 'direction',
-          'limit'];
+        const keys = ['where', 'order_asc', 'order_desc', 'limit',
+          'populate', 'depth'];
         if (Object.prototype.toString.call(query) !== '[object Object]' ||
             Object.keys(query).some(key => !keys.includes(key))) {
           throw new TypeError('Query must be an object or null.');
         }
         next = structuredClone({
-          method: 'SEARCH', query: '', filters: {}, order_by: 'id',
-          direction: 'asc', limit: 20, ...query,
+          where: {}, limit: 20, depth: 0, ...query,
         });
-        if (typeof next.method !== 'string' || !next.method ||
-            typeof next.query !== 'string' ||
-            Object.prototype.toString.call(next.filters) !==
+        if (Object.prototype.toString.call(next.where) !==
               '[object Object]' ||
-            typeof next.order_by !== 'string' || !next.order_by ||
-            !['asc', 'desc'].includes(next.direction) ||
-            !Number.isInteger(next.limit) || next.limit < 1) {
+            (next.order_asc != null && next.order_desc != null) ||
+            ['order_asc', 'order_desc'].some(key => next[key] != null &&
+              (typeof next[key] !== 'string' || !next[key])) ||
+            !Number.isInteger(next.limit) || next.limit < 1 ||
+            next.limit > 100 || !Number.isInteger(next.depth) ||
+            next.depth < 0 || next.depth > 3 ||
+            (next.populate != null && typeof next.populate !== 'string')) {
           throw new TypeError('Invalid collection query configuration.');
         }
         JSON.stringify(next);
@@ -337,7 +338,7 @@ export class ListElement extends Component {
     return JSON.stringify([this.model, this.#identity()]);
   }
 
-  /** Request one query-owned page through the native POST/RESULT transport.
+  /** Request one query-owned page through the native READ/RESULT transport.
    * @param {number} [offset=0] Nonnegative page offset.
    * @param {Object} [options={}] Page presentation options.
    * @param {boolean} [options.retain=false] Keep valid data during refresh.
@@ -365,9 +366,8 @@ export class ListElement extends Component {
     this.#pageModel = this.model;
     this.scheduleRender();
     if (this.proto?.schema?.__name__ !== this.model) return;
-    // 1. Resolve a collection POST action from native schema metadata.
-    const {method: name, ...data} = structuredClone(this.#query);
-    const method = this.schema.methods?.[name];
+    // 1. Resolve the canonical collection identity from the native schema.
+    const data = structuredClone(this.#query);
     let base;
     try {
       base = new URL(this.schema.$id);
@@ -375,10 +375,7 @@ export class ListElement extends Component {
       this.failPage('Missing collection query identity.');
       return;
     }
-    if (!method || method.requires_instance !== false ||
-        !Array.isArray(method.methods) || !method.methods.includes('POST') ||
-        !/^\/[a-z][a-z0-9_-]*(\/\w[\w-]*)*$/i.test(method.route || '') ||
-        !['http:', 'https:'].includes(base.protocol) ||
+    if (!['http:', 'https:'].includes(base.protocol) ||
         base.username || base.password || base.search || base.hash ||
         base.pathname.endsWith('/') || base.href !== this.schema.$id ||
         !Number.isInteger(data.limit) || data.limit < 1 ||
@@ -387,7 +384,7 @@ export class ListElement extends Component {
       return;
     }
     // 2. Bind response acceptance to the exact request, model and caller.
-    const target = `${this.schema.$id}${method.route}`;
+    const target = `${this.schema.$id}/_`;
     const correlation = generateId();
     this.pending = {
       correlation, model: this.model, identity: this.#identity(),
@@ -397,7 +394,7 @@ export class ListElement extends Component {
     };
     try {
       this.send(new TX({
-        name: 'CREATE', source: this.addr, target, data: {...data, offset},
+        name: 'READ', source: this.addr, target, data: {...data, offset},
         meta: {inbox: 'RESULT', correlation},
       }));
     } catch {
@@ -633,6 +630,7 @@ export class ListElement extends Component {
 }
 
 /* Changelog
+ * - 2026-11-02: Use native filtered collection GETs for instance-owned pages.
  * - 2026-10-28: Preserve pages across query changes while retiring requests;
  *   reset page state when switching between query and legacy modes.
  * - 2026-10-26: Add native query pages and guarded reply lifecycle.

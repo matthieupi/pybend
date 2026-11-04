@@ -47,9 +47,30 @@ For local relationships, register and save children before associating their IDs
 | Query | Direct route constraint | Behavior |
 |---|---|---|
 | `limit` | Integer 1–100 | Enables paginated `{data, meta}` response |
-| `offset` | Integer >=0 | Offset with limit; defaults effectively to zero |
+| `offset` | Integer >=0; SQLite maximum `2**63 - 1` | Offset with limit; defaults effectively to zero |
 | `populate` | String paths, e.g. `labels` or comma-separated paths | Explicit population selection |
 | `depth` | Integer 0–3 | Bounded population depth |
+| `where` | JSON object encoded as a query string | ANDed field conditions, compiled before counts/pagination |
+| `order_asc` | One stored model field name | Native ascending order before pagination |
+| `order_desc` | One stored model field name | Native descending order before pagination |
+
+Filtering uses the existing collection routes, not a separate search action.
+For example, URL-encode `where={"status":"open","name__contains":"Hello"}`.
+Direct and actor HTTP lists decode the JSON and forward it to the shared model
+list implementation. Unknown fields/operators, invalid JSON, and unsupported
+value shapes return 422. Supported suffixes are `__lt`, `__gt`, `__lte`,
+`__gte`, `__ne`, `__in`, and `__contains`; bare names mean equality.
+Contains is literal and case-sensitive; membership requires an array.
+Caller conditions narrow the existing policy filter; they do not replace it.
+Use `$or` for alternative condition objects, for example
+`{"status":"open","$or":[{"name__contains":"Hello"},{"description__contains":"Hello"}]}`.
+All alternatives remain inside the authorization AND restriction. Empty,
+malformed or more than eight levels of nested alternatives are rejected.
+Explicit JSON `null` is invalid (omit `where` for no restriction). Filtering and
+ordering reject private/dunder, hidden, and excluded fields; methods and
+undeclared aliases are not columns. Write-protected readable fields remain
+queryable; write protection and row policies are unchanged. Contains only
+supports text fields.
 
 Without limit the response is an array. With limit:
 
@@ -57,8 +78,12 @@ Without limit the response is an array. With limit:
 {"data": [], "meta": {"total": 0, "limit": 20, "offset": 0, "has_more": false}}
 ```
 
-Total counts matching rows before pagination. No stable application sort order
-is promised. Offset without limit is not a useful pagination contract. Count and
+Total counts matching rows before pagination, independently of ordering.
+`order_asc` and `order_desc` are mutually exclusive. Both direct and actor HTTP
+list routes return 422 for conflicts or unsupported field names. SQLite uses
+native column and NULL ordering; ties have no secondary ordering. Without an
+ordering parameter no stable application sort order is promised.
+Offset without limit is not a useful pagination contract. Count and
 page reads are not a snapshot across concurrent changes.
 
 ⚠️ Direct list routes call only `sql_filter_for`, not `authorize`. AUTHENTICATED

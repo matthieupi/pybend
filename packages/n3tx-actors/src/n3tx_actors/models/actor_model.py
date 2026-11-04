@@ -2,18 +2,8 @@
 
 Bridge class: Actor (messaging) + ProtoModel (data/schema/validation).
 
-CRUD operations are routed through handler_crud() which adapts
-TX messages to StorableMixin method signatures. Non-CRUD messages
-fall through to Actor's generic handler (getattr dispatch).
-
-    class Product(ActorModel):
-        __tablename__ = 'products'
-        __storable__ = True
-        name: str = Field(min_length=1, max_length=200)
-
-    # Product is now an actor:
-    # await Product.inbox(TX(name='create', source='api', target='products', data={...}))
-"""
+CRUD operations adapt TX messages to StorableMixin methods; other messages
+fall through to Actor's generic handler."""
 
 import asyncio
 import inspect
@@ -53,10 +43,10 @@ class ActorModel(Actor, ProtoModel):
     MRO: Product → ActorModel → Actor → ProtoModel → PydanticBaseModel
 
     Handles:
-    - CRUD messages via handler_crud() adapter (schema, create, get, list, update, delete)
+    - CRUD messages via handler_crud() (schema, create, get, list, update,
+      delete)
     - Non-CRUD messages via generic Actor handler (getattr dispatch)
-    - Lifecycle events published after create/update/delete
-    """
+    - Lifecycle events published after create/update/delete"""
 
     model_config = ConfigDict(
         ignored_types=(fullmethod, fullproperty),
@@ -70,19 +60,16 @@ class ActorModel(Actor, ProtoModel):
     def ref(cls, address, *, matrix=None, user=None):
         """Return an explicit handle for calling this model at a ref address.
 
-        This keeps model construction (`Artifact(...)`) distinct from remote or
-        remote identity handles (`Artifact.ref('https://.../Artifact/42')`).
-        """
+        This distinguishes model construction from explicit identity handles."""
         from n3tx_actors.remote_proxy import RemoteRef
         return RemoteRef(address, model_cls=cls, matrix=matrix, user=user)
-
-    # ── Handler override ──
 
     @fullmethod
     async def handler(target, tx: TX) -> None:
         """Try CRUD adapter first, fall back to generic dispatch."""
         cls = target if isinstance(target, type) else target.__class__
         result = cls.handler_crud(tx)
+        # 1. Dispatch CRUD results before generic actor messages.
 
         if result is not _NOT_HANDLED:
             # Dispatch CRUD result
@@ -98,14 +85,16 @@ class ActorModel(Actor, ProtoModel):
                 else:
                     await target.send(tx.reply())
             except Exception as e:
-                logger.error(f"[{target.addr}] Error dispatching {tx.name}: {e}")
+                logger.error(
+                    f"[{target.addr}] Error dispatching {tx.name}: {e}"
+                )
                 if tx.is_error:
                     # ERROR is routable, but terminal. If dispatching an ERROR
                     # response fails, do not generate another ERROR in return.
                     return
                 await target.send(tx.error(str(e)))
         else:
-            # Generic fallback for custom @expose_route methods and other messages.
+            # Generic fallback for custom @expose_route methods and messages.
             method = getattr(target, tx.name, None)
             exposed = exposed_method_info(cls, tx.name)
             if exposed is not None:
@@ -113,7 +102,10 @@ class ActorModel(Actor, ProtoModel):
             if method and callable(method):
                 try:
                     data = tx.data or {}
-                    is_exposed = exposed is not None or hasattr(method, '__endpoint__')
+                    is_exposed = (
+                        exposed is not None
+                        or hasattr(method, '__endpoint__')
+                    )
 
                     if is_exposed:
                         # @expose_route method: unpack data as kwargs.
@@ -121,20 +113,31 @@ class ActorModel(Actor, ProtoModel):
                         from inspect import signature as get_sig
                         from typing import get_type_hints
                         from n3tx_core.utils.materialize import materialize_arg
-                        signature_target = exposed.func if exposed is not None else method
+                        signature_target = (
+                            exposed.func if exposed is not None else method
+                        )
                         sig = get_sig(signature_target)
                         type_hints = get_type_hints(signature_target)
-                        is_instance = exposed.requires_instance if exposed is not None else 'self' in sig.parameters
+                        is_instance = (
+                            exposed.requires_instance if exposed is not None
+                            else 'self' in sig.parameters
+                        )
 
                         instance = None
                         if is_instance:
                             entity_id = data.get('id')
                             if not entity_id:
-                                await target.send(tx.error("'id' required for instance method", code=400))
+                                await target.send(tx.error(
+                                    "'id' required for instance method",
+                                    code=400,
+                                ))
                                 return
                             instance = cls.get(entity_id)
                             if not instance:
-                                await target.send(tx.error(f"{cls.__name__} {entity_id} not found", code=404))
+                                await target.send(tx.error(
+                                    f"{cls.__name__} {entity_id} not found",
+                                    code=404,
+                                ))
                                 return
 
                         # Tier 2 auth: final method access check happens after
@@ -145,7 +148,8 @@ class ActorModel(Actor, ProtoModel):
                         if method_access is not None:
                             user = tx.meta.get('user')
                             if user is not None:
-                                # External or agent-proxied request — evaluate access
+                                # External or agent-proxied request: check
+                                # access.
                                 from n3tx_core.authorize import AccessContext
                                 ctx = AccessContext(
                                     user=user,
@@ -153,9 +157,12 @@ class ActorModel(Actor, ProtoModel):
                                     resource=instance,
                                 )
                                 if not method_access.evaluate(ctx):
-                                    await target.send(tx.error("Access denied", code=403))
+                                    await target.send(tx.error(
+                                        "Access denied", code=403
+                                    ))
                                     return
-                            # user is None → internal message, no auth context (matches _authorize())
+                            # None user means internal dispatch, as in
+                            # _authorize.
 
                         kwargs = {k: v for k, v in data.items() if k != 'id'}
                         user = tx.meta.get('user')
@@ -183,8 +190,8 @@ class ActorModel(Actor, ProtoModel):
                 except Exception as e:
                     logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
                     if tx.is_error:
-                        # ERROR remains catchable by actors, but failed ERROR
-                        # handlers are terminal to prevent recursive bounce loops.
+                        # ERROR remains catchable; failures are terminal to stop
+                        # recursive bounce loops.
                         return
                     await target.send(tx.exception(e))
                     return
@@ -204,12 +211,17 @@ class ActorModel(Actor, ProtoModel):
                     seq = 0
                     try:
                         async for chunk in result:
-                            chunk_data = chunk if isinstance(chunk, dict) else {'chunk': chunk}
+                            chunk_data = (
+                                chunk if isinstance(chunk, dict)
+                                else {'chunk': chunk}
+                            )
                             await target.send(tx.chunk(chunk_data, seq))
                             seq += 1
                         await target.send(tx.end(seq=seq))
                     except Exception as e:
-                        logger.error(f"[{target.addr}] Stream error in {tx.name}: {e}")
+                        logger.error(
+                            f"[{target.addr}] Stream error in {tx.name}: {e}"
+                        )
                         await target.send(tx.exception(e))
                     return
 
@@ -236,12 +248,16 @@ class ActorModel(Actor, ProtoModel):
                 # Drop errors and responses — sending an error in response
                 # to an error creates infinite bounce loops between actors.
                 if tx.is_error or tx.name.endswith('_RESPONSE'):
-                    addr = target.addr if not isinstance(target, type) else target.__addr__
-                    logger.debug("[%s] Dropped unhandled %s from %s", addr, tx.name, tx.source)
+                    addr = (
+                        target.addr if not isinstance(target, type)
+                        else target.__addr__
+                    )
+                    logger.debug(
+                        "[%s] Dropped unhandled %s from %s",
+                        addr, tx.name, tx.source,
+                    )
                     return
                 await target.send(tx.error(f"Unhandled message: {tx.name}"))
-
-    # ── Tier 2: Handler-level authorization ──
 
     @classmethod
     def _authorize(cls, action: str, tx: TX, resource=None):
@@ -251,9 +267,8 @@ class ActorModel(Actor, ProtoModel):
         handler_crud after the resource instance is fetched, enabling
         resource-dependent rules (OWNER) that Tier 1 interceptors can't check.
 
-        Returns error TX if denied, None if authorized.
-        Internal messages (no meta.user) pass through unchecked.
-        """
+        Returns error TX if denied; internal messages pass through unchecked."""
+        # 2. Evaluate access with the caller and optional resource context.
         user = tx.meta.get('user')
         if user is None:
             return None  # Internal message — no auth context
@@ -273,8 +288,6 @@ class ActorModel(Actor, ProtoModel):
             return tx.error("Access denied", code=403)
         return None
 
-    # ── CRUD adapter ──
-
     @classmethod
     def handler_crud(cls, tx: TX):
         """Adapt TX messages to StorableMixin method signatures.
@@ -282,9 +295,8 @@ class ActorModel(Actor, ProtoModel):
         Returns a result (dict, TX, or value) for CRUD messages,
         or _NOT_HANDLED sentinel for everything else.
 
-        Tier 2 auth: after fetching the resource instance, checks __access__
-        rules with resource context (enables OWNER evaluation).
-        """
+        Tier 2 checks use fetched resources for rules such as OWNER."""
+        # 3. Dispatch recognized CRUD messages to model storage methods.
         name = tx.name.lower()
         data = tx.data or {}
 
@@ -302,7 +314,9 @@ class ActorModel(Actor, ProtoModel):
                 instance = cls(**data)
                 result = cls.create(instance)
                 if result:
-                    cls._publish_lifecycle('after_create', result.model_response())
+                    cls._publish_lifecycle(
+                        'after_create', result.model_response()
+                    )
                     return result.model_response()
                 return tx.error("Create failed", code=409)
 
@@ -313,7 +327,9 @@ class ActorModel(Actor, ProtoModel):
                 populate = _parse_populate_from_data(data)
                 result = cls.get(entity_id, populate=populate)
                 if not result:
-                    return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
+                    return tx.error(
+                        f"{cls.__name__} {entity_id} not found", code=404
+                    )
                 denied = cls._authorize('read', tx, resource=result)
                 if denied:
                     return denied
@@ -322,14 +338,27 @@ class ActorModel(Actor, ProtoModel):
             elif name == 'list':
                 # sql_filter computed by Tier 1 interceptor, passed via meta
                 populate = _parse_populate_from_data(data)
-                result = cls.list(
+                list_kwargs = dict(
                     sql_filter=tx.meta.get('sql_filter'),
                     limit=data.get('limit'),
                     offset=data.get('offset'),
                     populate=populate,
                 )
+                for ordering in ('order_asc', 'order_desc'):
+                    if data.get(ordering) is not None:
+                        list_kwargs[ordering] = data[ordering]
+                if 'where' in data:
+                    if not isinstance(data['where'], dict):
+                        return tx.error('where must be an object', code=422)
+                    list_kwargs['where'] = data['where']
+                try:
+                    result = cls.list(**list_kwargs)
+                except ValueError as exc:
+                    return tx.error(str(exc), code=422)
                 # Serialize model instances with $schema/$id (matches Level 1/2)
-                _ser = lambda r: r.model_response() if hasattr(r, 'model_response') else r
+                _ser = lambda r: (
+                    r.model_response() if hasattr(r, 'model_response') else r
+                )
                 if isinstance(result, dict) and 'data' in result:
                     result['data'] = [_ser(r) for r in result['data']]
                     return result
@@ -341,7 +370,9 @@ class ActorModel(Actor, ProtoModel):
                     return tx.error("'id' required", code=400)
                 current = cls.get(entity_id)
                 if not current:
-                    return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
+                    return tx.error(
+                        f"{cls.__name__} {entity_id} not found", code=404
+                    )
                 denied = cls._authorize('update', tx, resource=current)
                 if denied:
                     return denied
@@ -357,7 +388,9 @@ class ActorModel(Actor, ProtoModel):
                     return tx.error("'id' required", code=400)
                 result = cls.get(entity_id)
                 if not result:
-                    return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
+                    return tx.error(
+                        f"{cls.__name__} {entity_id} not found", code=404
+                    )
                 denied = cls._authorize('delete', tx, resource=result)
                 if denied:
                     return denied
@@ -368,8 +401,13 @@ class ActorModel(Actor, ProtoModel):
         except ValidationError as e:
             if name != 'update':
                 errors = [
-                    {'loc': error['loc'], 'type': error['type'], 'msg': error['msg']}
-                    for error in e.errors(include_url=False, include_input=False)
+                    {
+                        'loc': error['loc'], 'type': error['type'],
+                        'msg': error['msg'],
+                    }
+                    for error in e.errors(
+                        include_url=False, include_input=False
+                    )
                 ]
                 logger.warning(
                     "[%s] Rejected %s fields=%s: %s",
@@ -385,16 +423,12 @@ class ActorModel(Actor, ProtoModel):
 
         return _NOT_HANDLED
 
-    # ── Lifecycle events ──
-
     @classmethod
     def _publish_lifecycle(cls, event: str, data: dict):
         """Publish lifecycle event to subscribers. Fire-and-forget.
 
-        Subscribers are future consumers: federation outbox, agent monitor,
-        audit logger, websocket bridge. In Wave 0, _subscribers is empty —
-        the infrastructure exists but no consumers yet.
-        """
+        Subscribers are future consumers; the list is empty in Wave 0."""
+        # 4. Schedule lifecycle notifications without blocking the response.
         for subscriber_addr in cls._subscribers:
             asyncio.create_task(cls.send(TX(
                 name='LIFECYCLE',
@@ -402,3 +436,6 @@ class ActorModel(Actor, ProtoModel):
                 target=subscriber_addr,
                 data={'event': event, 'entity': data},
             )))
+# Changelog
+# - 2026-11-02: Map invalid ActorModel list ordering to TX 422 errors.
+# - 2026-11-02: Forward LIST where conditions to the shared model compiler.

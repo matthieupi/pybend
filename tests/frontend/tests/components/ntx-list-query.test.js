@@ -32,7 +32,7 @@ async function settle() {
   await new Promise(resolve => requestAnimationFrame(resolve));
 }
 
-/** Register an isolated runtime model with a declared collection POST method.
+/** Register an isolated runtime model without a custom collection method.
  * @returns {Object} Native model schema. */
 function modelSchema() {
   // 0. Isolate native registry membership without resetting component classes.
@@ -42,12 +42,6 @@ function modelSchema() {
     $id: `http://localhost:5000/${name}`,
     type: 'object', properties: {
       id: {type: 'integer'}, name: {type: 'string'},
-    },
-    methods: {
-      SEARCH: {
-        route: '/search', methods: ['POST'], requires_instance: false,
-        parameters: {},
-      },
     },
   };
   NTT.SCHEMA(result);
@@ -102,6 +96,17 @@ function lastRequest(list) {
       request.source === `${list.constructor.addr}/${list.addr}`).at(-1);
 }
 
+/** Find the active control across native component shadow boundaries.
+ * @returns {Element|null} Deepest focused element in this document. */
+function focusedElement() {
+  // 0. Follow actual browser focus rather than the outer shadow host alone.
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) {
+    active = active.shadowRoot.activeElement;
+  }
+  return active;
+}
+
 beforeEach(() => {
   permissions.user = {user_id: 7, role: 'staff'};
   requests = vi.spyOn(matrix.remote, 'send').mockImplementation(() => {});
@@ -113,21 +118,21 @@ describe('declarative native queries', () => {
   it.each([true, false])('binds HTML in either attribute order: %s',
     async modelFirst => {
       const model = `model="${schema.__name__}"`;
-      const query = `query='{"filters":{"status":"open"}}'`;
+      const query = `query='{"where":{"status":"open"}}'`;
       document.body.innerHTML = '<ntx-list ' +
         (modelFirst ? `${model} ${query}` : `${query} ${model}`) +
         '></ntx-list>';
       await settle();
       const list = document.querySelector('ntx-list');
       expect(requests).toHaveBeenCalledTimes(1);
-      expect(lastRequest(list).name).toBe('CREATE');
-      expect(lastRequest(list).data.filters).toEqual({status: 'open'});
+      expect(lastRequest(list).name).toBe('READ');
+      expect(lastRequest(list).data.where).toEqual({status: 'open'});
     });
 
   it('binds markup present before custom-element upgrade', async () => {
     const tag = `upgraded-query-list-${serial}`;
     document.body.innerHTML = `<${tag} model="${schema.__name__}" ` +
-      `query='{"filters":{"status":"open"}}'></${tag}>`;
+      `query='{"where":{"status":"open"}}'></${tag}>`;
 
     /** Exercise native upgrade using the production list lifecycle. */
     class UpgradedList extends customElements.get('ntx-list') {}
@@ -135,24 +140,26 @@ describe('declarative native queries', () => {
     await settle();
     const list = document.querySelector(tag);
     expect(requests).toHaveBeenCalledTimes(1);
-    expect(lastRequest(list).name).toBe('CREATE');
-    expect(list.query.filters).toEqual({status: 'open'});
+    expect(lastRequest(list).name).toBe('READ');
+    expect(list.query.where).toEqual({status: 'open'});
   });
 
   it.each([
-    '{filters: {status: "open"}}', '[]', 'null', 'true', '1', '"text"',
-    '{"filters":[]}', '{"query":{}}', '{"direction":"sideways"}',
-    '{"limit":0}', '{"method":7}', '{"order_by":[]}',
+    '{where: {status: "open"}}', '[]', 'null', 'true', '1', '"text"',
+    '{"where":[]}', '{"query":{}}', '{"direction":"asc"}',
+    '{"limit":0}', '{"method":"SEARCH"}', '{"order_by":"id"}',
+    '{"filters":{}}', '{"where":null}', '{"depth":4}',
+    '{"order_asc":"id","order_desc":"id"}', '{"populate":[]}',
     '{"text":"open"}', '{"orderBy":"name"}', '{"offset":20}',
   ])('retires a query and stays fail-closed after invalid JSON %s',
     async invalid => {
       const list = document.createElement('ntx-list');
-      list.setAttribute('query', '{"filters":{"status":"open"}}');
+      list.setAttribute('query', '{"where":{"status":"open"}}');
       list.setAttribute('model', schema.__name__);
       document.body.append(list);
       await settle();
       const old = lastRequest(list);
-      expect(old?.name).toBe('CREATE');
+      expect(old?.name).toBe('READ');
       list.setAttribute('query', invalid);
       expect(list.pending).toBeNull();
       reply(old, [row(1)]);
@@ -173,7 +180,7 @@ describe('declarative native queries', () => {
       expect(list.state).toBe('error');
       expect(list.value).toEqual([]);
       expect(proto.instances.size).toBe(0);
-      list.setAttribute('query', '{"filters":{"status":"open"}}');
+      list.setAttribute('query', '{"where":{"status":"open"}}');
       expect(requests).toHaveBeenCalledTimes(2);
       reply(lastRequest(list), [row(2)]);
       expect(list.state).toBe('ready');
@@ -182,17 +189,17 @@ describe('declarative native queries', () => {
   it('keeps property assignments ahead of stale markup on reconnect',
     async () => {
       const list = document.createElement('ntx-list');
-      list.setAttribute('query', '{"filters":{"status":"open"}}');
-      list.query = {filters: {status: 'closed'}};
+      list.setAttribute('query', '{"where":{"status":"open"}}');
+      list.query = {where: {status: 'closed'}};
       list.setAttribute('model', schema.__name__);
       document.body.append(list);
       await settle();
-      expect(lastRequest(list).data.filters).toEqual({status: 'closed'});
+      expect(lastRequest(list).data.where).toEqual({status: 'closed'});
       list.remove();
       document.body.append(list);
       await settle();
       list.define(proto);
-      expect(lastRequest(list).data.filters).toEqual({status: 'closed'});
+      expect(lastRequest(list).data.where).toEqual({status: 'closed'});
       expect(list.getAttribute('query')).toContain('open');
       expect('searchQuery' in list).toBe(false);
     });
@@ -216,7 +223,7 @@ describe('declarative native queries', () => {
   it.each([true, false])('rejects initial invalid markup; model first=%s',
     async modelFirst => {
       const model = `model="${schema.__name__}"`;
-      const query = `query='{"filters":[]}'`;
+      const query = `query='{"where":[]}'`;
       document.body.innerHTML = '<ntx-list ' +
         (modelFirst ? `${model} ${query}` : `${query} ${model}`) +
         '></ntx-list>';
@@ -230,18 +237,18 @@ describe('declarative native queries', () => {
       expect(list.status.textContent).toMatch(/invalid query attribute/i);
       list.query = {};
       expect(list.queryInvalid).toBe(false);
-      expect(lastRequest(list).name).toBe('CREATE');
+      expect(lastRequest(list).name).toBe('READ');
     });
 
   it('reroutes an updated attribute without altering another list',
     async () => {
-      const left = await mount({filters: {status: 'left'}});
-      const right = await mount({filters: {status: 'right'}});
+      const left = await mount({where: {status: 'left'}});
+      const right = await mount({where: {status: 'right'}});
       const leftRequest = lastRequest(left);
       const rightRequest = lastRequest(right);
-      left.setAttribute('query', '{"filters":{"status":"updated"}}');
+      left.setAttribute('query', '{"where":{"status":"updated"}}');
       expect(lastRequest(left)).not.toBe(leftRequest);
-      expect(lastRequest(left).data.filters).toEqual({status: 'updated'});
+      expect(lastRequest(left).data.where).toEqual({status: 'updated'});
       expect(lastRequest(right)).toBe(rightRequest);
       reply(leftRequest, [row(1)]);
       reply(rightRequest, [row(2)]);
@@ -266,7 +273,7 @@ describe('declarative native queries', () => {
          * @throws {TypeError} The synthetic adapter rejects one filter. */
         set query(value) {
           inputs.push(value);
-          if (value?.filters?.status === 'rejected') {
+          if (value?.where?.status === 'rejected') {
             throw new TypeError('Rejected adapter filter.');
           }
           super.query = value;
@@ -287,11 +294,11 @@ describe('declarative native queries', () => {
       const tag = `adapter-query-list-${serial}`;
       customElements.define(tag, AdapterList);
       const list = document.createElement(tag);
-      list.setAttribute('query', '{"filters":{"status":"open"}}');
+      list.setAttribute('query', '{"where":{"status":"open"}}');
       list.setAttribute('model', schema.__name__);
       document.body.append(list);
       await settle();
-      list.setAttribute('query', '{"filters":{"status":"rejected"}}');
+      list.setAttribute('query', '{"where":{"status":"rejected"}}');
       expect(list.queryInvalid).toBe(true);
       expect(list.query).toBeNull();
       list.loadPage();
@@ -299,28 +306,30 @@ describe('declarative native queries', () => {
       document.body.append(list);
       await settle();
       expect(requests).toHaveBeenCalledTimes(1);
-      list.setAttribute('query', '{"filters":{"status":"open"}}');
+      list.setAttribute('query', '{"where":{"status":"open"}}');
       expect(requests).toHaveBeenCalledTimes(2);
       expect(inputs).toEqual([
-        {filters: {status: 'open'}}, {filters: {status: 'rejected'}},
-        {filters: {status: 'open'}},
+        {where: {status: 'open'}}, {where: {status: 'rejected'}},
+        {where: {status: 'open'}},
       ]);
       list.removeAttribute('query');
       expect(inputs.at(-1)).toBeNull();
       expect(list.hasQuery).toBe(false);
     });
 
-  it.each([undefined, [], 'text', {text: 'open'}, {filters: null}])(
+  it.each([undefined, [], 'text', {text: 'open'}, {where: null},
+    {method: 'SEARCH'}, {filters: {}}, {query: 'text'}, {order_by: 'id'},
+    {direction: 'asc'}, {depth: -1}, {order_asc: ''}])(
     'rejects invalid property input %j and permits explicit recovery',
     async invalid => {
-      const list = await mount({filters: {status: 'open'}});
+      const list = await mount({where: {status: 'open'}});
       const old = lastRequest(list);
       expect(() => { list.query = invalid; }).toThrow(TypeError);
       expect(list.queryInvalid).toBe(true);
       expect(list.pending).toBeNull();
       reply(old, [row(1)]);
       expect(list.value).toEqual([]);
-      list.query = {filters: {status: 'open'}};
+      list.query = {where: {status: 'open'}};
       expect(list.queryInvalid).toBe(false);
       expect(lastRequest(list)).not.toBe(old);
     },
@@ -346,7 +355,7 @@ describe('declarative native queries', () => {
 
   it('hides accepted membership and retires an in-flight refresh on errors',
     async () => {
-      const list = await mount({filters: {status: 'open'}});
+      const list = await mount({where: {status: 'open'}});
       reply(lastRequest(list), [row(1)]);
       await settle();
       const child = list.items.firstElementChild;
@@ -363,7 +372,7 @@ describe('declarative native queries', () => {
       expect(child.hidden).toBe(true);
       expect(child.inert).toBe(true);
       expect(list.status.textContent).toMatch(/invalid query attribute/i);
-      list.query = {filters: {status: 'open'}};
+      list.query = {where: {status: 'open'}};
       reply(lastRequest(list), [row(1)]);
       await settle();
       expect(list.items.firstElementChild).toBe(child);
@@ -372,31 +381,33 @@ describe('declarative native queries', () => {
 });
 
 describe('native instance-owned collection queries', () => {
-  it('dispatches declared POST via CREATE with defaults and cloned queries',
+  it('dispatches native READ with defaults and deeply cloned predicates',
     async () => {
-      const input = {filters: {name: ['one']}};
+      const input = {where: {$or: [{name: 'one'}, {name: 'two'}]}};
       const list = await mount(input);
-      input.filters.name.push('two');
-      list.query.filters.name.push('three');
+      input.where.$or.push({name: 'three'});
+      list.query.where.$or.push({name: 'four'});
       const request = lastRequest(list);
-      expect(request.name).toBe('CREATE');
-      expect(request.target).toBe(`${schema.$id}/search`);
+      expect(request.name).toBe('READ');
+      expect(request.target).toBe(`${schema.$id}/_`);
       expect(request.meta.inbox).toBe('RESULT');
       expect(request.data).toEqual({
-        query: '', filters: {name: ['one']}, order_by: 'id',
-        direction: 'asc', limit: 20, offset: 0,
+        where: {$or: [{name: 'one'}, {name: 'two'}]},
+        depth: 0, limit: 20, offset: 0,
       });
       expect(list.pending).toMatchObject({
         correlation: request.meta.correlation, model: schema.__name__,
         operation: 'read', limit: 20, offset: 0,
       });
-      expect(list.query.filters).toEqual({name: ['one']});
+      expect(list.query.where).toEqual({
+        $or: [{name: 'one'}, {name: 'two'}],
+      });
     });
 
   it('keeps two same-model pages, counts and pagination independent',
     async () => {
-      const left = await mount({filters: {name: 'left'}, limit: 1});
-      const right = await mount({filters: {name: 'right'}, limit: 1});
+      const left = await mount({where: {name: 'left'}, limit: 1});
+      const right = await mount({where: {name: 'right'}, limit: 1});
       reply(lastRequest(left), [row(1)], 3);
       reply(lastRequest(right), [row(2)], 1);
       await settle();
@@ -414,16 +425,24 @@ describe('native instance-owned collection queries', () => {
       expect(right.meta.offset).toBe(0);
     });
 
-  it('discovers renamed collection actions and declared routes', async () => {
-    schema.methods.FIND = {
-      ...schema.methods.SEARCH, route: '/queries/find',
-    };
-    delete schema.methods.SEARCH;
-    const list = await mount({method: 'FIND'});
-    expect(lastRequest(list).target).toBe(`${schema.$id}/queries/find`);
-    reply(lastRequest(list), [row(1)]);
-    expect(list.state).toBe('ready');
-  });
+  it('reads without custom actions and forwards native collection options',
+    async () => {
+      // 0. A plain runtime schema is sufficient for native collection reads.
+      const list = await mount({
+        where: {name__contains: '%_'}, order_desc: 'id',
+        depth: 2, populate: 'children', limit: 5,
+      });
+      // 1. Options reach READ unchanged, with no custom action discovery.
+      expect(schema.methods).toBeUndefined();
+      expect(lastRequest(list).target).toBe(`${schema.$id}/_`);
+      expect(lastRequest(list).name).toBe('READ');
+      expect(lastRequest(list).data).toEqual({
+        where: {name__contains: '%_'}, order_desc: 'id',
+        depth: 2, populate: 'children', limit: 5, offset: 0,
+      });
+      reply(lastRequest(list), [row(1)]);
+      expect(list.state).toBe('ready');
+    });
 
   it('accepts short pages and advances by received rows, not the limit',
     async () => {
@@ -476,7 +495,7 @@ describe('native instance-owned collection queries', () => {
       expect(list.items.firstElementChild).toBe(child);
       expect(proto._paginationMeta).toBe(metadata);
       expect(requests.mock.calls.map(([request]) => request.name))
-        .toEqual(['CREATE', 'CREATE']);
+        .toEqual(['READ', 'READ']);
     });
 
   it('does not adopt global cache membership on READ, CREATE or DELETE',
@@ -496,7 +515,7 @@ describe('native instance-owned collection queries', () => {
     async () => {
       const list = await mount();
       const old = lastRequest(list);
-      list.query = {query: 'new'};
+      list.query = {where: {name: 'new'}};
       const current = lastRequest(list);
       reply(old, [row(1)]);
       matrix.remote.onError(old, {detail: 'Old denied request'});
@@ -540,15 +559,15 @@ describe('native instance-owned collection queries', () => {
       const tag = `deferred-load-query-list-${serial}`;
       customElements.define(tag, DeferredLoadList);
       const list = document.createElement(tag);
-      list.query = {query: 'A'};
+      list.query = {where: {name: 'A'}};
       list.model = schema.__name__;
       document.body.append(list);
       await settle();
       const old = lastRequest(list);
-      expect(old.data.query).toBe('A');
+      expect(old.data.where).toEqual({name: 'A'});
       expect(list.pending.correlation).toBe(old.meta.correlation);
       list.setAttribute('disabled', '');
-      list.query = {query: 'B'};
+      list.query = {where: {name: 'B'}};
       // 1. Changing authority must retire A even before B can be dispatched.
       expect(requests).toHaveBeenCalledTimes(1);
       expect(list.pending).toBeNull();
@@ -566,7 +585,7 @@ describe('native instance-owned collection queries', () => {
       const current = lastRequest(list);
       expect(requests).toHaveBeenCalledTimes(2);
       expect(current.meta.correlation).not.toBe(old.meta.correlation);
-      expect(current.data).toMatchObject({query: 'B', offset: 0});
+      expect(current.data).toMatchObject({where: {name: 'B'}, offset: 0});
       reply(current, [row(2)]);
       expect(list.value).toEqual([row(2).$id]);
       expect(list.hasCurrentPage).toBe(true);
@@ -641,7 +660,7 @@ describe('native instance-owned collection queries', () => {
       const list = await mount();
       const first = lastRequest(list);
       const unsubscribe = proto.observe('UPDATE', () => {
-        list.query = {query: 'changed during hydration'};
+        list.query = {where: {name: 'changed during hydration'}};
       });
       reply(first, [row(1)]);
       unsubscribe();
@@ -673,12 +692,12 @@ describe('native instance-owned collection queries', () => {
       list.query = {};
       list.model = schema.__name__;
       list.define(proto);
-      list.query = {query: 'changed'};
+      list.query = {where: {name: 'changed'}};
       expect(requests).not.toHaveBeenCalled();
       document.body.append(list);
       await settle();
       expect(requests).toHaveBeenCalledTimes(1);
-      expect(lastRequest(list).data.query).toBe('changed');
+      expect(lastRequest(list).data.where).toEqual({name: 'changed'});
     });
 
   it('ignores delayed schema delivery after disconnect and resumes on attach',
@@ -699,16 +718,16 @@ describe('native instance-owned collection queries', () => {
       expect(lastRequest(list)).toBeUndefined();
       document.body.append(list);
       await settle();
-      expect(lastRequest(list).target).toBe(`${delayed.$id}/search`);
+      expect(lastRequest(list).target).toBe(`${delayed.$id}/_`);
     });
 
   it.each([
-    {},
-    {route: '/search', methods: ['GET'], requires_instance: false},
-    {route: '/search', methods: ['POST'], requires_instance: true},
-    {route: '//other.example', methods: ['POST'], requires_instance: false},
-  ])('fails closed for unsupported method metadata %j', async method => {
-    schema.methods.SEARCH = method;
+    undefined, 'not a URL', 'ftp://example.test/Model',
+    'http://user:password@example.test/Model',
+    'http://example.test/Model?query=x', 'http://example.test/Model#part',
+    'http://example.test/Model/',
+  ])('fails closed for invalid collection identity %j', async identity => {
+    schema.$id = identity;
     const list = await mount();
     expect(list.state).toBe('error');
     expect(list.completedRead).toBe(0);
@@ -864,6 +883,161 @@ describe('stable native list presentation', () => {
       expect(child.value.name).toBe('New cached value');
     });
 
+  it.each([
+    ['native heading', 'suppression'], ['explicit fallback', 'suppression'],
+    ['native heading', 'removal'], ['explicit fallback', 'removal'],
+    ['disconnected fallback', 'suppression'],
+    ['disconnected fallback', 'removal'],
+  ])('focus recovery: uses %s before focused child %s',
+    async (target, change) => {
+      // 0. Focus a real child below both list and item shadow boundaries.
+      const list = await mount({where: {name: 'visible'}});
+      list.isVisibleRecord = record => record?.name === 'visible';
+      reply(lastRequest(list), [
+        row(1, {name: 'visible'}), row(2, {name: 'visible'}),
+      ]);
+      await settle();
+      const child = list.items.firstElementChild;
+      const input = document.createElement('input');
+      child.shadowRoot.append(input);
+      input.focus();
+      expect(focusedElement()).toBe(input);
+      let fallback = list.heading;
+      if (target !== 'native heading') {
+        const configured = document.createElement('h2');
+        configured.textContent = 'Owning lane';
+        configured.tabIndex = -1;
+        document.body.append(configured);
+        list.focusFallback = configured;
+        if (target === 'disconnected fallback') configured.remove();
+        else fallback = configured;
+        expect(configured.isConnected).toBe(target === 'explicit fallback');
+      }
+      const accepted = [...list.value];
+      const meta = {...list.meta};
+      const query = list.query;
+      const context = list.queryContextKey;
+      const transitions = [];
+      fallback.addEventListener('focus', () => transitions.push({
+        connected: child.isConnected, hidden: child.hidden, inert: child.inert,
+      }));
+      // 1. Cache visibility changes never establish a different accepted page.
+      if (change === 'suppression') {
+        proto.READ(row(1, {name: 'suppressed'}));
+      } else {
+        list.loadPage(0, {retain: true});
+        reply(lastRequest(list), [row(2, {name: 'visible'})]);
+      }
+      await settle();
+      // 2. Transfer focus before the owned node becomes unavailable.
+      expect(focusedElement()).toBe(fallback);
+      expect(fallback.tabIndex).toBe(-1);
+      expect(transitions).toEqual([
+        {connected: true, hidden: false, inert: false},
+      ]);
+      expect(list.state).toBe('ready');
+      expect(list.query).toEqual(query);
+      expect(list.queryContextKey).toBe(context);
+      if (change === 'suppression') {
+        expect(child.isConnected).toBe(true);
+        expect(child.hidden).toBe(true);
+        expect(child.inert).toBe(true);
+        expect(list.value).toEqual(accepted);
+        expect(list.meta).toEqual(meta);
+        expect(requests).toHaveBeenCalledTimes(1);
+      } else {
+        expect(child.isConnected).toBe(false);
+        expect(list.value).toEqual([row(2).$id]);
+        expect(list.meta).toEqual({
+          total: 1, limit: 20, offset: 0, has_more: false,
+        });
+        expect(requests).toHaveBeenCalledTimes(2);
+      }
+    });
+
+  it.each(['suppression', 'removal'])(
+    'focus recovery: preserves another surface focus during child %s',
+    async change => {
+      // 0. Give a separate shadow-root control focus outside the query list.
+      const list = await mount();
+      list.isVisibleRecord = record => record?.name !== 'suppressed';
+      reply(lastRequest(list), [row(1), row(2)]);
+      await settle();
+      const child = list.items.firstElementChild;
+      const surface = document.createElement('section');
+      const control = document.createElement('button');
+      control.textContent = 'Other Dock control';
+      surface.attachShadow({mode: 'open'}).append(control);
+      document.body.append(surface);
+      control.focus();
+      expect(focusedElement()).toBe(control);
+      const fallbackFocus = vi.fn();
+      list.heading.addEventListener('focus', fallbackFocus);
+      // 1. Updating this list cannot move another surface's active control.
+      if (change === 'suppression') {
+        proto.READ(row(1, {name: 'suppressed'}));
+      } else {
+        list.loadPage(0, {retain: true});
+        reply(lastRequest(list), [row(2)]);
+      }
+      await settle();
+      // 2. Suppression/removal still occurs without stealing external focus.
+      expect(focusedElement()).toBe(control);
+      expect(fallbackFocus).not.toHaveBeenCalled();
+      if (change === 'suppression') {
+        expect(child.hidden).toBe(true);
+        expect(child.inert).toBe(true);
+        expect(list.value).toEqual([row(1).$id, row(2).$id]);
+      } else expect(child.isConnected).toBe(false);
+      expect(requests).toHaveBeenCalledTimes(
+        change === 'suppression' ? 1 : 2,
+      );
+    },
+  );
+
+  it.each(['suppression', 'removal'])(
+    'focus recovery: preserves a visible retained draft during member %s',
+    async change => {
+      // 0. Retain an actual focused input and its controller-owned draft.
+      const list = await mount();
+      list.isVisibleRecord = record => record?.name !== 'suppressed';
+      reply(lastRequest(list), [row(1), row(2)]);
+      await settle();
+      const child = list.items.firstElementChild;
+      child.draft = {text: 'Unsent retained input'};
+      list.retainChild = item => Boolean(item.draft);
+      const input = document.createElement('input');
+      input.value = child.draft.text;
+      child.shadowRoot.append(input);
+      input.focus();
+      expect(focusedElement()).toBe(input);
+      const blurred = vi.fn();
+      input.addEventListener('blur', blurred);
+      // 1. The public retention hook keeps this controller visibly available.
+      if (change === 'suppression') {
+        proto.READ(row(1, {name: 'suppressed'}));
+      } else {
+        list.loadPage(0, {retain: true});
+        reply(lastRequest(list), [row(2)]);
+      }
+      await settle();
+      // 2. No fallback is needed; neither local work nor focus may be lost.
+      expect(focusedElement()).toBe(input);
+      expect(blurred).not.toHaveBeenCalled();
+      expect(child.isConnected).toBe(true);
+      expect(child.hidden).toBe(false);
+      expect(child.inert).toBe(false);
+      expect(input.value).toBe('Unsent retained input');
+      expect(child.draft).toEqual({text: 'Unsent retained input'});
+      expect(list.value).toEqual(change === 'suppression'
+        ? [row(1).$id, row(2).$id] : [row(2).$id]);
+      expect(list.meta.total).toBe(change === 'suppression' ? 2 : 1);
+      expect(requests).toHaveBeenCalledTimes(
+        change === 'suppression' ? 1 : 2,
+      );
+    },
+  );
+
   it('visibly blocks unsafe retained moves and retries after release',
     async () => {
       const list = await mount();
@@ -896,7 +1070,7 @@ describe('stable native list presentation', () => {
     const input = document.createElement('input');
     retained.shadowRoot.append(input);
     input.focus();
-    list.query = {order_by: 'id', direction: 'desc'};
+    list.query = {order_desc: 'id'};
     reply(lastRequest(list), [row(3), row(2), row(1)]);
     await settle();
     expect([...list.items.children]).toEqual(children.reverse());
@@ -916,7 +1090,8 @@ describe('stable native list presentation', () => {
       /** Foreign controller with destructive lifecycle and an open root. */
       class UnsafeChild extends HTMLElement {
 
-        /** Create an inspectable custom subtree. */
+        /** Create an inspectable custom subtree.
+         * @returns {UnsafeChild} Synthetic foreign controller. */
         constructor() {
           super();
           this.attachShadow({mode: 'open'});
@@ -1159,7 +1334,7 @@ describe('stable native list presentation', () => {
   it('starts fresh query paging after adopting legacy cache membership',
     async () => {
       // 0. Query A owns a page distinct from the larger shared model cache.
-      const list = await mount({query: 'A', limit: 2});
+      const list = await mount({where: {name: 'A'}, limit: 2});
       reply(lastRequest(list), [row(1), row(2)], 9);
       proto.READ(row(3));
       list.query = null;
@@ -1170,12 +1345,14 @@ describe('stable native list presentation', () => {
       ]);
       const count = requests.mock.calls.length;
       // 1. Legacy cache membership and A's metadata cannot satisfy query B.
-      list.query = {query: 'B', limit: 3};
+      list.query = {where: {name: 'B'}, limit: 3};
       await settle();
       expect(requests).toHaveBeenCalledTimes(count + 1);
       const first = lastRequest(list);
-      expect(first.name).toBe('CREATE');
-      expect(first.data).toMatchObject({query: 'B', limit: 3, offset: 0});
+      expect(first.name).toBe('READ');
+      expect(first.data).toMatchObject({
+        where: {name: 'B'}, limit: 3, offset: 0,
+      });
       expect(list.value).toEqual([]);
       expect(list.meta).toBeNull();
       expect(list.hasCurrentPage).toBe(false);
@@ -1188,7 +1365,9 @@ describe('stable native list presentation', () => {
       list.loadMore();
       expect(requests).toHaveBeenCalledTimes(count + 2);
       const append = lastRequest(list);
-      expect(append.data).toMatchObject({query: 'B', limit: 3, offset: 1});
+      expect(append.data).toMatchObject({
+        where: {name: 'B'}, limit: 3, offset: 1,
+      });
       reply(append, [row(11), row(12)], 4);
       expect(list.value).toEqual([row(10).$id, row(11).$id, row(12).$id]);
       expect(list.meta).toEqual({
@@ -1209,6 +1388,11 @@ describe('stable native list presentation', () => {
 });
 
 /* Changelog
+ * - 2026-11-02: Use the heading when configured focus recovery is disconnected.
+ * - 2026-11-02: Guard owned-child focus before suppression/removal while
+ *   preserving native pages, external focus and visible retained drafts.
+ * - 2026-11-02: Query native READ collections without SEARCH metadata;
+ *   preserve correlation, membership, invalidation and child lifecycle tests.
  * - 2026-10-28: Guard query/legacy mode transitions and retire stale replies
  *   when a subclass defers dispatch of the replacement query.
  * - 2026-10-26: Cover query ownership, reply guards and stable rendering.
