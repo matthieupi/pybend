@@ -1,3 +1,4 @@
+/** Protect schema presentation rules with mocked identities. */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // We need to mock config and Logging before importing Permissions
@@ -33,9 +34,11 @@ describe('Permissions.js', () => {
 
   describe('constructor / initial state', () => {
     it('should have null user initially', () => {
-      // Note: user may have been set by prior tests, but conceptually starts null
+      // The shared instance may have been initialized by prior tests.
       // We test behavior through init()
-      expect(typeof permissions.user === 'object' || permissions.user === null).toBe(true);
+      expect(
+        typeof permissions.user === 'object' || permissions.user === null
+      ).toBe(true);
     });
   });
 
@@ -90,7 +93,9 @@ describe('Permissions.js', () => {
       window.localStorage.setItem('jwtToken', 'test-token');
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ user_id: 1, email: 'alice@test.com', role: 'user' })
+        json: () => Promise.resolve({
+          user_id: 1, email: 'alice@test.com', role: 'user'
+        })
       });
       const p = new (permissions.constructor)();
       const result = await p.init();
@@ -98,8 +103,9 @@ describe('Permissions.js', () => {
         'http://localhost:5000/auth/me',
         { headers: { 'x-access-token': 'test-token' } }
       );
-      expect(result).toEqual({ user_id: 1, email: 'alice@test.com', role: 'user' });
-      expect(p.user).toEqual({ user_id: 1, email: 'alice@test.com', role: 'user' });
+      const identity = { user_id: 1, email: 'alice@test.com', role: 'user' };
+      expect(result).toEqual(identity);
+      expect(p.user).toEqual(identity);
       expect(p.authenticated).toBe(true);
       expect(p.role).toBe('user');
     });
@@ -136,7 +142,7 @@ describe('Permissions.js', () => {
       expect(permissions.canView({ access: { view: 'anyone' } })).toBe(true);
     });
 
-    it('should return authenticated state when access.view is authenticated', () => {
+    it('should use authentication for access.view', () => {
       const result = permissions.canView({ access: { view: 'authenticated' } });
       expect(typeof result).toBe('boolean');
     });
@@ -173,11 +179,15 @@ describe('Permissions.js', () => {
     });
 
     it('should evaluate { rule: "anyone" } as true', () => {
-      expect(permissions.canAction({ read: { rule: 'anyone' } }, 'read')).toBe(true);
+      expect(permissions.canAction(
+        { read: { rule: 'anyone' } }, 'read'
+      )).toBe(true);
     });
 
-    it('should evaluate { rule: "authenticated" } based on user state', () => {
-      const result = permissions.canAction({ read: { rule: 'authenticated' } }, 'read');
+    it('should evaluate authenticated actions from user state', () => {
+      const result = permissions.canAction(
+        { read: { rule: 'authenticated' } }, 'read'
+      );
       expect(typeof result).toBe('boolean');
     });
 
@@ -215,29 +225,107 @@ describe('Permissions.js', () => {
       expect(permissions.canAction(access, 'update')).toBe(true);
     });
 
-    // BUG: The NOT rule format { op: 'not', rule: {...} } has a conflict
-    // with the simple-rule check in #evaluateCompositeRule. When the outer
-    // object has { op: 'not', rule: { rule: 'anyone' } }, the check
-    // `if (rule.rule)` is truthy (it's an object), so it enters the
-    // simple-rule branch instead of the composite branch. Since the sub-rule
-    // is an object (not a string like 'anyone'), none of the string
-    // comparisons match and it falls through to `return true`.
-    //
-    // The CORRECT behavior: NOT(anyone) should return false, because
-    // 'anyone' evaluates to true, and NOT(true) = false.
-    //
-    // Marking as it.skip to document this known bug. The test below asserts
-    // the correct expected behavior; unskip when the source bug is fixed.
-    it.skip('should evaluate NOT composite rules correctly (known bug)', () => {
+    it('should evaluate NOT composite rules correctly', () => {
+      // 0. A nested rule object is a NOT operand, not a leaf rule name.
       const access = {
         delete: {
           op: 'not',
           rule: { rule: 'anyone' }
         }
       };
-      // NOT(anyone) should be false — "not anyone" means nobody
+      // 1. Negating an unconditional grant denies presentation.
       expect(permissions.canAction(access, 'delete')).toBe(false);
     });
+
+    it.each(['read', '*'])('should deny NEVER at %s', (key) => {
+      // 0. Use a fresh evaluator with no authenticated identity.
+      const p = new (permissions.constructor)();
+      const access = { [key]: { rule: 'never' } };
+      // 1. Exact and wildcard denials both suppress the requested action.
+      expect(p.canAction(access, 'read')).toBe(false);
+    });
+
+    it.each([
+      ['and', 'anyone', 'never', false],
+      ['and', 'never', 'anyone', false],
+      ['and', 'never', 'never', false],
+      ['or', 'never', 'anyone', true],
+      ['or', 'anyone', 'never', true],
+      ['or', 'never', 'never', false],
+    ])('should compose %s(%s, %s)', (op, left, right, expected) => {
+      // 0. Exercise denial in either operand, including an all-denied OR.
+      const access = {
+        read: { op, rules: [{ rule: left }, { rule: right }] }
+      };
+      // 1. NEVER remains false rather than becoming an unknown-rule grant.
+      expect(permissions.canAction(access, 'read')).toBe(expected);
+    });
+
+    it('should negate NEVER inside a nested composition', () => {
+      // 0. Both logical levels must recurse into their native rule objects.
+      const access = {
+        read: {
+          op: 'not',
+          rule: {
+            op: 'and',
+            rules: [{ rule: 'anyone' }, { rule: 'never' }]
+          }
+        }
+      };
+      // 1. NOT(AND(anyone, never)) grants; direct NOT(never) also grants.
+      expect(permissions.canAction(access, 'read')).toBe(true);
+      expect(permissions.canAction({
+        read: { op: 'not', rule: { rule: 'never' } }
+      }, 'read')).toBe(true);
+    });
+
+    it('should prefer an exact action over its wildcard fallback', () => {
+      // 0. Explicit actions and wildcard defaults may disagree.
+      const access = {
+        '*': { rule: 'never' }, read: { rule: 'anyone' }
+      };
+      // 1. A public read does not permit an unspecified write action.
+      expect(permissions.canAction(access, 'read')).toBe(true);
+      expect(permissions.canAction(access, 'update')).toBe(false);
+      expect(permissions.canAction({
+        '*': { rule: 'anyone' }, read: { rule: 'never' }
+      }, 'read')).toBe(false);
+    });
+
+    it.each([false, true])(
+      'should retain identity rules with authenticated=%s',
+      async (authenticated) => {
+        // 0. Resolve only a synthetic identity through the mocked auth seam.
+        const p = new (permissions.constructor)();
+        window.localStorage.removeItem('jwtToken');
+        if (authenticated) {
+          window.localStorage.setItem('jwtToken', 'synthetic-token');
+          global.fetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ user_id: 42, role: 'admin' })
+          });
+        }
+        await p.init();
+        const rules = [
+          { rule: 'authenticated' },
+          { rule: 'role', roles: ['admin'] },
+          { rule: 'owner' }
+        ];
+        // 1. NEVER as an OR identity must not change existing identity checks.
+        for (const rule of rules) {
+          expect(p.canAction({
+            update: { op: 'or', rules: [{ rule: 'never' }, rule] }
+          }, 'update', { user_owner: 42 })).toBe(authenticated);
+        }
+        // 2. Role and owner mismatches stay denied for authenticated users.
+        expect(p.canAction({
+          read: { rule: 'role', roles: ['staff'] }
+        }, 'read')).toBe(false);
+        expect(p.canAction({
+          read: { rule: 'owner' }
+        }, 'read', { user_owner: 99 })).toBe(false);
+      }
+    );
 
     it('should fallback to wildcard * rule', () => {
       const access = { '*': { rule: 'anyone' } };
@@ -247,7 +335,7 @@ describe('Permissions.js', () => {
 
   describe('#evaluateOwner (via canAction)', () => {
 
-    it('should return true if no resource (create context) and user is authenticated', async () => {
+    it('should allow owner creation without a resource', async () => {
       window.localStorage.setItem('jwtToken', 'test');
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -275,7 +363,7 @@ describe('Permissions.js', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false when resource owner does not match user_id', async () => {
+    it('should deny a different resource owner', async () => {
       window.localStorage.setItem('jwtToken', 'test');
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -291,7 +379,7 @@ describe('Permissions.js', () => {
       expect(result).toBe(false);
     });
 
-    it('should handle href-hydrated owner values (extract ID from URL)', async () => {
+    it('should extract the owner ID from a hydrated URL', async () => {
       window.localStorage.setItem('jwtToken', 'test');
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -334,3 +422,7 @@ describe('Permissions.js', () => {
     });
   });
 });
+
+/* Changelog
+ * - 2026-11-02: Cover NEVER, wildcard precedence and recursive NOT semantics.
+ *   Retain auth, role and owner decisions with synthetic identities. */
