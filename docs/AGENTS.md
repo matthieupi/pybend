@@ -11,7 +11,7 @@ ordinary model CRUD and exposed domain methods; add reasoning only where needed.
 | Reason about an existing model or record | `__agent__` / AgentMixin | Model declaration and trusted call arguments |
 | Store and edit agent configurations | `AgentActor` and `AgentTool` | Normal model storage |
 | Offer a domain operation as a tool | `@expose_route` on an ActorModel | Model signature, schema and access rule |
-| Persist conversation history | `Thread` | Runtime through Matrix CRUD |
+| Persist conversation history | Semantic `Thread(TTX)` roots and TTX messages | Agent-owned parent authorization followed by native storage |
 
 Import `n3tx_agents` **before defining agent-enabled models**. Its initializer
 registers AgentMixin with ProtoModel; importing it later does not retroactively
@@ -26,23 +26,42 @@ Model __agent__ policy             Stored AgentActor fields
         +----------------+----------------+
                          v
                  Agent.prepare()
-          LLM + Matrix + Thread + tools
+            authorize owning entity
+                         |
+              open/read Thread(TTX)
+                         |
+              LLM + Matrix + tools
                          |
               Pydantic AI execution
                          |
        tool -> TX -> Matrix -> ActorModel
                          |
-                result + thread update
+                result + TTX appends
 ```
 
 Construction (`create_app`, `N3TXApp`, raw registration) and HTTP routing
-(`direct` or `actor`) are independent choices. Agents use Matrix for tools and
-threads even when the application uses direct HTTP routes.
+(`direct` or `actor`) are independent choices. Agents use Matrix for tools.
+Conversation storage uses native TTX operations after explicit parent checks,
+not Matrix CRUD against a separate `threads` actor.
+
+Each conversation is a TTX named `Conversation`; finalized SDK messages are
+immediate child TTXs named `Message`. `Thread` is an empty semantic subclass for
+Python readability. Register only TTX, and retain canonical `/TTX/<id>` links.
+The public `thread_id` identifies the root TTX; old container IDs are not
+interchangeable with these IDs.
+
+An explicit `scope` must identify a real saved local owner. Without one, a saved
+registered ActorModel instance supplies its own canonical reference. Class-level,
+non-storable and unsaved actors need an explicit scope; there is no fabricated
+global parent. Executing/resuming requires parent read and update access, while
+history-only reads require read. Conversation attribution is not an independent
+access grant or a private-owner restriction.
 
 ## Provider-free how-to
 
-Prerequisites: Python 3.10+, installed `n3tx-agents` and its core/actors/Pydantic
-AI dependencies. Save this as a Python script and run it in a fresh process.
+Prerequisites: Python 3.10+, installed `n3tx-agents` and its
+core/actors/threads/Pydantic AI dependencies. Save this as a Python script and run
+it in a fresh process.
 It uses temporary file-backed SQLite, no server, credentials, or paid provider.
 The supplied identity is a **trusted test fixture**, not an authentication recipe.
 
@@ -53,6 +72,7 @@ from pathlib import Path
 
 import n3tx_agents  # register the mixin before the class declaration
 from n3tx_agents import AgentActor, AgentTool
+from n3tx_actors import Actor, Matrix
 from n3tx_actors.models.actor_model import ActorModel
 from n3tx_core.app import create_app
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
@@ -71,9 +91,13 @@ async def main():
             storage=SQLiteStorage(str(Path(directory) / 'demo.db')),
             static_dir=None,
             jwt_secret='documentation-test-secret-not-for-production',
-        )  # also registers Thread infrastructure
-        result = await Note.agentic(
-            task='Describe the model', tools=[],
+        )  # also registers the canonical TTX model
+        root = Matrix()
+        Actor.root(root)
+        root.register(Note)
+        note = Note.create(Note(text='Synthetic example'))
+        result = await note.agentic(
+            task='Describe this record', tools=[],
             llm=TestModel(call_tools=[]),
             user={'user_id': 1, 'role': 'user'},
             constraints={'max_iterations': 3},
@@ -144,7 +168,7 @@ caveats below before exposing it. Source:
 | AgentActor `/agentic` | Uses stored fields; Python returns JSON text | Verify actual HTTP response shape and caller propagation |
 | Tool discovery | Reads supplied Matrix child schemas, not caller permissions | Select trusted tool providers; discovery is not a grant |
 | Tool execution | `Matrix.request/stream`, `meta.user` from AgentDeps | Do not assume HTTP interceptors or list filters run |
-| Missing/`None` caller | Actor handler treats it as internal | Never use this for untrusted user requests |
+| Missing/`None` caller | Agent history checks treat it as anonymous | Native tool dispatch has separate trusted-internal semantics; do not infer a universal ingress guard |
 
 The stock AgentActor methods accept `user` only through `**kwargs`; generated
 HTTP caller injection looks for a named `user` parameter. Authentication at the
@@ -173,6 +197,17 @@ ActorModel wraps each yielded object in a TX chunk and emits transport completio
 when the generator ends. An application `done` event is not the same layer as
 transport completion. Cancellation does not roll back completed tool effects.
 
+History reads select all immediate `Message` rows in ascending TX timestamp
+order. They do not page through exclusive timestamp cursors, which can omit ties.
+Equal timestamps have no defined secondary order; no ID tie-breaker is added.
+The SDK receives a repaired copy of history, while stored and returned evidence
+remains unchanged. Checkpoints append only newly finalized messages and stop
+after an uncertain write; they do not replay inference or tool effects.
+
+Automatic execution-manifest capture and parent `.THREAD(...)` links are
+removed. Handoffs must explicitly pass a conversation identity and the same
+expected owning scope. Parent-TTX permission traversal is not supplied.
+
 ## References
 
 | Guide | Responsibility |
@@ -181,4 +216,12 @@ transport completion. Cancellation does not roll back completed tool effects.
 | [Mixin](../packages/n3tx-agents/docs/mixin.md) | Exact policy precedence, runtime and thread behavior |
 | [AgentActor](../packages/n3tx-agents/docs/agent-actor.md) | Fields, routes, return shapes and UI integration |
 | [Tools](../packages/n3tx-agents/docs/tool-discovery.md) | Discovery, generated signatures, execution limits |
+| [Threads](../packages/n3tx-threads/README.md) | Provider-neutral TTX storage and notes; agent-specific authorization/decoding stays in `n3tx_agents.history` |
 | [Actors](ACTORS.md) | Messaging and transport boundaries |
+
+## Integration boundary
+
+This source migration does not transform existing Thread containers, snapshot
+targets or browser-held IDs. Collagen's application-specific history/activity
+adapters and their data cutover remain separate work. Source changes and
+provider-free tests do not authorize a database migration or deployment.

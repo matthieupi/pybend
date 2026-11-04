@@ -66,14 +66,19 @@ def _agent_addr(target, cls) -> str:
     return getattr(cls, '__tablename__', cls.__name__)
 
 
-def _thread_user(user):
-    """Normalize route-injected users for Thread CRUD authorization."""
+def _normalize_user(user) -> dict:
+    """Normalize trusted callers, treating missing identities as anonymous.
+
+    Dictionaries retain their native claims. User models supply id, email and
+    role. Unsupported values fail rather than becoming internal authority."""
     # 0. Retain dictionaries or translate native user-model identity fields.
-    if user is None or isinstance(user, dict):
+    if user is None:
+        return {}
+    if isinstance(user, dict):
         return user
     user_id = getattr(user, 'id', None)
     if user_id is None:
-        return user
+        raise TypeError("Expected a trusted caller dictionary or user model")
     return {
         'user_id': user_id,
         'email': getattr(user, 'email', None),
@@ -82,6 +87,7 @@ def _thread_user(user):
 
 
 # Changelog (Python has no block-comment syntax):
+# - 2026-11-04: Rename trusted caller normalization and treat None as anonymous.
 # - 2026-10-31: Replace legacy address matching with exact owner/scope binding.
 #   Normalize documentation and source layout.
 #   Replace binding grants with identity/scope checks under native source ACLs.

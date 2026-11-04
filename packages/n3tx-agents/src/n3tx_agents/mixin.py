@@ -1,22 +1,22 @@
 """Model policy adapters for the single native agent preparation/run seam.
 
 Agent-enabled models contribute schema context and tool selection. Trusted
-callers supply identity and business scope; None means an explicit global
-Thread, never implicit authorization from an actor address."""
+callers supply identity and parent scope. A missing scope is inferred only from
+a saved registered ActorModel instance; there is no implicit global Thread."""
 
 import json
 import logging
 
+from n3tx_core import config
 from n3tx_core.models.proto_schema import run_pipeline
 from n3tx_core.models.ref import Ref
-from n3tx_core import config
 from n3tx_core.utils.descriptors import fullmethod
 from n3tx_core.utils.introspection import get_fk_list_fields
 
 from n3tx_agents.agent import Agent, CallConfig
-from n3tx_agents.utils import (
-    _build_instance_text,
-)
+from n3tx_agents.utils import _build_instance_text
+
+
 logger = logging.getLogger('n3tx.agents')
 
 
@@ -90,7 +90,10 @@ class AgentMixin:
 
     @fullmethod
     def run_config(target, task: str, **kwargs) -> CallConfig:
-        """Resolve one policy-layer agent call from target + kwargs."""
+        """Resolve policy while forwarding caller, thread ID and parent scope.
+
+        An explicit empty tool list disables discovery. Scope inference and
+        parent authorization belong to runtime preparation, not this adapter."""
         # 0. Merge model policy and explicit per-call configuration.
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
@@ -121,19 +124,13 @@ class AgentMixin:
 
     @fullmethod
     async def agentic(target, task: str, **kwargs) -> dict:
-        """Public entry point for agent reasoning threaded conversation.
+        """Resolve model policy and execute a parent-scoped conversation.
 
-        Resolves config via 3-tier cascade, builds prompt, discovers tools,
-        delegates to run().
-
-        Config resolution (3-tier cascade):
-            config.AGENT_DEFAULTS < __agent__ dict < agentic() kwargs
-
-        Product.agentic(task='...')   → class-level (schema context)
-        product.agentic(task='...') -> instance-level schema and instance data
-
-        Override this to add guardrails, audit logging, or rate limiting.
-        Call run() directly to bypass this layer entirely."""
+        Constraints merge global, model and call dictionaries in that order.
+        Prompt and tools follow run_config precedence. Class-level calls need
+        an explicit saved parent scope; saved instances can infer their scope.
+        Override this for guardrails, auditing or rate limits. Calling run()
+        bypasses policy assembly, not runtime parent authorization."""
         # 0. Delegate resolved policy to the shared execution seam.
         config = target.run_config(task, **kwargs)
         return await target.run(**config.runtime_args())
@@ -145,31 +142,28 @@ class AgentMixin:
                   scope: Ref | None = None, **kwargs) -> dict:
         """Execute the LLM agent loop.
 
-        Resolves LLM from model config (3-tier cascade), can be overridden
-        via kwargs['llm'] (used by agentic() and tests).
-
-        Product.run(task=..., prompt=..., tools=...) → class-level
-        product.run(task=..., prompt=..., tools=...) → instance-level
+        Resolves LLM from model config, target and global defaults unless
+        kwargs['llm'] supplies an explicit override.
 
         Args:
             task: The user task / query to execute.
             prompt: System prompt for the LLM.
             tools: List of actor addresses whose methods become tools.
-            user: Auth context (JWT user dict).
+            user: Trusted caller context; None is anonymous for history access.
             constraints: Budget/safety limits dict.
-            thread_id: Thread ID for persistent conversation history.
-                       Reads native record-backed history for continuation.
+            thread_id: Opaque conversation-root TTX ID for continuation.
             result_type: Pydantic model for structured output.
-            scope: Trusted business reference, or None for a global Thread.
+            scope: Saved local parent Ref. None infers a saved registered
+                ActorModel target; other targets require an explicit scope.
             **kwargs: Override llm (LLM model string or pydantic_ai Model).
 
         Returns:
             dict with keys:
                 answer: The LLM's final output (str or structured type).
                 usage: {input_tokens, output_tokens, requests}
-                messages: All conversation messages (list).
+                messages: Raw loaded history followed by new SDK messages.
                 message_count: Number of messages (backward compat).
-                thread_id: Thread ID (when thread was used)."""
+                thread_id: Conversation-root TTX ID."""
         # 0. Preserve explicit runtime inputs rather than re-resolving policy.
         call = CallConfig(
             task=task,
@@ -191,17 +185,12 @@ class AgentMixin:
     async def agentic_stream(target, task: str, **kwargs):
         """Apply the agentic policy cascade and yield native streaming events.
 
-        Product.agentic_stream(task='...')  → async gen of TX-aligned chunks
-        product.agentic_stream(task='...') -> instance-context events"""
-        # 0. Resolve policy and retain the existing instance streaming adapter.
+        Class calls retain schema context without constructing an instance;
+        they require an explicit saved local parent scope."""
+        # 0. Resolve policy without constructing a model instance.
         call = target.run_config(task, **kwargs)
-
-        if isinstance(target, type):
-            instance = target()
-        else:
-            instance = target
         # 1. Forward native events without a second execution loop.
-        async for chunk in instance.run_stream(**call.runtime_args()):
+        async for chunk in target.run_stream(**call.runtime_args()):
             yield chunk
 
     @fullmethod
@@ -213,11 +202,10 @@ class AgentMixin:
 
         Same LLM resolution as run(). Returns an async generator.
 
-        Product.run_stream(task=..., prompt=..., tools=...) → class-level
-        product.run_stream(task=..., prompt=..., tools=...) → instance-level
-
         Events retain name/data/meta and native text/tool/done/error semantics.
-        Scope is a trusted business Ref; None selects a global Thread."""
+        Arguments follow run(): scope is a saved local parent Ref, and None
+        infers only a saved registered ActorModel target, never a global root.
+        Preparation errors become error events; policy errors occur upstream."""
         # 0. Preserve explicit runtime inputs, including the business scope.
         call = CallConfig(
             task=task,
@@ -247,3 +235,5 @@ class AgentMixin:
 # Changelog (Python has no block-comment syntax):
 # - 2026-10-31: Forward explicit business scope through native agent adapters.
 #   Normalize documentation and source layout.
+# - 2026-11-04: Forward class streaming directly through fullmethod and document
+#   saved parent scope inference and TTX-backed conversation identity.

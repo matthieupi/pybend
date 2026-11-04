@@ -5,6 +5,17 @@ from n3tx_actors import *  # noqa: F401,F403
 from n3tx_files import *  # noqa: F401,F403
 
 try:
+    from n3tx_threads import *  # noqa: F401,F403
+except ModuleNotFoundError as exc:
+    # The root distribution makes threads optional, not their dependencies.
+    if exc.name != 'n3tx_threads':
+        raise
+
+try:
     from n3tx_agents import *  # noqa: F401,F403
 except ImportError:
     pass  # n3tx-agents is optional (requires pydantic-ai)
+
+
+# Changelog
+# - 2026-11-02: Re-export thread capabilities from their canonical package.

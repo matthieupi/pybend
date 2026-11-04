@@ -31,7 +31,7 @@ every transport.
 | Construction | Factory, builder, raw primitives | How registration/configuration is assembled |
 | Model | ProtoModel, ActorModel | Whether the model participates in Python messaging |
 | Routing | `direct`, `actor` | Direct route factories or HTTP-to-TX adapter |
-| Optional capabilities | UI, agents, files | Package-owned mixins, schema stages and route hooks |
+| Optional capabilities | UI, threads, agents, files | Package-owned mixins, schema stages and route hooks |
 
 See [App bootstrap](../packages/n3tx-core/docs/app-bootstrap.md). Factory and
 builder return FastAPI apps. The legacy Flask adapter is not a parity-tested
@@ -49,6 +49,7 @@ alternative to the current FastAPI path.
 | ActorModel / Matrix | Message dispatch and actor-aware model behavior | A universal security boundary for arbitrary Python code |
 | JS runtime | Schema-derived entities, messaging and transport | Visual components |
 | UI package | Native forms/components, view shells, renderer/widget extensions | Backend enforcement |
+| Thread package | TTX snapshots, semantic Thread roots and parent-authorized notes | Agent SDK decoding, automatic capture, graph authorization or atomic append |
 | Agent package | Policy/runtime binding to Pydantic AI and model-derived tools | Permission granted merely by discovery |
 | File package | Metadata model plus explicit byte-store operations | A filesystem sandbox or static upload directory |
 

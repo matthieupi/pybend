@@ -21,6 +21,7 @@
 | Access rules | [Authorization](AUTHORIZATION.md) | [Authorization API](../packages/n3tx-core/docs/authorization.md) |
 | Frontend | [Frontend architecture](frontend/ARCHITECTURE.md) | [UI package](../packages/n3tx-ui/README.md) |
 | Messaging | [Actors](ACTORS.md) | [Actor package](../packages/n3tx-actors/README.md) |
+| Threads, notes and capture | [Threads](../packages/n3tx-threads/README.md) | [Thread storage](../packages/n3tx-threads/docs/thread.md) |
 | Agents | [Agents](AGENTS.md) | [Agent package](../packages/n3tx-agents/README.md) |
 | Files | [File package](../packages/n3tx-files/README.md) | [File capability](../packages/n3tx-files/docs/file.md) |
 | Applications | [Examples](EXAMPLES.md) | Checked-in model and test sources linked there |

@@ -9,26 +9,22 @@ Core components:
     AgentActor  — concrete model whose instances ARE agents (data, not code)
     AgentDeps   — dependency injection for Pydantic AI RunContext
     ToolSpec    — specification for a discovered tool
-    Thread     — native owner/admin history with optional scope metadata
-    TXRecord   — stored TX snapshots and insertion provenance
-    NotesMixin — opt-in owner-authorized notes via __notes__ declarations
+    Conversation authorization and decoding live in n3tx_agents.history;
+    generic TTX storage and notes belong to the n3tx_threads package.
 
-Import before declaring agent/notes models. Importing declarations does not
-install schema, open storage or replace Thread's native access policy."""
+Import before declaring agent models. Importing declarations does not install
+schema or open storage. Conversation access follows the saved parent's policy;
+TTX attribution and agent provenance do not grant access."""
 
 from .mixin import AgentMixin
-from .notes_mixin import NotesMixin
-from .thread import Thread
 # 0. Register opt-in mixins before AgentActor or application model declarations.
 from n3tx_core.models.proto_model import register_mixin
 register_mixin('__agent__', AgentMixin)
-register_mixin('__notes__', NotesMixin)
 # 1. Export declarations without installing storage or replacing native policy.
 from .actor import AgentActor
 from .agent import AgentDeps
 from .tool_model import AgentTool
 from .tools import ToolSpec, discover_tools, make_tool
-from .tx_record import TXRecord
 from .app_agent import provision_app_agent
 
 # Register schema extension (side-effect import)
@@ -37,13 +33,13 @@ from . import schema_ext as _schema_ext  # noqa: F401
 __all__ = [
     'AgentMixin', 'AgentActor', 'AgentTool', 'AgentDeps',
     'ToolSpec', 'discover_tools', 'make_tool',
-    'Thread', 'TXRecord',
-    'NotesMixin',
     'provision_app_agent',
 ]
 
 
 # Changelog (Python has no block-comment syntax):
+# - 2026-11-04: Document parent-authorized conversations without capture hooks.
+# - 2026-11-02: Move thread/notes exports and registration to n3tx_threads.
 # - 2026-10-31: Export Thread and TXRecord without initializing storage;
 #   retain AgentMixin registration before AgentActor declaration.
 #   Register/export opt-in NotesMixin and its explicit caller/access helpers.

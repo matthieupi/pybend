@@ -1,14 +1,20 @@
-"""Runtime seam for agent preparation and execution."""
+"""Runtime seam for agent preparation and execution.
+
+TTX messages are ground truth; provider-context reconciliation must remain
+in memory. Explicit early aclose() of run_stream is unsupported with the
+installed SDK: cleanup can fail and the interrupted history may be incomplete.
+Closing a stream does not establish rollback and must not trigger replay."""
 
 from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from pydantic_ai import Agent as PydanticAgent, UsageLimits
+from pydantic_ai.capabilities import Hooks
 from pydantic_ai._agent_graph import ModelRequestNode, CallToolsNode
 from pydantic_ai.messages import (
     PartStartEvent,
@@ -20,16 +26,20 @@ from pydantic_ai.messages import (
     ThinkingPartDelta,
     FunctionToolResultEvent,
     ModelMessagesTypeAdapter,
+    repair_messages,
 )
 
 from n3tx_core import config
 from n3tx_actors.actor import Actor
+from n3tx_actors.models.actor_model import ActorModel
 from n3tx_actors.tx import TX
-from n3tx_core.models.ref import Ref
+from n3tx_core.models.ref import Ref, public_id_url
+from n3tx_core.utils.registrar import registered_models
+from n3tx_threads import Thread, TTX
 
-from .thread import HISTORY_CODEC, Thread
+from .history import _authorize_thread, open_thread, read_history
 from .tools import discover_tools, make_tool
-from .utils import _agent_addr, _resolve_llm, _thread_user
+from .utils import _agent_addr, _normalize_user, _resolve_llm
 
 
 logger = logging.getLogger('n3tx.agents')
@@ -37,14 +47,10 @@ logger = logging.getLogger('n3tx.agents')
 
 @dataclass
 class AgentDeps:
-    """Trusted caller/routing inputs for Pydantic AI tools.
-
-    activity_sink is an optional Python-only metadata observer. It is never
-    accepted from a call body, tool argument or stored agent configuration."""
+    """Trusted caller/routing inputs for Pydantic AI tools."""
 
     user: Optional[dict]
     agent_addr: str
-    activity_sink: Callable[[dict], Awaitable[None] | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -86,8 +92,8 @@ class PreparedCall:
 
     root: Actor
     agent_addr: str
-    thread_id: int | None
-    message_history: list | None
+    thread: Thread
+    message_history: list
     ai_agent: PydanticAgent
     deps: AgentDeps
     usage_limits: UsageLimits | None
@@ -99,99 +105,109 @@ class Agent:
     @staticmethod
     def _value_or_call(obj, name, default=None):
         """Read native result attributes across callable/property variants."""
+        # 0. Resolve the SDK attribute and normalize its access convention.
         value = getattr(obj, name, default)
         return value() if callable(value) else value
 
     @classmethod
-    async def _get_thread(cls, root, thread_id, user=None):
-        """Read one exact Thread through its existing Matrix authorization."""
-        # 0. Preserve native caller propagation and actor authorization.
-        auth_user = _thread_user(user)
-        thread_tx = TX(
-            name='get', source=root.addr, target='threads',
-            data={'id': thread_id},
-            meta={'user': auth_user} if auth_user else {},
-        )
-        thread_resp = await root.request(thread_tx)
-        if thread_resp.is_error:
-            raise RuntimeError(
-                f"Thread {thread_id} not found or access denied: "
-                f"{thread_resp.data.get('message', 'unknown error')}"
-            )
-        return thread_resp.data
+    def _persist_new_messages(
+        cls, prepared: PreparedCall, messages: list, *, cursor: int,
+    ) -> int:
+        """Append finalized messages and return the last successful position.
 
-    @classmethod
-    async def _create_thread(cls, root, scope: Ref | None = None, user=None):
-        """Create Thread metadata through native Matrix authorization."""
-        # 0. Derive ownership from the native caller, not a payload argument.
-        auth_user = _thread_user(user)
-        payload = {'scope': Ref(scope) if scope is not None else None}
-        if isinstance(auth_user, dict) and auth_user.get('user_id') is not None:
-            payload['user_owner'] = auth_user['user_id']
-        # 1. Retain the native request and response contract.
-        create_tx = TX(
-            name='create', source=root.addr, target='threads', data=payload,
-            meta={'user': auth_user} if auth_user else {},
-        )
-        create_resp = await root.request(create_tx)
-        if create_resp.is_error:
-            raise RuntimeError(
-                'Failed to create thread: '
-                f"{create_resp.data.get('message', 'unknown error')}"
-            )
-        return create_resp.data
-
-    @classmethod
-    async def _load_or_create_thread(
-        cls, root, scope: Ref | None = None, user=None, thread_id=None,
-    ):
-        """Load record-backed history for a native saved or new Thread."""
-        # 0. Use the existing native Matrix read/create path.
-        if thread_id is not None:
-            thread_data = await cls._get_thread(root, thread_id, user=user)
-        else:
-            thread_data = await cls._create_thread(root, scope, user=user)
-            thread_id = thread_data.get('id')
-        # 1. Decode protocol records rather than a persisted message array.
-        thread = Thread.model_validate(thread_data)
-        history = thread.history(user=_thread_user(user))
-        return thread_data, thread_id, history
-
-    @classmethod
-    async def _append_thread(
-        cls, prepared: PreparedCall, all_messages: list,
-    ) -> None:
-        """Append only new protocol messages, logging persistence failures.
-
-        Earlier records are untouched. Persistence is ordinary native storage,
-        not an atomic batch, stale-history check or retry mechanism."""
-        # 0. Serialize only messages produced after the loaded history.
-        suffix = all_messages[len(prepared.message_history or []):]
-        messages = ModelMessagesTypeAdapter.dump_python(
-            suffix, mode='json',
-        )
-        txs = [
-            TX(
-                name=message['kind'], source=prepared.root.addr,
-                target=prepared.agent_addr, data=message,
-                meta={'codec': HISTORY_CODEC},
-            )
-            for message in messages
-        ]
-        # 1. Keep native results available for independent history verification.
+        Failure leaves the successful prefix intact. The caller must stop
+        checkpointing after a short append. Uncertain writes are not retried."""
+        # 0. Serialize only the finalized suffix beyond the saved position.
         try:
-            thread = Thread.get(prepared.thread_id)
-            thread.append_many(txs, user=_thread_user(prepared.deps.user))
+            user = _normalize_user(prepared.deps.user)
+            suffix = ModelMessagesTypeAdapter.dump_python(
+                messages[cursor:], mode='json',
+            )
+            # 1. Advance after each successful ordinary native append.
+            for message in suffix:
+                thread = _authorize_thread(
+                    prepared.thread, user=user, action='update',
+                )
+                thread.APPEND(TX(
+                    name='Message', source=prepared.agent_addr,
+                    target=public_id_url(thread.id, target_cls=TTX),
+                    data=message,
+                ), user_owner=user.get('user_id'))
+                cursor += 1
         except Exception as error:
             logger.warning(
-                'Failed to append thread %s: %s', prepared.thread_id, error,
+                'Thread %s append failed (%s)',
+                prepared.thread.id, type(error).__name__,
             )
+        return cursor
+
+    @classmethod
+    def _history_hooks(cls, prepared: PreparedCall):
+        """Create per-invocation checkpoints without changing SDK streaming."""
+        # 0. Count only this run's new messages, never the normalized prefix.
+        cursor = 0
+        failed = False
+
+        def flush(messages: list) -> None:
+            """Append new run messages unless persistence already failed."""
+            # 0. Retain a successful-prefix cursor and stop after uncertainty.
+            nonlocal cursor, failed
+            if failed or len(messages) <= cursor:
+                return
+            cursor = cls._persist_new_messages(
+                prepared, messages, cursor=cursor,
+            )
+            failed = cursor != len(messages)
+
+        async def checkpoint(ctx, *, node, handler):
+            """Save finalized messages tagged by the SDK with this run ID."""
+            # 0. Preserve execution while flushing this run's finalized prefix.
+            try:
+                return await handler(node)
+            finally:
+                if ctx.run_id is not None:
+                    flush([
+                        message for message in ctx.messages
+                        if message.run_id == ctx.run_id
+                    ])
+
+        return Hooks(node_run=checkpoint), flush
 
     @classmethod
     async def prepare(cls, target, call: 'CallConfig') -> PreparedCall:
-        """Prepare one native agent with record-backed protocol history."""
-        # 0. Resolve runtime routing/provider inputs, not persisted authority.
+        """Authorize a saved owner and history before provider/tool preparation.
+
+        Only a registered, saved ActorModel instance supplies implicit scope.
+        Other targets require explicit local business ownership. Resumption
+        checks the exact root and owner, while allowing explicit agent handoffs.
+        Missing caller identity remains anonymous for history and tools."""
+        # 0. Derive implicit ownership only from a registered stored instance.
         model_cls = target if isinstance(target, type) else target.__class__
+        scope = call.scope
+        if scope is None:
+            if (
+                not isinstance(target, ActorModel)
+                or not getattr(model_cls, '__storable__', False)
+                or model_cls not in registered_models.values()
+                or type(target.id) is not int
+                or target.id <= 0
+            ):
+                raise ValueError("Agent calls require a saved business scope")
+            scope = Ref(public_id_url(target.id, target_cls=model_cls))
+        user = _normalize_user(call.user)
+        agent_addr = _agent_addr(target, model_cls)
+        root = Actor.root()
+        if not root:
+            raise RuntimeError(
+                "No Matrix root. Initialize a Matrix before running agents."
+            )
+        # 1. Resolve the saved owner and authorize before decoding or providers.
+        thread = open_thread(
+            scope=Ref(scope), agent_addr=agent_addr, user=user,
+            thread_id=call.thread_id,
+        )
+        message_history = read_history(thread, user=user)
+        # 2. Reuse native provider selection, tool discovery and request limits.
         agent_flag = getattr(model_cls, '__agent__', False)
         model_conf = agent_flag if isinstance(agent_flag, dict) else {}
 
@@ -203,22 +219,6 @@ class Agent:
             )
         )
 
-        agent_addr = _agent_addr(target, model_cls)
-
-        root = Actor.root()
-        if not root:
-            raise RuntimeError(
-                "No Matrix root. Initialize a Matrix before running agents."
-            )
-        # 1. Load native history and carry scope only as creation metadata.
-        scope = Ref(call.scope) if call.scope is not None else None
-        _, thread_id, message_history = await cls._load_or_create_thread(
-            root=root,
-            scope=scope,
-            user=call.user,
-            thread_id=call.thread_id,
-        )
-        # 2. Reuse native tool discovery, Pydantic AI and request limits.
         tool_specs = discover_tools(call.tools, root, caller_addr=agent_addr)
         if not tool_specs:
             logger.warning(
@@ -238,7 +238,7 @@ class Agent:
         ai_agent = PydanticAgent(llm, **agent_kwargs)
 
         deps = AgentDeps(
-            user=call.user,
+            user=user,
             agent_addr=agent_addr,
         )
 
@@ -251,7 +251,7 @@ class Agent:
         return PreparedCall(
             root=root,
             agent_addr=agent_addr,
-            thread_id=thread_id,
+            thread=thread,
             message_history=message_history,
             ai_agent=ai_agent,
             deps=deps,
@@ -260,22 +260,29 @@ class Agent:
 
     @classmethod
     async def run(cls, prepared: PreparedCall, task: str) -> dict:
-        """Execute once and append only its new protocol messages."""
-        # 0. Pass the exact prepared history to the existing Pydantic AI loop.
-        run_kwargs = {'deps': prepared.deps}
+        """Execute with reconciled context, returning raw evidence plus output.
+
+        Stored history is never rewritten. Returned messages combine the raw
+        loaded prefix with new SDK messages for exact persistence verification;
+        they are not the SDK's normalized full-context projection."""
+        # 0. Reconcile only a copy; keep recorded evidence out of SDK mutation.
+        hooks, flush = cls._history_hooks(prepared)
+        run_kwargs = {'deps': prepared.deps, 'capabilities': [hooks]}
         if prepared.usage_limits:
             run_kwargs['usage_limits'] = prepared.usage_limits
         if prepared.message_history:
-            run_kwargs['message_history'] = prepared.message_history
+            run_kwargs['message_history'] = repair_messages(
+                deepcopy(prepared.message_history),
+            )
 
         result = await prepared.ai_agent.run(task, **run_kwargs)
 
         usage = cls._value_or_call(result, 'usage')
-        all_messages = cls._value_or_call(result, 'all_messages', [])
-        # 1. Append the new suffix without replaying native execution.
-        if prepared.thread_id is not None:
-            await cls._append_thread(prepared, all_messages)
+        new_messages = result.new_messages()
+        # 1. Flush final protocol completion without replaying execution.
+        flush(new_messages)
         # 2. Preserve the native result contract for independent host auditing.
+        all_messages = [*prepared.message_history, *new_messages]
         result_dict = {
             'answer': result.output,
             'usage': {
@@ -285,24 +292,31 @@ class Agent:
             },
             'messages': all_messages,
             'message_count': len(all_messages),
+            'thread_id': prepared.thread.id,
         }
-        if prepared.thread_id is not None:
-            result_dict['thread_id'] = prepared.thread_id
         return result_dict
-
-    call = run
 
     @classmethod
     async def run_stream(cls, prepared: PreparedCall, task: str):
-        """Stream native events and attempt protocol-suffix persistence."""
+        """Stream native events and checkpoint finalized protocol history.
+
+        Explicit early aclose() is unsupported: the installed SDK can fail
+        async-generator cleanup and leave history incomplete. Normal completion
+        and tested cancellation paths are distinct; neither implies rollback.
+        Do not drain more tools or retry execution to compensate for closing."""
         # 0. Reuse the prepared native loop and its existing event vocabulary.
         seq = 0
+        agent_run = None
+        flush = None
         try:
-            run_kwargs = {'deps': prepared.deps}
+            hooks, flush = cls._history_hooks(prepared)
+            run_kwargs = {'deps': prepared.deps, 'capabilities': [hooks]}
             if prepared.usage_limits:
                 run_kwargs['usage_limits'] = prepared.usage_limits
             if prepared.message_history:
-                run_kwargs['message_history'] = prepared.message_history
+                run_kwargs['message_history'] = repair_messages(
+                    deepcopy(prepared.message_history),
+                )
 
             streamed_text = ''
             tool_call_count = 0
@@ -409,10 +423,8 @@ class Agent:
                 output = run_result.output if run_result else ''
                 if not output and streamed_text:
                     output = streamed_text
-                all_messages = cls._value_or_call(agent_run, 'all_messages', [])
-                # 1. Attempt suffix persistence before native completion.
-                if prepared.thread_id is not None:
-                    await cls._append_thread(prepared, all_messages)
+                # 1. Flush final protocol completion before the done event.
+                flush(agent_run.new_messages())
                 # 2. Preserve native completion; host effects remain separate.
                 done_data = {
                     'answer': str(output),
@@ -422,9 +434,8 @@ class Agent:
                         'requests': usage.requests,
                     },
                     'tool_calls': tool_call_count,
+                    'thread_id': prepared.thread.id,
                 }
-                if prepared.thread_id is not None:
-                    done_data['thread_id'] = prepared.thread_id
 
                 yield {
                     'name': 'done',
@@ -442,11 +453,20 @@ class Agent:
                 'data': {'message': str(e), 'code': 500},
                 'meta': {'stream': True, 'error': True, 'seq': seq},
             }
-
-    call_stream = run_stream
+        finally:
+            # 3. Stream teardown finalizes interrupted model/tool messages.
+            if agent_run is not None and flush is not None:
+                flush(agent_run.new_messages())
 
 
 # Changelog (Python has no block-comment syntax):
+# - 2026-11-04: Prepare parent-authorized TTX conversation roots; checkpoint
+#   Message children with fresh owner checks and canonical TTX targets.
+#   Remove legacy thread CRUD, codecs, implicit capture and unused call aliases.
+# - 2026-11-02: Use standalone threads and the agent-owned history decoder.
+# - 2026-10-31: Reconcile SDK context in memory; append only new run messages.
+# - 2026-10-31: Document unsupported explicit early stream close and its risks.
+# - 2026-10-31: Checkpoint finalized history; remove observer dependencies.
 # - 2026-10-31: Append scoped protocol suffixes against an atomic history basis.
 #   Preserve native execution and add trusted tool observation dependencies.
 #   Reauthorize before inference and retain run-wide observation failure.

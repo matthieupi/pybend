@@ -1,41 +1,39 @@
-"""Native Thread metadata, persistence and provider-free agent history."""
+"""Parent-authorized conversation roots and exact provider-free SDK history."""
 
-from datetime import datetime, timedelta, timezone
-from queue import Empty
+import importlib.util
+from copy import deepcopy
+from dataclasses import replace
 
 import pytest
-from pydantic_ai import models
+from pydantic import ValidationError
 from pydantic_ai.messages import (
     ModelMessagesTypeAdapter, ModelRequest, ModelResponse, TextPart,
     ToolCallPart, ToolReturnPart, UserPromptPart,
 )
 from pydantic_ai.models.test import TestModel
 
-from n3tx_actors.actor import Actor
-from n3tx_actors.matrix import Matrix
+import n3tx_agents
+from n3tx_agents.agent import Agent, CallConfig
+from n3tx_agents.history import open_thread, read_history
+from n3tx_actors.api.auth_interceptor import auth_interceptor
+from n3tx_actors.api.network_api import NetworkAPI
 from n3tx_actors.models.actor_model import ActorModel
 from n3tx_actors.tx import TX
-from n3tx_core import config
-from n3tx_core.api.routes_fastapi import router
-from n3tx_core.app import create_app
-from n3tx_core.authorize import auth
+from n3tx_core.authorize import AUTHENTICATED, NEVER, OWNER
 from n3tx_core.authorize.errors import AccessDenied
-from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.models.ref import Ref, public_id_url
-from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.registrar import register_model
+from n3tx_threads import Thread, TTX
 
-from n3tx_agents.thread import HISTORY_CODEC, Thread
-from n3tx_agents.tx_record import TXRecord
+from .conftest import HistoryOwner, USER
 
 
 pytestmark = pytest.mark.unit
-USER = {"user_id": 1, "role": "user"}
-ADMIN = {"user_id": 3, "role": "admin"}
-OTHER = {"user_id": 2, "role": "staff"}
+OTHER = {"user_id": 2, "role": "user"}
 
 
 class SimpleAgent(ActorModel):
-    """Minimal flag-enabled agent without business tools or providers."""
+    """Require explicit saved scope for a non-storable execution target."""
 
     __tablename__ = "simple_agents"
     __storable__ = False
@@ -43,298 +41,480 @@ class SimpleAgent(ActorModel):
     name: str = "Test Agent"
 
 
-def _ref(record):
-    """Return the canonical URL of a saved synthetic record."""
-    return public_id_url(record.id, target_cls=type(record))
+class SavedAgent(ActorModel):
+    """Permit runtime scope inference only from a real registered entity."""
+
+    __tablename__ = "saved_agents"
+    __storable__ = True
+    __agent__ = True
+    __access__ = {"*": NEVER, "read": OWNER, "update": OWNER}
+    user_owner: int = 1
+    name: str
 
 
 def _payload(messages):
-    """Use native serialization to compare complete protocol messages."""
+    """Serialize typed messages for exact audit comparisons."""
     return ModelMessagesTypeAdapter.dump_python(messages, mode="json")
 
 
-def _messages():
-    """Build a complete synthetic request and text response."""
-    return [
+def _open(context, agent_addr="simple_agents"):
+    """Create an authorized native root for the supplied saved host."""
+    return open_thread(
+        scope=Ref(context["scope"]), agent_addr=agent_addr,
+        user=context["user"],
+    )
+
+
+def _append(thread, payload, timestamp):
+    """Seed exact SDK evidence using trusted TTX persistence."""
+    return thread.APPEND(TX(
+        "Message", "synthetic", "ignored", data=payload,
+        timestamp=float(timestamp),
+    ), user_owner=USER["user_id"])
+
+
+@pytest.mark.parametrize("module,export", [
+    ("thread", "Thread"), ("tx_record", "TXRecord"),
+    ("notes_mixin", "NotesMixin"), ("threaded_mixin", "ThreadedMixin"),
+])
+def test_legacy_agent_thread_api_is_absent(module, export):
+    """The clean migration supplies no old modules or package shims."""
+    # 0. Inspect removed agent-owned storage APIs without invoking a provider.
+    assert importlib.util.find_spec(f"n3tx_agents.{module}") is None
+    assert not hasattr(n3tx_agents, export)
+    assert not hasattr(n3tx_agents.history, "HISTORY_CODEC")
+
+
+def test_root_identity_and_shared_ttx_storage(agent_context, monkeypatch):
+    """Conversation roots are semantic TTX rows, not separate containers."""
+    # 0. Open through real parent policy and inspect canonical persistence.
+    thread = _open(agent_context)
+    assert isinstance(thread, Thread)
+    assert Thread.storage is TTX.storage
+    saved = TTX.get(thread.id)
+    assert saved.name == "Conversation" and saved.value is None
+    assert saved.target == agent_context["scope"]
+    assert saved.source == "simple_agents" and saved.user_owner == 1
+    # 1. Explicit handoff can reuse a root without owner/source equality gates.
+    monkeypatch.setattr(HistoryOwner, "__access__", {
+        **HistoryOwner.__access__,
+        "read": AUTHENTICATED, "update": AUTHENTICATED,
+    })
+    resumed = open_thread(
+        scope=Ref(agent_context["scope"]), agent_addr="other_agent",
+        user=OTHER, thread_id=thread.id,
+    )
+    assert resumed.id == thread.id
+    assert public_id_url(thread.id, target_cls=TTX).endswith(
+        f"/TTX/{thread.id}",
+    )
+
+
+@pytest.mark.asyncio
+async def test_configured_ttx_boundary_denies_get_and_filters_list(
+    agent_context, fresh_matrix,
+):
+    """Configured Tier 1/2 guards restrict generic snapshot reads.
+
+    Raw trusted Matrix LIST does not derive an authorization filter merely
+    from meta.user. This test exercises the configured native adapter instead.
+    """
+    # 0. Configure the actual native boundary with trusted model/caller inputs.
+    thread = _open(agent_context)
+    adapter = NetworkAPI()
+    fresh_matrix.register(adapter)
+    adapter.use(auth_interceptor, on="request")
+    # 1. Native resource authorization denies a generic GET of the saved root.
+    denied = await adapter.request(TX(
+        "get", adapter.addr, TTX.__addr__, data={"id": thread.id},
+        meta={"user": dict(USER), "model_cls": TTX},
+    ), timeout=2)
+    assert denied.is_error and denied.data["code"] == 403
+    # 2. Native Tier 1 supplies the NEVER predicate for a filtered empty LIST.
+    listed = await adapter.request(TX(
+        "list", adapter.addr, TTX.__addr__, data={},
+        meta={"user": dict(USER), "model_cls": TTX},
+    ), timeout=2)
+    assert not listed.is_error and listed.data == []
+    assert len(TTX.list()) == 1
+
+
+def test_typed_history_authorization_and_unchanged_raw_payloads(
+    agent_context, monkeypatch,
+):
+    """Read exact evidence without codec selection or repair."""
+    # 0. Insert in reverse time order, preserving mismatched protocol evidence.
+    thread = _open(agent_context)
+    raw = _payload([
         ModelRequest(parts=[UserPromptPart(content="hello")]),
         ModelResponse(parts=[TextPart(content="hi there")]),
-    ]
-
-
-def _protocol_txs(messages):
-    """Encode test messages using the same native serializer as the runtime."""
-    return [
-        TX(message["kind"], "test", "agent", data=message,
-           meta={"codec": HISTORY_CODEC})
-        for message in _payload(messages)
-    ]
-
-
-@pytest.fixture
-def native(tmp_path, monkeypatch):
-    """Use native bootstrap with real models and disposable storage."""
-    # 0. Preserve process globals and disable all real provider requests.
-    saved_routes = list(router.routes)
-    saved_cache = dict(ProtoModel._schema_cache)
-    saved_auth = (auth._jwt_secret, auth._jwt_expiry_hours)
-    monkeypatch.setattr(models, "ALLOW_MODEL_REQUESTS", False)
-    monkeypatch.setattr(config, "DEBUG", False)
-    for model in (Thread, TXRecord, SimpleAgent):
-        monkeypatch.setattr(
-            model, "storage", getattr(model, "storage", None), raising=False,
-        )
-    storage = SQLiteStorage(str(tmp_path / "threads.db"))
-    try:
-        create_app(
-            models=[SimpleAgent], storage=storage, static_dir=None,
-            jwt_secret="synthetic-thread-secret-not-for-production",
-            debug=False, ssr="off", remotes={},
-        )
-        root = Matrix()
-        Actor.root(root)
-        for model in (Thread, TXRecord, SimpleAgent):
-            root._children[model.__addr__] = model
-        yield storage
-    finally:
-        # 1. Release only owned connections and restore native factory globals.
-        while True:
-            try:
-                connection = storage._pool.get_nowait()
-            except Empty:
-                break
-            connection.rollback()
-            connection.close()
-        router.routes[:] = saved_routes
-        ProtoModel._schema_cache.clear()
-        ProtoModel._schema_cache.update(saved_cache)
-        auth._jwt_secret, auth._jwt_expiry_hours = saved_auth
-
-
-def test_thread_fields_defaults_and_policy(native):
-    """Keep owner/scope metadata without persisted messages or routing."""
-    # 0. Inspect fields collected by the actual native model.
-    assert set(Thread.model_json_schema()["properties"]) == {
-        "id", "image", "user_owner", "scope",
-    }
-    assert issubclass(Thread, ActorModel) and Thread.__storable__
-    assert Thread.__tablename__ == "threads"
-    assert not getattr(Thread, "__agent__", False)
-    assert {"user_owner", "scope"} <= Thread.__protected_fields__
-    assert {"create", "read", "list", "update", "delete"} <= (
-        Thread.__access__.keys()
-    )
-    assert Thread().user_owner is None and Thread().scope is None
-
-
-def test_owner_scope_round_trip_and_thread_delete(native):
-    """Retain ordinary trusted Thread create/get/update/delete persistence."""
-    # 0. Scope is an opaque Ref, not a source lookup or permission grant.
-    scope = Ref("https://elsewhere.example/Task/42")
-    thread = Thread.create(Thread(user_owner=1, scope=scope))
-    fetched = Thread.get(thread.id)
-    assert fetched.user_owner == 1 and fetched.scope == scope
-    Thread.update(thread.id, {"scope": None})
-    assert Thread.get(thread.id).scope is None
-    # 1. Trusted Python CRUD retains the native delete contract.
-    Thread.delete(thread.id)
-    assert Thread.get(thread.id) is None
-
-
-def test_from_tx_is_pure_deep_copy(native):
-    """Snapshot conversion copies native JSON without saving or dispatching."""
-    # 0. Convert a native envelope without server persistence stamps.
-    thread = Thread.create(Thread(user_owner=1))
-    tx = TX("NOTE", "original", "sink", data={"items": [{"value": 1}]})
-    draft = TXRecord.from_tx(tx, thread=Ref[Thread](_ref(thread)))
-    assert draft.id == 0 and draft.recorded_at is None
-    assert draft.recorded_by is None and draft.uuid == tx.uuid
-    assert draft.source == tx.source and draft.timestamp == tx.timestamp
-    # 1. The copy is detached, and conversion alone creates no records.
-    tx.data["items"][0]["value"] = 2
-    assert draft.data == {"items": [{"value": 1}]}
-    assert thread.records(user=USER)["data"] == []
-
-
-def test_append_many_persists_links_and_accepts_duplicate_uuids(native):
-    """Append ordinary rows sequentially without dispatch or retry dedup."""
-    # 0. Persist a batch, then append the same envelopes as another batch.
-    thread = Thread.create(Thread(user_owner=1))
-    txs = [TX("NOTE", "test", "sink", data={"n": n}) for n in (1, 2)]
-    first = thread.append_many(txs, user=USER)
-    repeated = thread.append_many(txs, user=USER)
-    assert [row.uuid for row in repeated] == [row.uuid for row in first]
-    assert set(row.id for row in first).isdisjoint(
-        row.id for row in repeated
-    )
-    assert first[0].predecessor is None
-    assert first[1].predecessor == _ref(first[0])
-    assert all(row.recorded_by == 1 for row in first)
-    assert all(row.recorded_at is not None for row in first)
-    # 1. An explicit predecessor remains reference metadata for the batch.
-    linked = thread.append_many(
-        [TX("NOTE", "test", "sink")], user=USER,
-        predecessor=_ref(first[-1]),
-    )
-    assert linked[0].predecessor == _ref(first[-1])
-    assert len(thread.records(user=USER)["data"]) == 5
-
-
-@pytest.mark.parametrize("scope", [None, "https://elsewhere.example/Task/42"])
-def test_owner_admin_policy_not_scope_inheritance(native, scope):
-    """Owner/admin access is independent of scope and source permissions."""
-    # 0. An owner and an admin can append/read the same saved Thread.
-    thread = Thread.create(Thread(user_owner=1, scope=scope))
-    thread.append(TX("NOTE", "owner", "sink"), user=USER)
-    saved = thread.append(TX("NOTE", "admin", "sink"), user=ADMIN)
-    assert saved.recorded_by == ADMIN["user_id"]
-    assert len(thread.records(user=ADMIN)["data"]) == 2
-    assert thread.history(user=ADMIN, codec=HISTORY_CODEC) == []
-    # 1. Another staff caller has no access through a matching scope alone.
-    for operation in (
-        lambda: thread.records(user=OTHER),
-        lambda: thread.history(user=OTHER),
-        lambda: thread.append(TX("NOTE", "other", "sink"), user=OTHER),
-    ):
-        with pytest.raises(AccessDenied):
-            operation()
-
-
-def test_explicit_none_is_trusted_internal_python(native):
-    """Native internal None bypass is separate from authenticated transport."""
-    # 0. Internal Python calls need no caller provenance stamp.
-    thread = Thread.create(Thread(user_owner=1))
-    saved = thread.append(TX("NOTE", "internal", "sink"), user=None)
-    assert saved.recorded_by is None
-    assert thread.records(user=None)["data"][0].id == saved.id
-    assert thread.history(user=None) == []
-    # 1. An anonymous transport-shaped dictionary is not internal None.
-    with pytest.raises(AccessDenied):
-        thread.records(user={})
-
-
-def test_history_native_codec_round_trip_and_timestamp_order(native):
-    """Restore complete protocol messages and exclude nonprotocol records."""
-    # 0. Save protocol out of insertion order with distinct server timestamps.
-    thread = Thread.create(Thread(user_owner=1))
-    messages = _messages() + [
         ModelResponse(parts=[ToolCallPart(
-            "lookup", {"key": "synthetic"}, tool_call_id="paired-call",
+            "lookup", {"key": "synthetic"}, tool_call_id="unanswered",
         )]),
         ModelRequest(parts=[ToolReturnPart(
-            "lookup", {"found": True}, tool_call_id="paired-call",
+            "other", {"found": True}, tool_call_id="different-call",
         )]),
+    ])
+    for index in reversed(range(len(raw))):
+        message = _append(thread, raw[index], index + 1)
+    message.APPEND(TX(
+        "Message", "synthetic", "ignored", data={"invalid": "grandchild"},
+    ))
+    thread.APPEND(TX("NOTE", "synthetic", "ignored", data="not SDK"))
+    other = _open(agent_context)
+    _append(other, raw[0], 0)
+    before = [row.model_dump() for row in TTX.list()]
+    # 1. Parent read is sufficient without update or appender equality.
+    monkeypatch.setattr(HistoryOwner, "__access__", {
+        **HistoryOwner.__access__, "read": AUTHENTICATED, "update": NEVER,
+    })
+    for caller in (USER, OTHER):
+        assert _payload(read_history(thread, user=caller)) == raw
+    # 2. Reads cannot normalize, repair, remove or rewrite stored evidence.
+    assert [row.model_dump() for row in TTX.list()] == before
+    with pytest.raises(AccessDenied):
+        read_history(thread, user=None)
+
+
+def test_malformed_history_authorizes_before_decoding(agent_context):
+    """Malformed evidence cannot leak past parent authorization."""
+    # 0. Trusted storage accepts JSON without claiming SDK validity.
+    thread = _open(agent_context)
+    payload = {"kind": "not-an-sdk-message", "parts": []}
+    record = _append(thread, payload, 1)
+    # 1. Denied identities see authorization rather than protocol details.
+    for caller in (OTHER, {}, None):
+        with pytest.raises(AccessDenied):
+            read_history(thread, user=caller)
+    with pytest.raises(ValidationError):
+        read_history(thread, user=USER)
+    assert TTX.get(record.id).value == payload
+
+
+def test_complete_history_keeps_all_messages_and_timestamp_ties(
+    agent_context,
+):
+    """Decode all immediate Messages without paging or tie losses."""
+    # 0. Store over fifty SDK messages with four entries at each timestamp.
+    thread = _open(agent_context)
+    messages = [
+        ModelRequest(parts=[UserPromptPart(content=f"synthetic {index}")])
+        for index in range(64)
     ]
-    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    for index in reversed(range(len(messages))):
-        saved = thread.append(_protocol_txs([messages[index]])[0], user=USER)
-        TXRecord.update(saved.id, {"recorded_at": base + timedelta(
-            seconds=index,
-        )})
-    thread.append(TX("activity", "host", "sink"), user=USER)
-    # 1. Native serialization agrees on prompts, text and paired tool IDs.
-    assert _payload(thread.history(user=USER)) == _payload(messages)
+    payloads = _payload(messages)
+    for index in reversed(range(len(payloads))):
+        _append(thread, payloads[index], index // 4)
+    # 1. All entries decode; no ordering assertion is made within time ties.
+    history = read_history(thread, user=USER)
+    assert len(history) == len(messages) == 64
+    assert {message.parts[0].content for message in history} == {
+        message.parts[0].content for message in messages
+    }
 
 
-def test_timestamp_cursor_and_latest_window(native):
-    """Page distinct timestamps and replace the latest bounded window."""
-    # 0. Deliberately make insertion IDs disagree with timestamp ordering.
-    thread = Thread.create(Thread(user_owner=1))
-    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    for second in (2, 0, 1):
-        record = thread.append(TX(
-            "NOTE", "test", "sink", data={"second": second},
-        ), user=USER)
-        TXRecord.update(record.id, {"recorded_at": base + timedelta(
-            seconds=second,
-        )})
-    # 1. The cursor is a timestamp, without a high-water or ID continuation.
-    page = thread.records(user=USER, limit=2)
-    assert [row.data["second"] for row in page["data"]] == [2, 1]
-    assert set(page) == {"data", "cursor", "has_more"}
-    assert datetime.fromisoformat(page["cursor"]) == base + timedelta(seconds=1)
-    older = thread.records(user=USER, cursor=page["cursor"], limit=2)
-    assert [row.data["second"] for row in older["data"]] == [0]
-    assert older["cursor"] == "" and older["has_more"] is False
-    latest = thread.records(user=USER, limit=2)
-    assert [row.data["second"] for row in latest["data"]] == [2, 1]
-    assert latest["cursor"] == page["cursor"]
-    assert latest["has_more"] is True
+@pytest.mark.parametrize("change", ["target", "name", "delete"])
+def test_history_rechecks_prepared_root_identity(agent_context, change):
+    """Stale roots cannot redirect authorized reads to another record."""
+    # 0. Retain a loaded root while changing its persisted identity or target.
+    thread = _open(agent_context)
+    if change == "delete":
+        TTX.delete(thread.id)
+    elif change == "name":
+        TTX.update(thread.id, {"name": "NOTE"})
+    else:
+        other = HistoryOwner.create(HistoryOwner())
+        TTX.update(thread.id, {
+            "target": public_id_url(other.id, target_cls=HistoryOwner),
+        })
+    # 1. Reads reject stale identity instead of following changed ownership.
+    with pytest.raises(ValueError):
+        read_history(thread, user=USER)
+
+
+@pytest.mark.parametrize("case", [
+    "missing", "missing_root", "remote", "unregistered", "wrong_scope",
+    "wrong_name", "child",
+])
+@pytest.mark.asyncio
+async def test_open_rejects_invalid_parent_or_root(
+    agent_context, monkeypatch, case,
+):
+    """Resume checks exact root kind and host without graph traversal."""
+    # 0. Construct an invalid scope or a non-root record ID.
+    scope = Ref(agent_context["scope"])
+    thread = _open(agent_context)
+    identity = thread.id
+    if case == "missing":
+        scope = Ref(public_id_url(999999, target_cls=HistoryOwner))
+    elif case == "missing_root":
+        identity += 999999
+    elif case == "remote":
+        scope = Ref("https://remote.example.test/HistoryOwner/1")
+    elif case == "unregistered":
+        scope = Ref("https://agents.example.test/UnknownOwner/1")
+    elif case == "wrong_scope":
+        owner = HistoryOwner.create(HistoryOwner())
+        scope = Ref(public_id_url(owner.id, target_cls=HistoryOwner))
+    elif case == "wrong_name":
+        identity = TTX.create(TTX(TX(
+            "NOTE", "synthetic", scope, data=None,
+        ))).id
+    else:
+        identity = _append(thread, {"kind": "request", "parts": []}, 1).id
+    before = len(TTX.list())
+    # 1. Invalid roots are rejected, never replaced or followed recursively.
+    with pytest.raises(ValueError):
+        open_thread(
+            scope=scope, agent_addr="simple_agents", user=USER,
+            thread_id=identity,
+        )
+    assert len(TTX.list()) == before
+
+    def forbidden(*args, **kwargs):
+        """Fail if invalid root identity reaches provider setup."""
+        pytest.fail("Invalid conversation reached model resolution")
+    # 2. The actual runtime preserves this preflight before provider setup.
+    monkeypatch.setattr("n3tx_agents.agent._resolve_llm", forbidden)
+    with pytest.raises(ValueError):
+        await Agent.prepare(SimpleAgent, CallConfig(
+            task="Invalid", prompt="Synthetic", tools=[], user=USER,
+            constraints={}, thread_id=identity, scope=scope,
+            llm="must-not-resolve", has_llm_override=True,
+        ))
+    assert len(TTX.list()) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("permission", ["read", "update"])
+@pytest.mark.parametrize("caller", [USER, None])
+async def test_prepare_authorizes_before_model_setup(
+    agent_context, monkeypatch, permission, caller,
+):
+    """Check both parent rights before provider setup for every caller."""
+
+    def forbidden(*args, **kwargs):
+        """Fail if a denied parent reaches model resolution."""
+        pytest.fail("Denied parent reached model resolution")
+    # 0. Deny one required parent right while retaining real native lookup.
+    monkeypatch.setattr(HistoryOwner, "__access__", {
+        **HistoryOwner.__access__, permission: NEVER,
+    })
+    monkeypatch.setattr("n3tx_agents.agent._resolve_llm", forbidden)
+    call = CallConfig(
+        task="Denied", prompt="Synthetic", tools=[], user=caller,
+        constraints={}, thread_id=None,
+        scope=Ref(agent_context["scope"]), llm="must-not-resolve",
+        has_llm_override=True,
+    )
+    # 1. Neither root allocation nor provider setup occurs after denial.
+    with pytest.raises(AccessDenied):
+        await Agent.prepare(SimpleAgent, call)
+    assert TTX.list() == []
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.parametrize("caller", [USER, None])
-async def test_native_turns_create_resume_and_persist(native, stream, caller):
-    """Both adapters create and reuse record-backed native conversations."""
-    # 0. Run the real mixin/runtime twice using only the native TestModel.
+async def test_native_turns_create_resume_and_persist(agent_context, stream):
+    """Retain exact root IDs and saved messages through both adapters."""
+    # 0. Execute two native turns using explicit saved scope and TestModel.
     agent = SimpleAgent(addr="simple_agents/1")
     thread_id = None
     counts = []
     for task in ("Question 1", "Question 2"):
         kwargs = dict(
             task=task, prompt="Synthetic instructions", tools=[],
-            llm=TestModel(call_tools=[]), user=caller, thread_id=thread_id,
+            llm=TestModel(call_tools=[]), thread_id=thread_id,
+            **agent_context,
         )
         if stream:
             chunks = [chunk async for chunk in agent.run_stream(**kwargs)]
             assert not [c for c in chunks if c["name"] == "error"]
             done = [c for c in chunks if c["name"] == "done"]
-            assert len(done) == 1
+            assert len(done) == 1 and chunks[-1]["name"] == "done"
             result = done[0]["data"]
         else:
             result = await agent.run(**kwargs)
             assert result["message_count"] == len(result["messages"])
-        # 1. Verify exact identity and the persisted native message contents.
+        # 1. Resume the same root and compare real native persisted evidence.
         if thread_id is not None:
             assert result["thread_id"] == thread_id
         thread_id = result["thread_id"]
         thread = Thread.get(thread_id)
-        assert thread.user_owner == (1 if caller is not None else None)
-        assert thread.scope is None
-        history = thread.history(user=caller)
+        assert thread.target == agent_context["scope"]
+        history = read_history(thread, user=USER)
         counts.append(len(history))
         if not stream:
             assert _payload(history) == _payload(result["messages"])
+        rows = TTX.list(where={
+            "name": "Message",
+            "target": public_id_url(thread_id, target_cls=TTX),
+        })
+        assert len(rows) == len(history)
+        assert all(row.user_owner == 1 for row in rows)
+        assert all("codec" not in row.meta for row in rows)
     assert counts[0] > 0 and counts[1] > counts[0]
 
 
 @pytest.mark.asyncio
-async def test_agentic_passes_existing_thread_id(native):
-    """Class-level agentic forwards the existing native Thread ID."""
-    # 0. Exercise actual policy assembly, preparation and execution.
-    thread = Thread.create(Thread(user_owner=1))
-    result = await SimpleAgent.agentic(
-        task="Hello", tools=[], llm=TestModel(call_tools=[]),
-        thread_id=thread.id, user=USER,
+async def test_saved_instance_scope_inference(agent_context):
+    """Infer scope only from a registered saved execution target."""
+    # 0. Register and save the agent itself with a real parent policy.
+    register_model(SavedAgent, storage=TTX.storage)
+    saved = SavedAgent.create(SavedAgent(name="Saved synthetic agent"))
+    result = await saved.agentic(
+        task="Hello", tools=[], llm=TestModel(call_tools=[]), user=USER,
     )
-    # 1. The result and complete native persisted history agree.
-    assert result["thread_id"] == thread.id
-    assert _payload(thread.history(user=USER)) == _payload(result["messages"])
+    # 1. Runtime inference selects that entity, not its actor address string.
+    assert Thread.get(result["thread_id"]).target == public_id_url(
+        saved.id, target_cls=SavedAgent,
+    )
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", ["missing", "other_owner"])
-async def test_agent_rejects_missing_or_denied_thread(native, case):
-    """Preserve native Matrix missing-member and owner-denial failures."""
-    # 0. Prepare an unavailable ID or an existing record owned by another user.
-    thread = Thread.create(Thread(user_owner=2))
-    with pytest.raises(RuntimeError, match="not found or access denied"):
-        await SimpleAgent.agentic(
-            task="Hello", tools=[], llm=TestModel(call_tools=[]), user=USER,
-            thread_id=thread.id + 1000 if case == "missing" else thread.id,
+@pytest.mark.parametrize("case", [
+    "class", "nonstored", "saved_class", "unsaved", "unregistered",
+])
+async def test_unsaved_or_class_target_requires_scope(
+    agent_context, monkeypatch, case,
+):
+    """Class and non-storable calls cannot invent a business owner."""
+    # 0. Execute without scope while provider requests remain disabled.
+    target = SimpleAgent
+    if case == "nonstored":
+        target = SimpleAgent()
+    elif case == "saved_class":
+        target = SavedAgent
+    elif case == "unsaved":
+        target = SavedAgent(name="Unsaved")
+    elif case == "unregistered":
+        target = SavedAgent(id=999, name="Unregistered saved-looking target")
+
+    def forbidden(*args, **kwargs):
+        """Fail if missing ownership reaches provider resolution."""
+        pytest.fail("Missing business scope reached model resolution")
+    monkeypatch.setattr("n3tx_agents.agent._resolve_llm", forbidden)
+    with pytest.raises(ValueError):
+        await target.agentic(
+            task="No scope", tools=[], llm="test", user=USER,
         )
+    # 1. Invalid scope inference must not create an orphan root.
+    assert TTX.list() == []
+
+
+def test_checkpoint_failure_latches_successful_prefix(
+    agent_context, monkeypatch,
+):
+    """Stop later checkpoints after uncertainty without retrying writes."""
+    from types import SimpleNamespace
+    # 0. Keep real first-row persistence and fail the second native append.
+    thread = _open(agent_context)
+    original = Thread.APPEND
+    calls = []
+
+    def append(self, tx, *, user_owner=None):
+        """Save one row and fail the next uncertain storage attempt."""
+        calls.append(deepcopy(tx.data))
+        if len(calls) == 2:
+            raise RuntimeError("Synthetic persistence uncertainty")
+        return original(self, tx, user_owner=user_owner)
+    monkeypatch.setattr(Thread, "APPEND", append)
+    prepared = SimpleNamespace(
+        thread=thread, deps=SimpleNamespace(user=USER),
+        agent_addr="simple_agents", root=None,
+    )
+    messages = [
+        ModelRequest(parts=[UserPromptPart(content="one")]),
+        ModelResponse(parts=[TextPart(content="two")]),
+    ]
+    # 1. Subsequent flushes must neither retry nor extend the uncertain prefix.
+    _, flush = Agent._history_hooks(prepared)
+    flush(messages)
+    flush([*messages, ModelResponse(parts=[TextPart(content="three")])])
+    assert len(calls) == 2
+    assert _payload(read_history(thread, user=USER)) == _payload(messages[:1])
+
+
+@pytest.mark.parametrize("action", ["read", "update"])
+def test_checkpoint_rechecks_current_parent_permissions(
+    agent_context, monkeypatch, action,
+):
+    """Revoking either parent right stops all later checkpoint writes."""
+    from types import SimpleNamespace
+    # 0. Keep a valid root but revoke one persisted-owner policy action.
+    thread = _open(agent_context)
+    prepared = SimpleNamespace(
+        thread=thread, deps=SimpleNamespace(user=USER),
+        agent_addr="simple_agents",
+    )
+    monkeypatch.setattr(HistoryOwner, "__access__", {
+        **HistoryOwner.__access__, action: NEVER,
+    })
+    _, flush = Agent._history_hooks(prepared)
+    messages = [ModelRequest(parts=[UserPromptPart(content="denied")])]
+    # 1. A denied checkpoint persists nothing and cannot resume after recovery.
+    flush(messages)
+    monkeypatch.setattr(HistoryOwner, "__access__", {
+        "*": NEVER, "read": OWNER, "update": OWNER,
+    })
+    flush(messages)
+    assert len(TTX.list()) == 1
+
+
+@pytest.mark.asyncio
+async def test_provider_context_repair_cannot_rewrite_audit_evidence(
+    agent_context, monkeypatch,
+):
+    """Repair a copy while returned and saved evidence stays raw."""
+    from types import SimpleNamespace
+    # 0. Prepare real authorized history before isolating the SDK run seam.
+    thread = _open(agent_context)
+    old = ModelRequest(parts=[UserPromptPart(content="raw audit input")])
+    _append(thread, _payload([old])[0], 1)
+    prepared = await Agent.prepare(SimpleAgent, CallConfig(
+        task="Continue", prompt="Synthetic", tools=[],
+        constraints={},
+        scope=Ref(agent_context["scope"]), user=USER, thread_id=thread.id,
+        llm=TestModel(call_tools=[]), has_llm_override=True,
+    ))
+    before = _payload(prepared.message_history)
+    new = ModelResponse(parts=[TextPart(content="new answer")])
+    calls = []
+
+    def repair(messages):
+        """Mutate provider context to expose evidence aliasing."""
+        assert messages is not prepared.message_history
+        assert messages[0] is not prepared.message_history[0]
+        assert messages[0].parts[0] is not prepared.message_history[0].parts[0]
+        messages[0].parts[0].content = "provider-only repaired input"
+        return messages
+
+    async def run(task, **kwargs):
+        """Observe provider context without inference or tool execution."""
+        calls.append(task)
+        assert kwargs["message_history"][0].parts[0].content == (
+            "provider-only repaired input"
+        )
+        return SimpleNamespace(
+            output="new answer", new_messages=lambda: [new],
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1, requests=1),
+        )
+    # 1. Exercise runtime copy/flush behavior with native persistence intact.
+    monkeypatch.setattr("n3tx_agents.agent.repair_messages", repair)
+    prepared = replace(prepared, ai_agent=SimpleNamespace(run=run))
+    result = await Agent.run(prepared, "Continue")
+    # 2. Repair cannot alter the raw prefix or cause another execution attempt.
+    assert calls == ["Continue"]
+    assert _payload(prepared.message_history) == before
+    assert _payload(result["messages"]) == [*before, *_payload([new])]
+    assert _payload(read_history(thread, user=USER)) == _payload(
+        result["messages"],
+    )
 
 
 # Changelog (Python has no native block-comment syntax).
-# - 2026-10-31: Replace obsolete mutable Thread assertions with scoped records,
-#   strict disposable bootstrap, immutable append and native history coverage.
-#   - Cover complete output overflow, successful transaction-policy connection
-#     reuse and controlled parallel observation-failure interleavings.
-#   - Replace Thread grant/expiry checks with uniform saved-source read/update
-#     authorization, real transaction tracing and pre-inference revocation.
-# - 2026-10-31: Align with approved minimalist owner/admin cleanup.
-#   - Retire task-added schema guards, immutability/dedup/atomicity, basis and
-#     branch/CAS, inherited scope ACL, grant expiry and observer-latch tests
-#     because those mechanisms were explicitly removed by approved cleanup.
-#   - Retain ordinary model/CRUD, conversion, append and native agent cases;
-#     verify owner/admin policy and timestamp-only latest-window pagination.
+# - 2026-11-04: Use parent-authorized semantic TTX roots and Message children;
+#   preserve raw audit data, scope and failed-checkpoint stop latches.
+#   Exercise configured native read guards, not raw trusted Matrix LIST;
+#   require complete Message history beyond fifty rows and timestamp ties.
+# - 2026-11-02: Retain SDK integration after generic Thread extraction;
+#   authorize typed reads and require exact unchanged raw audit payloads.

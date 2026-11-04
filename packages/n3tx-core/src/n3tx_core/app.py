@@ -30,13 +30,13 @@ import n3tx_core.authorize as authorize
 _SSR_MODES = ('off', 'schema', 'bundle', 'full')
 
 
-def _uses_agents(model_classes: List[Type]) -> bool:
+def _uses_threads(model_classes: List[Type]) -> bool:
     """Return True when selected models require native history infrastructure.
 
-    Agent execution and opt-in notes both persist through Thread/TXRecord.
+    Agents and model-owned entry capabilities persist through canonical TTX.
     Core detects selected capabilities structurally, never from optional-package
     import state. Unrelated models do not activate history storage."""
-    # 0. Detect selected agent/notes capabilities or explicit history models.
+    # 0. Detect selected capabilities without importing optional packages.
     for model_class in model_classes:
         if (
             getattr(model_class, '__agent__', False)
@@ -44,38 +44,59 @@ def _uses_agents(model_classes: List[Type]) -> bool:
         ):
             return True
         if any(
-            getattr(base, '__module__', '').startswith('n3tx_agents.')
-            and base.__name__ in {'AgentActor', 'Thread', 'TXRecord'}
+            (
+                getattr(base, '__module__', '').startswith('n3tx_agents.')
+                and base.__name__ in {'AgentActor', 'AgentMixin'}
+            )
+            or (
+                getattr(base, '__module__', '').startswith('n3tx_threads.')
+                and base.__name__ in {
+                    'TTX', 'Thread', 'NotesMixin', 'ThreadedMixin',
+                }
+            )
             for base in model_class.__mro__
         ):
             return True
     return False
 
 
-def _agent_infrastructure_models(
+def _thread_infrastructure_models(
     model_classes: List[Type], *, app_agent: bool = False,
 ) -> List[Type]:
-    """Return infrastructure for selected agent/notes models or app assistant.
+    """Return infrastructure for selected thread capabilities or app assistant.
 
     app_agent indicates explicit assistant configuration; optional-package
-    import state never activates infrastructure for an unrelated app."""
+    import state never activates infrastructure for an unrelated app. A missing
+    required threads package raises ImportError before storage registration.
+    Noncanonical TTX registrations raise ValueError before storage binding."""
     # 0. Scope infrastructure to this builder's selected capabilities.
-    if not (_uses_agents(model_classes) or app_agent):
+    if not (_uses_threads(model_classes) or app_agent):
         return []
 
     try:
-        from n3tx_agents import Thread, TXRecord
-    except ImportError:
-        return []
-    # 1. Add only infrastructure not already explicitly registered.
-    return [
-        model for model in (Thread, TXRecord)
-        if not any(
-            selected is model
-            or getattr(selected, '__tablename__', None) == model.__tablename__
-            for selected in model_classes
-        )
-    ]
+        from n3tx_threads import TTX
+    except ModuleNotFoundError as exc:
+        if exc.name != 'n3tx_threads':
+            raise
+        raise ImportError(
+            "Selected models or app_agent require n3tx-threads; install "
+            "n3tx-threads>=0.12.0 before building this application."
+        ) from exc
+    # 1. Refuse semantic subclasses and competing canonical-table owners.
+    for selected in model_classes:
+        if selected is TTX:
+            continue
+        if (
+            issubclass(selected, TTX)
+            or getattr(selected, '__tablename__', None) == TTX.__tablename__
+        ):
+            raise ValueError(
+                f"Cannot register {selected.__name__} as TTX infrastructure: "
+                "register TTX only; Thread is semantic and inherits TTX "
+                "storage. The tx_records table and /TTX/<id> identity "
+                "belong to TTX."
+            )
+    return [TTX]
 
 
 def _resolve_storage(storage) -> AbstractStorage:
@@ -267,7 +288,18 @@ class N3TXApp:
         # 2. Prepare explicit models and optional native infrastructure.
         preparations = []
         explicit_model_classes = [model for model, _ in self._models]
+        infrastructure_models = _thread_infrastructure_models(
+            explicit_model_classes, app_agent=self._app_agent is not None,
+        )
         for model_class, per_model_storage in self._models:
+            if (
+                model_class in infrastructure_models
+                and any(
+                    result.model_class is model_class
+                    for result in preparations
+                )
+            ):
+                continue
             effective_storage = (
                 _resolve_storage(per_model_storage)
                 if per_model_storage is not None else self._storage
@@ -275,9 +307,11 @@ class N3TXApp:
             preparations.append(prepare_model(
                 model_class, storage=effective_storage,
             ))
-        for model_class in _agent_infrastructure_models(
-            explicit_model_classes, app_agent=self._app_agent is not None,
-        ):
+        for model_class in infrastructure_models:
+            if any(
+                result.model_class is model_class for result in preparations
+            ):
+                continue
             preparations.append(prepare_model(
                 model_class, storage=self._storage,
             ))
@@ -488,6 +522,11 @@ def create_app(
 
 
 # Changelog
+# - 2026-11-04: Register only canonical TTX for selected entry capabilities;
+#   reject semantic subclasses/table collisions before registration and avoid
+#   duplicate TTX bindings while preserving explicit storage overrides.
+# - 2026-11-02: Resolve selected history capabilities through n3tx-threads;
+#   report a missing required package before applying model registrations.
 # - 2026-10-31: Refuse legacy Thread column removal before registration;
 #   validate exact target tables before registration or refuse the cutover.
 #   Declare Thread/TXRecord infrastructure without storage import effects.

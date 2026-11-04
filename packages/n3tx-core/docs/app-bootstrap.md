@@ -86,7 +86,7 @@ app = backend.get_app()
 ```
 
 Raw setup does not automatically reproduce factory discovery, actor wiring,
-agent infrastructure/provisioning or relationship-helper preparation. Do not
+thread infrastructure, agent provisioning or relationship-helper preparation. Do not
 claim all construction paths are identical without assembling those pieces.
 
 ### Config Module
@@ -132,9 +132,34 @@ is not authorization. Discovery uses `config.API_URL` for its public base URL,
 model links and login URL, preserving the configured HTTP or HTTPS origin rather
 than deriving it from the listener's HOST/PORT.
 
-### Optional App Assistant Provisioning
+### Optional TTX Infrastructure and App Assistant Provisioning
 
-With agent-enabled models, bootstrap attempts to register Thread infrastructure.
+Bootstrap registers only canonical `n3tx_threads.TTX` when selected models use
+`__agent__`, `__notes__`, agent ancestry, or the threads package's `TTX`,
+`Thread`, `NotesMixin` or `ThreadedMixin` ancestry. Explicit `app_agent`
+configuration also selects TTX. Selection depends on the app's capabilities,
+not whether an optional package was imported elsewhere. Plain core/actor apps
+do not activate history storage. Notes/entry capabilities do not require core
+to import `n3tx_agents` or Pydantic AI.
+
+Import `n3tx_threads` before declaring `__notes__` models. `NotesMixin` owns
+`NOTE`/`NOTES`; shared entry helpers belong to `ThreadedMixin` in
+`n3tx_threads.mixin`. Selecting these capabilities without the installed threads
+package raises an explicit dependency error before storage registration.
+
+`Thread(TTX, auto_register=False)` is an empty semantic Python subclass, not a
+second container or registered model. **Register TTX only; Thread is semantic.**
+It inherits TTX's storage, whose table is `tx_records` and canonical record
+identity is `/TTX/<id>`. Explicit Thread/subclass registration and competing
+`tx_records` models are rejected before applying registrations in a TTX-enabled
+app. An explicit TTX registration retains its storage override; bootstrap does
+not add another. Repeated explicit TTX entries use the first registration.
+
+The retired `__thread_roots__` declaration no longer selects infrastructure or
+bridges direct HTTP actions through `invoke_threaded`. Generated actions retain
+normal native authorization, parsing and direct method invocation. No automatic
+capture replacement is installed; future execution history is separate work.
+
 `app_agent` delegates to the agents package's provisioner, which reconciles the
 system-key/name-backed assistant and tool links. This is startup database work,
 not an LLM run. Configuration and tool selection are described in the
@@ -179,3 +204,8 @@ Registration can drop obsolete columns during migration. Legacy join-backed
 collections require an explicit data migration to JSON ID arrays. Uvicorn reload,
 multiple workers and multiple app construction are not substitutes for a
 single reviewed migration procedure. Read [Operations](../../../docs/OPERATIONS.md).
+
+## Changelog
+
+- 2026-11-04: Document capability-selected TTX-only registration, semantic Thread
+  restrictions, mixin ownership and removal of the direct capture bridge.

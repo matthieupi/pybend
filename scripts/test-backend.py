@@ -3,11 +3,10 @@
 
 Running ``pytest`` from the repository root collects all example apps in one
 process. Several examples intentionally use app-local imports such as
-``from models import ...``; collecting them together makes those imports collide.
+``from models import ...``; collecting them together causes import collisions.
 
 This runner executes each backend suite separately with a deterministic cwd and
-PYTHONPATH so package tests, examples, and apps can all be run from one command.
-"""
+PYTHONPATH so package tests, examples, and apps can all run from one command."""
 
 from __future__ import annotations
 
@@ -40,6 +39,8 @@ COLORS = {
 
 @dataclass(frozen=True)
 class Suite:
+    """Describe one isolated pytest process and its source import paths."""
+
     name: str
     cwd: Path
     pytest_args: tuple[str, ...]
@@ -48,6 +49,8 @@ class Suite:
 
 @dataclass(frozen=True)
 class SuiteResult:
+    """Summarize one suite execution alongside its previous recorded status."""
+
     name: str
     status: str
     returncode: int | None = None
@@ -63,6 +66,7 @@ PACKAGE_PATHS = (
     ROOT,
     ROOT / "packages/n3tx-core/src",
     ROOT / "packages/n3tx-actors/src",
+    ROOT / "packages/n3tx-threads/src",
     ROOT / "packages/n3tx-agents/src",
     ROOT / "packages/n3tx-files/src",
     ROOT / "packages/n3tx-ui/src",
@@ -80,6 +84,11 @@ SUITES = (
         name="actors",
         cwd=ROOT,
         pytest_args=("packages/n3tx-actors/src/n3tx_actors/tests/",),
+    ),
+    Suite(
+        name="threads",
+        cwd=ROOT,
+        pytest_args=("packages/n3tx-threads/src/n3tx_threads/tests/",),
     ),
     Suite(
         name="agents",
@@ -121,15 +130,18 @@ SHORT_PYTEST_ARGS = ("-q", "--tb=short", "--disable-warnings", "-ra")
 
 
 def has_pytest_color_arg(args: tuple[str, ...]) -> bool:
+    """Return whether pytest arguments explicitly configure terminal color."""
     return any(arg == "--color" or arg.startswith("--color=") for arg in args)
 
 
 def pythonpath_for(suite: Suite) -> str:
+    """Build an ordered, deduplicated import path for a suite subprocess."""
+    # 0. Prefer suite-local and checkout sources over inherited import paths.
     paths = [*suite.extra_pythonpath, *PACKAGE_PATHS]
     existing = os.environ.get("PYTHONPATH")
     if existing:
         paths.extend(Path(p) for p in existing.split(os.pathsep) if p)
-
+    # 1. Preserve first occurrence order while removing duplicate paths.
     seen: set[str] = set()
     unique_paths = []
     for path in paths:
@@ -142,15 +154,20 @@ def pythonpath_for(suite: Suite) -> str:
 
 
 def run_suite(suite: Suite, pytest_extra: tuple[str, ...]) -> tuple[int, str]:
+    """Run pytest in the suite directory and return its exit code and output."""
+    # 0. Prepare the child environment and respect explicit pytest color flags.
     env = os.environ.copy()
     env["PYTHONPATH"] = pythonpath_for(suite)
     color_args = () if has_pytest_color_arg(pytest_extra) else ("--color=yes",)
-    command = [sys.executable, "-m", "pytest", *suite.pytest_args, *color_args, *pytest_extra]
+    command = [
+        sys.executable, "-m", "pytest", *suite.pytest_args,
+        *color_args, *pytest_extra,
+    ]
 
     print(f"\n=== backend suite: {suite.name} ===", flush=True)
     print(f"cwd: {suite.cwd}", flush=True)
     print("cmd:", " ".join(command), flush=True)
-
+    # 1. Stream combined output while retaining it for the result summary.
     process = subprocess.Popen(
         command,
         cwd=suite.cwd,
@@ -169,6 +186,8 @@ def run_suite(suite: Suite, pytest_extra: tuple[str, ...]) -> tuple[int, str]:
 
 
 def parse_pytest_counts(output: str) -> dict[str, int]:
+    """Read result counts from the last recognizable pytest summary."""
+    # 0. Scan backward so intermediate progress does not override final counts.
     counts = {"passed": 0, "failed": 0, "warnings": 0, "errors": 0}
     for line in reversed(output.splitlines()):
         if " in " not in line:
@@ -192,6 +211,7 @@ def parse_pytest_counts(output: str) -> dict[str, int]:
 
 
 def status_from_counts(returncode: int, counts: dict[str, int]) -> str:
+    """Classify failures before warnings, with a clean result marked passed."""
     if returncode != 0 or counts["failed"] or counts["errors"]:
         return "failed"
     if counts["warnings"]:
@@ -200,6 +220,8 @@ def status_from_counts(returncode: int, counts: dict[str, int]) -> str:
 
 
 def load_previous_overview(path: Path) -> dict[str, str]:
+    """Read prior suite statuses, tolerating missing or unreadable reports."""
+    # 0. Load an existing report without blocking a new run on I/O errors.
     if not path.exists():
         return {}
 
@@ -207,9 +229,12 @@ def load_previous_overview(path: Path) -> dict[str, str]:
         with path.open("r", encoding="utf-8") as overview_file:
             overview = json.load(overview_file)
     except (OSError, json.JSONDecodeError) as exc:
-        print(f"Warning: could not read previous overview {path}: {exc}", file=sys.stderr)
+        print(
+            f"Warning: could not read previous overview {path}: {exc}",
+            file=sys.stderr,
+        )
         return {}
-
+    # 1. Retain only well-formed suite names and status values.
     suites = overview.get("suites", [])
     if not isinstance(suites, list):
         return {}
@@ -225,7 +250,10 @@ def load_previous_overview(path: Path) -> dict[str, str]:
     return previous
 
 
-def result_from_run(suite: Suite, code: int, output: str, previous: dict[str, str]) -> SuiteResult:
+def result_from_run(
+    suite: Suite, code: int, output: str, previous: dict[str, str],
+) -> SuiteResult:
+    """Combine subprocess output and prior status into one suite result."""
     counts = parse_pytest_counts(output)
     return SuiteResult(
         name=suite.name,
@@ -239,7 +267,10 @@ def result_from_run(suite: Suite, code: int, output: str, previous: dict[str, st
     )
 
 
-def warning_result(suite: Suite, message: str, previous: dict[str, str]) -> SuiteResult:
+def warning_result(
+    suite: Suite, message: str, previous: dict[str, str],
+) -> SuiteResult:
+    """Represent a skipped suite as a warning with its previous status."""
     return SuiteResult(
         name=suite.name,
         status="warning",
@@ -249,6 +280,8 @@ def warning_result(suite: Suite, message: str, previous: dict[str, str]) -> Suit
 
 
 def summarize_results(results: list[SuiteResult]) -> dict[str, int]:
+    """Aggregate suite statuses and reported pytest counts independently."""
+    # 0. Initialize counters, then accumulate only the supplied suite results.
     totals = {
         "passed": 0,
         "failed": 0,
@@ -270,6 +303,7 @@ def summarize_results(results: list[SuiteResult]) -> dict[str, int]:
 
 
 def color_enabled(mode: str) -> bool:
+    """Resolve color policy before environment and terminal defaults."""
     if mode == "always":
         return True
     if mode == "never" or os.environ.get("NO_COLOR"):
@@ -278,6 +312,7 @@ def color_enabled(mode: str) -> bool:
 
 
 def paint(value: object, color: str, enabled: bool) -> str:
+    """Render a value with an optional named ANSI color and reset suffix."""
     text = str(value)
     if not enabled:
         return text
@@ -291,16 +326,23 @@ def cell(
     enabled: bool,
     align: str = ">",
 ) -> str:
+    """Pad a table cell before applying optional terminal color."""
     text = f"{str(value):{align}{width}}"
     return paint(text, color, enabled) if color else text
 
 
-def print_summary(results: list[SuiteResult], overview_file: Path, color_mode: str) -> None:
+def print_summary(
+    results: list[SuiteResult], overview_file: Path, color_mode: str,
+) -> None:
+    """Print aligned suite rows, aggregate counts and the saved report path."""
+    # 0. Compute shared widths and terminal formatting once for this report.
     totals = summarize_results(results)
     use_color = color_enabled(color_mode)
-    name_width = max([len("suite"), *(len(result.name) for result in results)] or [len("suite")]) + 2
+    name_width = max(
+        [len("suite"), *(len(result.name) for result in results)]
+    ) + 2
     status_width = len("warning") + 2
-
+    # 1. Render each selected suite with its prior status and diagnostic note.
     print("\n" + paint("=== Backend test summary ===", "header", use_color))
     if not results:
         print("No backend suites were selected.")
@@ -330,19 +372,29 @@ def print_summary(results: list[SuiteResult], overview_file: Path, color_mode: s
             previous = result.previous_status or "-"
             note = result.message
             if result.returncode not in (None, 0):
-                note = f"exit {result.returncode}" if not note else f"{note}; exit {result.returncode}"
-            status_color = "passed" if result.status == "passed" else result.status
+                note = (
+                    f"exit {result.returncode}" if not note
+                    else f"{note}; exit {result.returncode}"
+                )
+            status = cell(
+                result.status, status_width, result.status, use_color, "<",
+            )
+            counts = "".join(
+                cell(value, 8, color if value else None, use_color)
+                for value, color in (
+                    (result.passed, "passed"),
+                    (result.failed, "failed"),
+                    (result.warnings, "warning"),
+                    (result.errors, "failed"),
+                )
+            )
             print(
                 f"{result.name:<{name_width}}"
-                f"{cell(result.status, status_width, status_color, use_color, '<')}"
-                f"{cell(result.passed, 8, 'passed' if result.passed else None, use_color)}"
-                f"{cell(result.failed, 8, 'failed' if result.failed else None, use_color)}"
-                f"{cell(result.warnings, 8, 'warning' if result.warnings else None, use_color)}"
-                f"{cell(result.errors, 8, 'failed' if result.errors else None, use_color)}"
+                f"{status}{counts}"
                 f"  {previous:<10}"
                 f"{note}"
             )
-
+    # 2. Distinguish suite outcomes from the accumulated individual test counts.
     print()
     print(
         "Suites: "
@@ -366,6 +418,7 @@ def overview_payload(
     argv: list[str],
     overview_file: Path,
 ) -> dict[str, object]:
+    """Serialize suite outcomes and invocation metadata for the JSON report."""
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "command": " ".join(argv),
@@ -391,6 +444,8 @@ def overview_payload(
 
 
 def save_overview(path: Path, payload: dict[str, object]) -> None:
+    """Create report directories and write a stable, newline-terminated JSON."""
+    # 0. Persist the report after creating only its required parent directories.
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as overview_file:
         json.dump(payload, overview_file, indent=2, sort_keys=True)
@@ -398,14 +453,21 @@ def save_overview(path: Path, payload: dict[str, object]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse suite selection, execution and report formatting options."""
+    # 0. Declare runner options separately from forwarded pytest arguments.
     parser = argparse.ArgumentParser(
-        description="Run backend test suites without root-level pytest import collisions.",
+        description=(
+            "Run backend test suites without root-level pytest import "
+            "collisions."
+        ),
     )
     parser.add_argument(
         "--suite",
         action="append",
         choices=[suite.name for suite in SUITES],
-        help="Suite to run. May be provided multiple times. Default: all suites.",
+        help=(
+            "Suite to run. May be provided multiple times. Default: all suites."
+        ),
     )
     failure_group = parser.add_mutually_exclusive_group()
     failure_group.add_argument(
@@ -413,7 +475,10 @@ def parse_args() -> argparse.Namespace:
         dest="continue_on_failure",
         action="store_true",
         default=True,
-        help="Run remaining suites after a failure and return non-zero at the end. This is the default.",
+        help=(
+            "Run remaining suites after a failure and return non-zero at the "
+            "end. This is the default."
+        ),
     )
     failure_group.add_argument(
         "--fail-fast",
@@ -459,12 +524,17 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """List or run selected suites and return an aggregate process exit code."""
+    # 0. Handle discovery without creating reports or running subprocesses.
     args = parse_args()
     if args.list:
         for suite in SUITES:
-            print(f"{suite.name}\tcwd={suite.cwd}\tpytest={' '.join(suite.pytest_args)}")
+            print(
+                f"{suite.name}\tcwd={suite.cwd}"
+                f"\tpytest={' '.join(suite.pytest_args)}"
+            )
         return 0
-
+    # 1. Resolve selection and retain prior report statuses before execution.
     selected = set(args.suite or [suite.name for suite in SUITES])
     pytest_extra = tuple(arg for arg in args.pytest_args if arg != "--")
     if args.short:
@@ -474,12 +544,16 @@ def main() -> int:
     previous = load_previous_overview(overview_file)
     results: list[SuiteResult] = []
     exit_code = 0
+    # 2. Isolate suite execution and honor fail-fast when requested.
     for suite in SUITES:
         if suite.name not in selected:
             continue
         if not suite.cwd.exists():
             message = f"missing cwd: {suite.cwd}"
-            print(f"Skipping missing suite {suite.name}: {suite.cwd}", file=sys.stderr)
+            print(
+                f"Skipping missing suite {suite.name}: {suite.cwd}",
+                file=sys.stderr,
+            )
             results.append(warning_result(suite, message, previous))
             continue
         code, output = run_suite(suite, pytest_extra)
@@ -489,8 +563,10 @@ def main() -> int:
             if not args.continue_on_failure:
                 print(f"\nFAILED: {suite.name}", file=sys.stderr)
                 break
-
-    save_overview(overview_file, overview_payload(results, sys.argv, overview_file))
+    # 3. Save and display the completed results before calculating exit status.
+    save_overview(
+        overview_file, overview_payload(results, sys.argv, overview_file),
+    )
     print_summary(results, overview_file, args.summary_color)
 
     failures = [result.name for result in results if result.status == "failed"]
@@ -502,3 +578,8 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# Changelog
+# - 2026-11-02: Add isolated threads tests and their source import path;
+#   document runner contracts and wrap existing output formatting.

@@ -5,7 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "n3tx-agents"
 version = "0.12.0"
-description = "N3TX agents: AgentMixin, AgentActor, tool discovery, LLM integration."
+description = """\
+N3TX agents: AgentMixin, AgentActor, tool discovery, LLM integration.\
+"""
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -13,6 +15,7 @@ authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]
 dependencies = [
     "n3tx-core>=0.12.0",
     "n3tx-actors>=0.12.0",
+    "n3tx-threads>=0.12.0",
     "pydantic-ai>=1.0",
 ]
 
@@ -24,3 +27,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "n3tx_agents" = ["static/**/*"]
+
+# Changelog
+# - 2026-11-02: Depend on n3tx-threads for persisted history and capture.

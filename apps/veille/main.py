@@ -16,9 +16,10 @@ import n3tx_ui  # noqa: F401, E402  # Registers ViewableMixin for __ui__ models.
 from n3tx_core.app import create_app  # noqa: E402
 from n3tx_core.storage.sqlite_storage import SQLiteStorage  # noqa: E402
 from n3tx_agents.actor import AgentActor  # noqa: E402
-from n3tx_agents.thread import Thread  # noqa: E402
 from n3tx_agents.tool_model import AgentTool  # noqa: E402
-from models import User, Organization, Source, Grant, Run, WebTools  # noqa: E402
+from models import (  # noqa: E402
+    User, Organization, Source, Grant, Run, WebTools,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('veille.scheduler')
@@ -28,7 +29,10 @@ DB_PATH = os.path.join(_HERE, config.SQLITE_DB_FILE)
 
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
-    models=[User, Organization, Source, Grant, Run, WebTools, AgentTool, AgentActor, Thread],
+    models=[
+        User, Organization, Source, Grant, Run, WebTools, AgentTool,
+        AgentActor,
+    ],
     storage=storage,
     routing='actor',
     jwt_secret=config.JWT_SECRET,
@@ -43,8 +47,10 @@ app = create_app(
 
 # -- Background scheduler loop ─────────────────────────────────
 
+
 async def _scheduler_loop():
     """Background loop: check every 15 minutes if a scheduled run is due."""
+    # 0. Wait for startup, then inspect the configured organization schedule.
     CHECK_INTERVAL = 900  # 15 minutes
     await asyncio.sleep(30)  # Let app fully start
     while True:
@@ -58,16 +64,20 @@ async def _scheduler_loop():
             org = data[0]
             enabled = (org.get('schedule_enabled') if isinstance(org, dict)
                        else getattr(org, 'schedule_enabled', False))
-            interval = (org.get('schedule_interval_hours') if isinstance(org, dict)
-                        else getattr(org, 'schedule_interval_hours', 168))
+            interval = (
+                org.get('schedule_interval_hours') if isinstance(org, dict)
+                else getattr(org, 'schedule_interval_hours', 168)
+            )
 
             if not enabled:
                 await asyncio.sleep(CHECK_INTERVAL)
                 continue
-
-            # Avoid overlapping runs
+            # 1. Avoid overlapping runs and find the last completion time.
             all_runs = Run.list(sql_filter=("type = ?", ['full']), limit=1000)
-            runs_data = all_runs.get('data', all_runs) if isinstance(all_runs, dict) else all_runs
+            runs_data = (
+                all_runs.get('data', all_runs)
+                if isinstance(all_runs, dict) else all_runs
+            )
             running = [r for r in runs_data
                        if (r.get('status') if isinstance(r, dict)
                            else getattr(r, 'status', '')) == 'running']
@@ -85,8 +95,11 @@ async def _scheduler_loop():
                 last_run = max(completed, key=lambda r: (
                     r.get('completed_at') if isinstance(r, dict)
                     else getattr(r, 'completed_at', '')))
-                last_ts_str = (last_run.get('completed_at') if isinstance(last_run, dict)
-                               else getattr(last_run, 'completed_at', None))
+                last_ts_str = (
+                    last_run.get('completed_at')
+                    if isinstance(last_run, dict)
+                    else getattr(last_run, 'completed_at', None)
+                )
                 if last_ts_str:
                     try:
                         last_ts = datetime.fromisoformat(last_ts_str)
@@ -96,29 +109,43 @@ async def _scheduler_loop():
                         should_run = elapsed_hours >= interval
                     except (ValueError, TypeError):
                         pass
-
+            # 2. Execute a due run and analyze its newly discovered grants.
             if should_run:
                 logger.info("Triggering scheduled full run")
                 try:
                     run_record = Run.create(Run(type='full', status='pending'))
-                    run_id = (run_record.get('id') if isinstance(run_record, dict)
-                              else getattr(run_record, 'id', None))
+                    run_id = (
+                        run_record.get('id') if isinstance(run_record, dict)
+                        else getattr(run_record, 'id', None)
+                    )
                     if run_id:
                         raw = Run.get(run_id)
-                        run_instance = Run(**raw) if isinstance(raw, dict) else raw
-                        system_user = {'user_id': 0, 'role': 'system', 'email': 'scheduler@veille'}
+                        run_instance = (
+                            Run(**raw) if isinstance(raw, dict) else raw
+                        )
+                        system_user = {
+                            'user_id': 0, 'role': 'system',
+                            'email': 'scheduler@veille',
+                        }
                         async for _ in run_instance.execute(user=system_user):
                             pass
 
-                        # Batch analysis for un-analyzed grants (no UI to drive streaming)
+                        # Batch analysis has no UI to drive streaming.
                         grant_data = Grant.list(
-                            sql_filter=('run_id = ? AND status = ?', [run_id, 'new']),
+                            sql_filter=(
+                                'run_id = ? AND status = ?', [run_id, 'new'],
+                            ),
                             limit=200,
                         )
-                        glist = (grant_data.get('data', grant_data)
-                                 if isinstance(grant_data, dict) else grant_data)
+                        glist = (
+                            grant_data.get('data', grant_data)
+                            if isinstance(grant_data, dict) else grant_data
+                        )
                         for g in glist:
-                            gid = g.get('id') if isinstance(g, dict) else getattr(g, 'id', None)
+                            gid = (
+                                g.get('id') if isinstance(g, dict)
+                                else getattr(g, 'id', None)
+                            )
                             if gid:
                                 await Run._analyze_grant_background(gid)
 
@@ -133,6 +160,7 @@ async def _scheduler_loop():
 
 
 async def _start_scheduler():
+    """Start the application's background scheduling loop."""
     asyncio.create_task(_scheduler_loop())
 
 
@@ -155,15 +183,20 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @_api_router.post("/organizations/upload")
 async def upload_document(request: Request, file: UploadFile = File(...)):
     """Upload a strategic document for the organization. Requires JWT auth."""
+    # 0. Require an authenticated caller and supported document extension.
     user = getattr(request.state, 'user', {}) or {}
     if not user.get('user_id'):
-        return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+        return JSONResponse(
+            status_code=401, content={"detail": "Authentication required"},
+        )
 
     allowed = {'.pdf', '.txt', '.md', '.doc', '.docx'}
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in allowed:
-        return JSONResponse(status_code=400, content={"detail": f"File type {ext} not allowed"})
-
+        return JSONResponse(
+            status_code=400, content={"detail": f"File type {ext} not allowed"},
+        )
+    # 1. Store uploaded bytes and attach the filename to the organization.
     filepath = os.path.join(UPLOAD_DIR, file.filename)
     content = await file.read()
     with open(filepath, 'wb') as f:
@@ -186,22 +219,30 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
 @_api_router.get("/organizations/documents/{filename}")
 async def get_document(request: Request, filename: str):
     """Download a stored document. Requires JWT auth."""
+    # 0. Require authentication before resolving and returning stored bytes.
     user = getattr(request.state, 'user', {}) or {}
     if not user.get('user_id'):
-        return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+        return JSONResponse(
+            status_code=401, content={"detail": "Authentication required"},
+        )
 
     filepath = os.path.join(UPLOAD_DIR, filename)
     if not os.path.exists(filepath):
-        return JSONResponse(status_code=404, content={"detail": "File not found"})
+        return JSONResponse(
+            status_code=404, content={"detail": "File not found"},
+        )
     return FileResponse(filepath)
 
 
 @_api_router.delete("/organizations/documents/{filename}")
 async def delete_document(request: Request, filename: str):
     """Delete a stored document. Requires JWT auth."""
+    # 0. Require authentication before removing the document and its reference.
     user = getattr(request.state, 'user', {}) or {}
     if not user.get('user_id'):
-        return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+        return JSONResponse(
+            status_code=401, content={"detail": "Authentication required"},
+        )
 
     filepath = os.path.join(UPLOAD_DIR, filename)
     if os.path.exists(filepath):
@@ -226,6 +267,14 @@ for route in _api_router.routes:
 if __name__ == '__main__':
     import uvicorn
     if config.DEBUG:
-        uvicorn.run('main:app', host=config.HOST, port=config.PORT, reload=True, log_config=None)
+        uvicorn.run(
+            'main:app', host=config.HOST, port=config.PORT, reload=True,
+            log_config=None,
+        )
     else:
         uvicorn.run(app, host=config.HOST, port=config.PORT, log_config=None)
+
+
+# Changelog (Python has no block-comment syntax).
+# - 2026-11-04: Let native bootstrap register canonical TTX infrastructure.
+# - 2026-11-02: Import extracted Thread; document and format example operations.

@@ -17,6 +17,7 @@ signatures, route tables or examples.
 | Authentication and authorization | [Enforcement](docs/AUTHORIZATION.md), [rule API](packages/n3tx-core/docs/authorization.md) | Core `authorize/`, `models/base_user.py`, `api/backend.py` |
 | Actor dispatch and lifecycle | [Actor model](packages/n3tx-actors/docs/actor-model.md), [messaging](packages/n3tx-actors/docs/actor-messaging.md) | `packages/n3tx-actors/src/n3tx_actors/` |
 | Adapters, remote refs and stream correlation | [Network adapters](packages/n3tx-actors/docs/network-adapters.md), [interceptors](packages/n3tx-actors/docs/interceptors.md) | Actor package `api/`, `remote_proxy.py` |
+| TTX streams, semantic Thread roots and notes | [Threads](packages/n3tx-threads/README.md), [storage contract](packages/n3tx-threads/docs/thread.md) | `packages/n3tx-threads/src/n3tx_threads/` |
 | Model reasoning and stored agents | [Agents](docs/AGENTS.md), [mixin](packages/n3tx-agents/docs/mixin.md), [tools](packages/n3tx-agents/docs/tool-discovery.md) | `packages/n3tx-agents/src/n3tx_agents/{mixin,actor,agent,tools}.py` |
 | File metadata, bytes and materialization | [Files](packages/n3tx-files/docs/file.md) | `packages/n3tx-files/src/n3tx_files/` |
 | View hooks and widget hints | [ViewableMixin](packages/n3tx-ui/docs/viewable-mixin.md), [widgets](packages/n3tx-ui/docs/widgets.md) | UI `mixin.py`, core `widgets/` |
@@ -38,6 +39,9 @@ For cross-stack changes also read [FRONTEND.md](FRONTEND.md).
   checks, reserved caller injection and tool execution separately.
 - Agent policy and runtime belong to `mixin.py`, `actor.py` and `agent.py`;
   `AgentDeps` is in `agent.py`, not a separate `deps.py` module.
+- Generic TTX storage belongs to `n3tx_threads`; Thread is a semantic subclass,
+  not a separately registered container. Parent-authorized agent history belongs
+  to `n3tx_agents.history`. Reads and SDK decoding never repair stored evidence.
 - File privacy is not established by a descriptive `public` field. Typed argument
   materialization, download policy and byte-store lifecycle have separate limits.
 - Stream event vocabulary differs from transport completion. Cancellation and

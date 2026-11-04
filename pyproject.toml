@@ -5,7 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "n3tx"
 version = "0.12.0"
-description = "Schema-driven full-stack framework for Python. Define a model, get an API, a schema, a working UI."
+description = """\
+Schema-driven full-stack framework for Python. Define a model, \
+get an API, a schema, a working UI.\
+"""
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -23,9 +26,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+threads = ["n3tx-threads>=0.12.0"]
 agents = ["n3tx-agents>=0.12.0"]
 flask = ["Flask>=3.1", "flasgger>=0.9"]
-dev = ["pytest>=8.2", "pytest-cov>=6.0", "httpx>=0.27", "pyinstrument>=4.6", "requests>=2.31", "pydantic-ai>=1.0"]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=6.0",
+    "httpx>=0.27",
+    "pyinstrument>=4.6",
+    "requests>=2.31",
+    "pydantic-ai>=1.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/matthieupi/n3tx"
@@ -39,6 +50,11 @@ where = ["packages/n3tx/src"]
 [tool.pytest.ini_options]
 markers = [
     "unit: fast unit-level tests",
-    "integration: integration tests that exercise multiple modules or HTTP/API flows",
+    """\
+integration: integration tests that exercise multiple modules or HTTP/API flows\
+""",
     "e2e: end-to-end/browser or full application flow tests",
 ]
+
+# Changelog
+# - 2026-11-02: Add a threads extra while preserving optional agent installs.
