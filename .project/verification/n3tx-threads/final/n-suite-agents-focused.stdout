@@ -1,0 +1,22 @@
+
+=== backend suite: agents ===
+cwd: /workspace/neuralys/collagen/lib/n3tx
+cmd: /workspace/.venv-agents/bin/python -m pytest packages/n3tx-agents/src/n3tx_agents/tests/ --color=yes -q -ra --tb=short -k test_thread or test_notes_mixin
+[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[33m                                                           [100%][0m
+[33m=============================== warnings summary ===============================[0m
+packages/n3tx-actors/src/n3tx_actors/actor.py:77
+  /workspace/neuralys/collagen/lib/n3tx/packages/n3tx-actors/src/n3tx_actors/actor.py:77: UserWarning: Field name "tools" in "AgentActor" shadows an attribute in parent "AgentMixin"
+    cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+[33m[32m14 passed[0m, [33m[1m123 deselected[0m, [33m[1m1 warning[0m[33m in 1.73s[0m[0m
+
+=== Backend test summary ===
+
+suite   status     passed  failed    warn  errors  previous  note
+------  -------    ------  ------    ----  ------  --------  ----
+agents  warning        14       0       1       0  -         
+
+Suites: 0 passed, 0 failed, 1 warning, 1 total
+Tests:  14 passed, 0 failed, 1 warnings, 0 errors
+Overview saved: /workspace/neuralys/collagen/lib/n3tx/.project/test-runs/backend-test-overview.json

@@ -1,0 +1,29 @@
+These are the three failed smoke invocations before the final successful captured smoke, preserved for complete accounting. Each ran from /workspace/neuralys/collagen/lib/n3tx with the approved environment/interpreter. They were not permanent tests.
+
+1) Initial import used `from n3tx_core.storage import SQLiteStorage`; exit 1:
+Traceback (most recent call last):
+  File "<string>", line 11, in <module>
+ImportError: cannot import name 'SQLiteStorage' from 'n3tx_core.storage' (/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-core/src/n3tx_core/storage/__init__.py)
+
+2) First create_app smoke passed a non-storable actor in its registered models list; exit 1:
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+Traceback (most recent call last):
+  File "<string>", line 19, in <module>
+  File "/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-core/src/n3tx_core/app.py", line 502, in create_app
+    return builder.build(name=name, version=version, description=description)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-core/src/n3tx_core/app.py", line 290, in build
+    preparations.append(prepare_model(
+                        ^^^^^^^^^^^^^^
+  File "/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-core/src/n3tx_core/utils/registrar.py", line 30, in prepare_model
+    tablename=model_class.__tablename__,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/.venv-agents/lib/python3.11/site-packages/pydantic/_internal/_model_construction.py", line 287, in __getattr__
+    raise AttributeError(item)
+AttributeError: __tablename__
+
+3) Next attempt imported TX from `n3tx_threads` instead of `n3tx_actors.tx`; exit 1:
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins to production.
+Traceback (most recent call last):
+  File "<string>", line 23, in <module>
+AttributeError: module 'n3tx_threads' has no attribute 'TX'

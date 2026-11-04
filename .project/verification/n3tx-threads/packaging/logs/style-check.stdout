@@ -1,0 +1,4 @@
+files: tests=19, runtime=23
+AST parse errors: 0
+lines >80 columns across both groups: 0
+missing module/class/function docstrings across both groups: 0

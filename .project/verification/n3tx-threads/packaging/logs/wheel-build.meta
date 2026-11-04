@@ -1,0 +1,4 @@
+cwd=/workspace/neuralys/collagen/lib/n3tx
+command=TMPDIR=/workspace/neuralys/collagen/lib/n3tx/.project/verification/n3tx-threads/packaging/tmp PIP_NO_INDEX=1 PYTHONDONTWRITEBYTECODE=1 /workspace/.venv-agents/bin/python -m pip wheel --no-deps --no-build-isolation --wheel-dir /workspace/neuralys/collagen/lib/n3tx/.project/verification/n3tx-threads/packaging/wheels ./packages/n3tx-threads ./packages/n3tx-agents ./packages/n3tx
+exit=0
+elapsed_seconds=2

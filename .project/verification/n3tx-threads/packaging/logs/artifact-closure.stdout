@@ -1,0 +1,66 @@
+[agents] members:
+n3tx_agents-0.12.0.dist-info/METADATA
+n3tx_agents-0.12.0.dist-info/RECORD
+n3tx_agents-0.12.0.dist-info/WHEEL
+n3tx_agents-0.12.0.dist-info/top_level.txt
+n3tx_agents/__init__.py
+n3tx_agents/actor.py
+n3tx_agents/agent.py
+n3tx_agents/app_agent.py
+n3tx_agents/history.py
+n3tx_agents/mixin.py
+n3tx_agents/schema_ext.py
+n3tx_agents/static/components/ntx-agent-live.css
+n3tx_agents/static/components/ntx-agent-live.js
+n3tx_agents/static/components/ntx-agent.css
+n3tx_agents/static/components/ntx-agent.js
+n3tx_agents/static/components/ntx-agents.css
+n3tx_agents/static/components/ntx-agents.js
+n3tx_agents/static/components/ntx-chat.css
+n3tx_agents/static/components/ntx-chat.js
+n3tx_agents/static/components/ntx-stream-agent.css
+n3tx_agents/static/components/ntx-stream-agent.js
+n3tx_agents/tests/__init__.py
+n3tx_agents/tests/conftest.py
+n3tx_agents/tests/test_agent_actor.py
+n3tx_agents/tests/test_app_agent.py
+n3tx_agents/tests/test_delete_lifecycle_response_agent_logs.py
+n3tx_agents/tests/test_mixin.py
+n3tx_agents/tests/test_notes_mixin.py
+n3tx_agents/tests/test_run_stream_first_token.py
+n3tx_agents/tests/test_streaming_tool_guard.py
+n3tx_agents/tests/test_streaming_tool_specs.py
+n3tx_agents/tests/test_thread.py
+n3tx_agents/tests/test_tool_call_auth.py
+n3tx_agents/tests/test_tools.py
+n3tx_agents/tool_model.py
+n3tx_agents/tools.py
+n3tx_agents/utils.py
+[agents] Name=n3tx-agents Version=0.12.0
+[agents] Requires-Dist=['n3tx-core>=0.12.0', 'n3tx-actors>=0.12.0', 'n3tx-threads>=0.12.0', 'pydantic-ai>=1.0', 'pytest>=8.2; extra == "dev"', 'pytest-cov>=6.0; extra == "dev"']
+[threads] members:
+n3tx_threads-0.12.0.dist-info/METADATA
+n3tx_threads-0.12.0.dist-info/RECORD
+n3tx_threads-0.12.0.dist-info/WHEEL
+n3tx_threads-0.12.0.dist-info/top_level.txt
+n3tx_threads/__init__.py
+n3tx_threads/notes_mixin.py
+n3tx_threads/tests/__init__.py
+n3tx_threads/tests/conftest.py
+n3tx_threads/tests/test_notes_mixin.py
+n3tx_threads/tests/test_standalone.py
+n3tx_threads/tests/test_thread.py
+n3tx_threads/thread.py
+n3tx_threads/threaded_mixin.py
+n3tx_threads/tx_record.py
+[threads] Name=n3tx-threads Version=0.12.0
+[threads] Requires-Dist=['n3tx-core>=0.12.0', 'n3tx-actors>=0.12.0']
+[meta] members:
+n3tx-0.12.0.dist-info/METADATA
+n3tx-0.12.0.dist-info/RECORD
+n3tx-0.12.0.dist-info/WHEEL
+n3tx-0.12.0.dist-info/top_level.txt
+n3tx_meta/__init__.py
+[meta] Name=n3tx Version=0.12.0
+[meta] Requires-Dist=['n3tx-core>=0.12.0', 'n3tx-actors>=0.12.0', 'n3tx-ui>=0.12.0', 'n3tx-threads>=0.12.0', 'n3tx-agents>=0.12.0', 'n3tx-files>=0.12.0']
+PASS: clean extraction wheel member closure, canonical imports, and dependency metadata

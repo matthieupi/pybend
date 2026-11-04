@@ -1,0 +1,4 @@
+repo=/workspace/neuralys/collagen
+paths=core/native_models.py core/app.py core/agents/backend.py core/agents/history.py core/agents/runtime.py core/actors/agent_tools.py core/models/email.py apps/hr/models/resume.py n3tx_ext/playground/policy.py scripts/live_agent_check.py
+unstaged_exit=0
+staged_exit=0

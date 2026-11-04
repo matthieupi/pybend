@@ -1,0 +1,4 @@
+name=agents
+command=/workspace/.venv-agents/bin/python scripts/test-backend.py --suite agents -- -q -ra --tb=short -k test_thread\ or\ test_notes_mixin
+exit=0
+elapsed_seconds=4

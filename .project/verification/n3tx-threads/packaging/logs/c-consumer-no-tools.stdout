@@ -1,0 +1,1103 @@
+...............F.....FFFEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE [ 80%]
+EEEEEEEEEEEEEEEE.                                                        [100%]
+==================================== ERRORS ====================================
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-class-Project-list_for_workspace-workspace-workspace_a-keys0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-class-Task-list_for_scope-scope-project_a-keys1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-class-Event-list_for_scope-scope-project_a-keys2] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-class-Email-list_for_account-account-account_a-keys3] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-class-Activity-list_for_account-account-account_a-keys4] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-table-Project-list_for_workspace-workspace-workspace_a-keys0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-table-Task-list_for_scope-scope-project_a-keys1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-table-Event-list_for_scope-scope-project_a-keys2] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-table-Email-list_for_account-account-account_a-keys3] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[2147483648-table-Activity-list_for_account-account-account_a-keys4] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-class-Project-list_for_workspace-workspace-workspace_a-keys0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-class-Task-list_for_scope-scope-project_a-keys1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-class-Event-list_for_scope-scope-project_a-keys2] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-class-Email-list_for_account-account-account_a-keys3] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-class-Activity-list_for_account-account-account_a-keys4] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-table-Project-list_for_workspace-workspace-workspace_a-keys0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-table-Task-list_for_scope-scope-project_a-keys1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-table-Event-list_for_scope-scope-project_a-keys2] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-table-Email-list_for_account-account-account_a-keys3] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_invalid_offset_before_list[9223372036854775808-table-Activity-list_for_account-account-account_a-keys4] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_____ ERROR at setup of test_matrix_invalid_offset_before_list[2147483648] _____
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_matrix_invalid_offset_before_list[9223372036854775808] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[class-Project-list_for_workspace-workspace-workspace_a-keys0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[class-Task-list_for_scope-scope-project_a-keys1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[class-Event-list_for_scope-scope-project_a-keys2] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[class-Email-list_for_account-account-account_a-keys3] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[class-Activity-list_for_account-account-account_a-keys4] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[table-Project-list_for_workspace-workspace-workspace_a-keys0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[table-Task-list_for_scope-scope-project_a-keys1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[table-Event-list_for_scope-scope-project_a-keys2] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[table-Email-list_for_account-account-account_a-keys3] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_normal_bounds_and_native_coercion[table-Activity-list_for_account-account-account_a-keys4] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[class-Project-list_for_workspace-workspace-workspace_a-keys0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[class-Task-list_for_scope-scope-project_a-keys1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[class-Event-list_for_scope-scope-project_a-keys2] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[class-Email-list_for_account-account-account_a-keys3] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[class-Activity-list_for_account-account-account_a-keys4] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[table-Project-list_for_workspace-workspace-workspace_a-keys0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[table-Task-list_for_scope-scope-project_a-keys1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[table-Event-list_for_scope-scope-project_a-keys2] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[table-Email-list_for_account-account-account_a-keys3] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_denials_precede_paging[table-Activity-list_for_account-account-account_a-keys4] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_related_policy_filters_before_count_and_page[Task] ___
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_related_policy_filters_before_count_and_page[tasks] __
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_related_policy_filters_before_count_and_page[Event] __
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_related_policy_filters_before_count_and_page[events] __
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+________ ERROR at setup of test_matrix_bounds_context_and_native_policy ________
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_________ ERROR at setup of test_matrix_strict_integers_and_page_limit _________
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_matrix_active_caller_and_thread_guards_remain_closed __
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_http_testmodel_uses_guarded_matrix_and_real_thread[0] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_http_testmodel_uses_guarded_matrix_and_real_thread[1] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_http_testmodel_uses_guarded_matrix_and_real_thread[2147483647] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_http_testmodel_uses_guarded_matrix_and_real_thread[2147483648] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_http_testmodel_uses_guarded_matrix_and_real_thread[9223372036854775808] _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_search_discovery_covers_only_application_storables ___
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+____ ERROR at setup of test_user_search_login_and_password_hash_survive_mro ____
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_list_and_narrower_read_intersect_before_pages[asc] ___
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_list_and_narrower_read_intersect_before_pages[desc] __
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_unsupported_policy_fails_before_storage[False-list] __
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_unsupported_policy_fails_before_storage[False-read] __
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_unsupported_policy_fails_before_storage[True-list] ___
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+__ ERROR at setup of test_unsupported_policy_fails_before_storage[True-read] ___
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_internal_search_and_receipt_allowlist_do_not_grant_writes _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+_ ERROR at setup of test_organization_search_bypasses_partitioning_and_bounds_sql _
+tests/conftest.py:129: in seeded
+    remember("email_a", Email.create(Email(account=account_ref, sender="sender@example.test", recipients=["recipient@example.test"])))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/n3tx_ext/mutation_mixin.py:50: in create
+    values = cls._prepare_create_values(data, values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/models/email.py:349: in _prepare_create_values
+    owner = checked_owner(values.get("user_owner"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+core/mail_persistence.py:53: in checked_owner
+    raise MethodError("email_owner_required", status_code=403)
+E   n3tx_core.utils.erroring.MethodError: email_owner_required
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+=================================== FAILURES ===================================
+____________ test_typed_history_counts_exclude_observation_records _____________
+tests/test_agent_backend.py:529: in test_typed_history_counts_exclude_observation_records
+    assert total > result.message_count
+E   AssertionError: assert 3 > 3
+E    +  where 3 = TypedTurnResult(answer=Claims(value=7), usage={'input_tokens': 54, 'output_tokens': 4, 'requests': 1}, message_count=3, history_saved=True, error=None, thread_id=1).message_count
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+----------------------------- Captured stderr call -----------------------------
+WARNING:  n3tx.agents: [assistant] No tools discovered from addresses: []
+------------------------------ Captured log call -------------------------------
+WARNING  n3tx.agents:agent.py:269 [assistant] No tools discovered from addresses: []
+________ test_viewer_updates_display_native_protocol_notes_and_activity ________
+tests/test_agent_backend.py:756: in test_viewer_updates_display_native_protocol_notes_and_activity
+    assert response.json() == {"data": [
+E   assert {'data': [{'i..._more': False} == {'data': [{'i..._more': False}
+E     
+E     Omitting 1 identical items, use -vv to show
+E     Differing items:
+E     {'data': [{'id': 1, 'recorded_at': '2026-10-31T12:00:10+00:00', 'title': 'User', 'content': [{'text': 'Please summariz...'text': '{\n  "phase": "extract_claims",\n  "status": "completed",\n  "summary": {\n    "result_count": 2\n  }\n}'}]}]} != {'data': [{'id': 1, 'recorded_at': '2026-10-31T12:00:10+00:00', 'title': 'User', 'content': [{'text': 'Please summariz...ed_at': '2026-10-31T12:00:50+00:00', 'title': 'Extract claims · Completed', 'content': [{'text': 'Result count: 2'}]}]}
+E     Use -v to get more diff
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+----------------------------- Captured stderr call -----------------------------
+INFO:     httpx2: HTTP Request: POST http://testserver/assistant/agent_updates "HTTP/1.1 200 OK"
+------------------------------ Captured log call -------------------------------
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://testserver/assistant/agent_updates "HTTP/1.1 200 OK"
+____ test_viewer_updates_keep_native_refs_unhydrated_and_external_urls_text ____
+tests/test_agent_backend.py:808: in test_viewer_updates_keep_native_refs_unhydrated_and_external_urls_text
+    assert response.json() == {"data": [
+E   AssertionError: assert {'data': [{'i..._more': False} == {'data': [{'i..._more': False}
+E     
+E     Omitting 1 identical items, use -vv to show
+E     Differing items:
+E     {'data': [{'id': 1, 'recorded_at': '2026-10-31T12:00:10+00:00', 'title': 'Note', 'content': [{'ref': 'https://neuralys... 'recorded_at': '2026-10-31T12:00:40+00:00', 'title': 'Note', 'content': [{'ref': 'https://neuralys.cloud/Note/73'}]}]} != {'data': [{'id': 1, 'recorded_at': '2026-10-31T12:00:10+00:00', 'title': 'Note', 'content': [{'ref': 'https://neuralys... 'recorded_at': '2026-10-31T12:00:40+00:00', 'title': 'Note', 'content': [{'ref': 'https://neuralys.cloud/Note/73'}]}]}
+E     Use -v to get more diff
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+----------------------------- Captured stderr call -----------------------------
+INFO:     httpx2: HTTP Request: POST http://testserver/assistant/agent_updates "HTTP/1.1 200 OK"
+------------------------------ Captured log call -------------------------------
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://testserver/assistant/agent_updates "HTTP/1.1 200 OK"
+____ test_viewer_updates_filter_unknown_payloads_without_inventing_answers _____
+tests/test_agent_backend.py:837: in test_viewer_updates_filter_unknown_payloads_without_inventing_answers
+    assert response.json() == {"data": [{
+E   assert {'data': [{'i...s_more': True} == {'data': [{'i...s_more': True}
+E     
+E     Omitting 1 identical items, use -vv to show
+E     Differing items:
+E     {'data': [{'id': 2, 'recorded_at': '2026-10-31T12:00:20+00:00', 'title': 'unrecognized → sink', 'content': [{'text': '...1T12:00:30+00:00', 'title': 'activity → sink', 'content': [{'text': '{\n  "answer": "fabricated-answer-marker"\n}'}]}]} != {'data': [{'id': 1, 'recorded_at': '2026-10-31T12:00:30+00:00', 'title': 'Activity', 'content': []}]}
+E     Use -v to get more diff
+---------------------------- Captured stderr setup -----------------------------
+WARNING:  n3tx.api: CORS allows all origins ('*'). Set explicit origins for production.
+----------------------------- Captured stderr call -----------------------------
+INFO:     httpx2: HTTP Request: POST http://testserver/assistant/agent_updates "HTTP/1.1 200 OK"
+INFO:     httpx2: HTTP Request: GET http://testserver/ApplicationAssistant "HTTP/1.1 200 OK"
+------------------------------ Captured log call -------------------------------
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://testserver/assistant/agent_updates "HTTP/1.1 200 OK"
+INFO     httpx2:_client.py:1085 HTTP Request: GET http://testserver/ApplicationAssistant "HTTP/1.1 200 OK"
+=============================== warnings summary ===============================
+lib/n3tx/packages/n3tx-actors/src/n3tx_actors/actor.py:77
+  /workspace/neuralys/collagen/lib/n3tx/packages/n3tx-actors/src/n3tx_actors/actor.py:77: UserWarning: Field name "tools" in "AgentActor" shadows an attribute in parent "AgentMixin"
+    cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:300: 5 warnings
+tests/test_agent_backend.py: 12 warnings
+  /workspace/neuralys/collagen/.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:300: PydanticDeprecatedSince20: `json_encoders` is deprecated. See https://pydantic.dev/docs/validation/2.14/concepts/serialization/#custom-serializers for alternatives. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.14/migration/
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-class-Project-list_for_workspace-workspace-workspace_a-keys0]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-class-Task-list_for_scope-scope-project_a-keys1]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-class-Event-list_for_scope-scope-project_a-keys2]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-class-Email-list_for_account-account-account_a-keys3]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-class-Activity-list_for_account-account-account_a-keys4]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-table-Project-list_for_workspace-workspace-workspace_a-keys0]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-table-Task-list_for_scope-scope-project_a-keys1]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-table-Event-list_for_scope-scope-project_a-keys2]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-table-Email-list_for_account-account-account_a-keys3]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[2147483648-table-Activity-list_for_account-account-account_a-keys4]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-class-Project-list_for_workspace-workspace-workspace_a-keys0]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-class-Task-list_for_scope-scope-project_a-keys1]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-class-Event-list_for_scope-scope-project_a-keys2]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-class-Email-list_for_account-account-account_a-keys3]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-class-Activity-list_for_account-account-account_a-keys4]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-table-Project-list_for_workspace-workspace-workspace_a-keys0]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-table-Task-list_for_scope-scope-project_a-keys1]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-table-Event-list_for_scope-scope-project_a-keys2]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-table-Email-list_for_account-account-account_a-keys3]
+ERROR tests/test_query_offset_bounds.py::test_related_invalid_offset_before_list[9223372036854775808-table-Activity-list_for_account-account-account_a-keys4]
+ERROR tests/test_query_offset_bounds.py::test_matrix_invalid_offset_before_list[2147483648]
+ERROR tests/test_query_offset_bounds.py::test_matrix_invalid_offset_before_list[9223372036854775808]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[class-Project-list_for_workspace-workspace-workspace_a-keys0]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[class-Task-list_for_scope-scope-project_a-keys1]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[class-Event-list_for_scope-scope-project_a-keys2]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[class-Email-list_for_account-account-account_a-keys3]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[class-Activity-list_for_account-account-account_a-keys4]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[table-Project-list_for_workspace-workspace-workspace_a-keys0]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[table-Task-list_for_scope-scope-project_a-keys1]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[table-Event-list_for_scope-scope-project_a-keys2]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[table-Email-list_for_account-account-account_a-keys3]
+ERROR tests/test_query_offset_bounds.py::test_related_normal_bounds_and_native_coercion[table-Activity-list_for_account-account-account_a-keys4]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[class-Project-list_for_workspace-workspace-workspace_a-keys0]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[class-Task-list_for_scope-scope-project_a-keys1]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[class-Event-list_for_scope-scope-project_a-keys2]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[class-Email-list_for_account-account-account_a-keys3]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[class-Activity-list_for_account-account-account_a-keys4]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[table-Project-list_for_workspace-workspace-workspace_a-keys0]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[table-Task-list_for_scope-scope-project_a-keys1]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[table-Event-list_for_scope-scope-project_a-keys2]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[table-Email-list_for_account-account-account_a-keys3]
+ERROR tests/test_query_offset_bounds.py::test_related_denials_precede_paging[table-Activity-list_for_account-account-account_a-keys4]
+ERROR tests/test_query_offset_bounds.py::test_related_policy_filters_before_count_and_page[Task]
+ERROR tests/test_query_offset_bounds.py::test_related_policy_filters_before_count_and_page[tasks]
+ERROR tests/test_query_offset_bounds.py::test_related_policy_filters_before_count_and_page[Event]
+ERROR tests/test_query_offset_bounds.py::test_related_policy_filters_before_count_and_page[events]
+ERROR tests/test_query_offset_bounds.py::test_matrix_bounds_context_and_native_policy
+ERROR tests/test_query_offset_bounds.py::test_matrix_strict_integers_and_page_limit
+ERROR tests/test_query_offset_bounds.py::test_matrix_active_caller_and_thread_guards_remain_closed
+ERROR tests/test_query_offset_bounds.py::test_http_testmodel_uses_guarded_matrix_and_real_thread[0]
+ERROR tests/test_query_offset_bounds.py::test_http_testmodel_uses_guarded_matrix_and_real_thread[1]
+ERROR tests/test_query_offset_bounds.py::test_http_testmodel_uses_guarded_matrix_and_real_thread[2147483647]
+ERROR tests/test_query_offset_bounds.py::test_http_testmodel_uses_guarded_matrix_and_real_thread[2147483648]
+ERROR tests/test_query_offset_bounds.py::test_http_testmodel_uses_guarded_matrix_and_real_thread[9223372036854775808]
+ERROR tests/test_base_actor_model.py::test_search_discovery_covers_only_application_storables
+ERROR tests/test_base_actor_model.py::test_user_search_login_and_password_hash_survive_mro
+ERROR tests/test_base_actor_model.py::test_list_and_narrower_read_intersect_before_pages[asc]
+ERROR tests/test_base_actor_model.py::test_list_and_narrower_read_intersect_before_pages[desc]
+ERROR tests/test_base_actor_model.py::test_unsupported_policy_fails_before_storage[False-list]
+ERROR tests/test_base_actor_model.py::test_unsupported_policy_fails_before_storage[False-read]
+ERROR tests/test_base_actor_model.py::test_unsupported_policy_fails_before_storage[True-list]
+ERROR tests/test_base_actor_model.py::test_unsupported_policy_fails_before_storage[True-read]
+ERROR tests/test_base_actor_model.py::test_internal_search_and_receipt_allowlist_do_not_grant_writes
+ERROR tests/test_base_actor_model.py::test_organization_search_bypasses_partitioning_and_bounds_sql
+FAILED tests/test_agent_backend.py::test_typed_history_counts_exclude_observation_records
+FAILED tests/test_agent_backend.py::test_viewer_updates_display_native_protocol_notes_and_activity
+FAILED tests/test_agent_backend.py::test_viewer_updates_keep_native_refs_unhydrated_and_external_urls_text
+FAILED tests/test_agent_backend.py::test_viewer_updates_filter_unknown_payloads_without_inventing_answers
+4 failed, 21 passed, 18 warnings, 64 errors in 201.12s (0:03:21)

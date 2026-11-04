@@ -1,0 +1,2 @@
+command=PYTHONDONTWRITEBYTECODE=1 /workspace/.venv-agents/bin/python - <<<inline AST/style/metadata script>
+exit=0

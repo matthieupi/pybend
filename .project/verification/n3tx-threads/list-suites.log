@@ -1,0 +1,16 @@
+COMMAND: ["/workspace/.venv-agents/bin/python", "scripts/test-backend.py", "--list"]
+CWD: /workspace/neuralys/collagen/lib/n3tx
+ENV: PYTHONDONTWRITEBYTECODE=1 N3TX_DEBUG=false N3TX_API_URL=https://threads.example PYTHONPATH=<seven package src dirs>
+EXIT: 0
+ELAPSED_SECONDS: 0.068
+--- STDOUT ---
+core	cwd=/workspace/neuralys/collagen/lib/n3tx	pytest=packages/n3tx-core/src/n3tx_core/tests/unit/
+actors	cwd=/workspace/neuralys/collagen/lib/n3tx	pytest=packages/n3tx-actors/src/n3tx_actors/tests/
+threads	cwd=/workspace/neuralys/collagen/lib/n3tx	pytest=packages/n3tx-threads/src/n3tx_threads/tests/
+agents	cwd=/workspace/neuralys/collagen/lib/n3tx	pytest=packages/n3tx-agents/src/n3tx_agents/tests/
+files	cwd=/workspace/neuralys/collagen/lib/n3tx	pytest=packages/n3tx-files/src/n3tx_files/tests/
+examples-core	cwd=/workspace/neuralys/collagen/lib/n3tx/examples/core	pytest=tests/
+examples-actors	cwd=/workspace/neuralys/collagen/lib/n3tx/examples/actors	pytest=tests/
+examples-grants	cwd=/workspace/neuralys/collagen/lib/n3tx/examples/grants	pytest=tests/
+veille	cwd=/workspace/neuralys/collagen/lib/n3tx/apps/veille	pytest=tests/
+--- STDERR ---

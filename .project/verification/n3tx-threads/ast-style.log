@@ -1,0 +1,31 @@
+CHECKED FILES:
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-threads/src/n3tx_threads/__init__.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-threads/src/n3tx_threads/thread.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-threads/src/n3tx_threads/threaded_mixin.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-threads/src/n3tx_threads/notes_mixin.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-threads/src/n3tx_threads/tx_record.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-agents/src/n3tx_agents/agent.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-agents/src/n3tx_agents/history.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-agents/src/n3tx_agents/__init__.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-core/src/n3tx_core/app.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py
+/workspace/neuralys/collagen/lib/n3tx/apps/veille/main.py
+/workspace/neuralys/collagen/lib/n3tx/scripts/test-backend.py
+/workspace/neuralys/collagen/lib/n3tx/packages/n3tx/src/n3tx_meta/__init__.py
+/workspace/neuralys/collagen/core/native_models.py
+/workspace/neuralys/collagen/core/app.py
+/workspace/neuralys/collagen/core/agents/backend.py
+/workspace/neuralys/collagen/core/agents/history.py
+/workspace/neuralys/collagen/core/agents/runtime.py
+/workspace/neuralys/collagen/core/actors/agent_tools.py
+/workspace/neuralys/collagen/core/models/email.py
+/workspace/neuralys/collagen/apps/hr/models/resume.py
+/workspace/neuralys/collagen/n3tx_ext/playground/policy.py
+/workspace/neuralys/collagen/scripts/live_agent_check.py
+FILES=23 syntax_errors=0 >80_lines=0 missing_docstrings=0
+SYNTAX:
+
+LONG LINES:
+
+MISSING DOCSTRINGS:
+

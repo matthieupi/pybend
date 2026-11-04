@@ -1,0 +1,8 @@
+COMMAND: ["/workspace/.venv-agents/bin/python", "-c", "import importlib.abc,sys\nclass Block(importlib.abc.MetaPathFinder):\n def find_spec(self,fullname,path=None,target=None):\n  if fullname == \"n3tx_threads\" or fullname.startswith(\"n3tx_threads.\") or fullname == \"n3tx_agents\" or fullname.startswith(\"n3tx_agents.\") or fullname == \"pydantic_ai\" or fullname.startswith(\"pydantic_ai.\"): raise ModuleNotFoundError(name=fullname)\nsys.meta_path.insert(0,Block())\nfrom n3tx_core.app import create_app\nfrom n3tx_actors.models.actor_model import ActorModel\nassert not any(n in sys.modules for n in (\"n3tx_threads\",\"n3tx_agents\",\"pydantic_ai\"))\nprint(\"PASS: plain core/actor bootstrap imports; no threads/agents/SDK; no history activation\")"]
+CWD: /workspace/neuralys/collagen/lib/n3tx
+ENV: PYTHONDONTWRITEBYTECODE=1 N3TX_DEBUG=false N3TX_API_URL=https://threads.example PYTHONPATH=<seven package src dirs>
+EXIT: 0
+ELAPSED_SECONDS: 0.604
+--- STDOUT ---
+PASS: plain core/actor bootstrap imports; no threads/agents/SDK; no history activation
+--- STDERR ---

@@ -1,0 +1,3 @@
+cwd=/workspace/neuralys/collagen/lib/n3tx/.project/verification/n3tx-threads/packaging
+command=PYTHONPATH=/workspace/neuralys/collagen/lib/n3tx/.project/verification/n3tx-threads/packaging/wheel-install:/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-core/src:/workspace/neuralys/collagen/lib/n3tx/packages/n3tx-actors/src PYTHONDONTWRITEBYTECODE=1 N3TX_DEBUG=false N3TX_API_URL=https://threads.example /workspace/.venv-agents/bin/python wheel_smoke.py
+exit=0

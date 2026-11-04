@@ -1,0 +1,4 @@
+name=threads
+command=/workspace/.venv-agents/bin/python scripts/test-backend.py --suite threads -- -q -ra --tb=short
+exit=0
+elapsed_seconds=9

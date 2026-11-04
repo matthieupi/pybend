@@ -1,0 +1,18 @@
+
+=== backend suite: threads ===
+cwd: /workspace/neuralys/collagen/lib/n3tx
+cmd: /workspace/.venv-agents/bin/python -m pytest packages/n3tx-threads/src/n3tx_threads/tests/ --color=yes -q -ra --tb=short -p no:cacheprovider
+[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m    [100%][0m
+[32m[32m[1m69 passed[0m[32m in 5.83s[0m[0m
+
+=== Backend test summary ===
+
+suite    status     passed  failed    warn  errors  previous  note
+-------  -------    ------  ------    ----  ------  --------  ----
+threads  passed         69       0       0       0  -         
+
+Suites: 1 passed, 0 failed, 0 warning, 1 total
+Tests:  69 passed, 0 failed, 0 warnings, 0 errors
+Overview saved: .project/verification/n3tx-threads/current-ttx-overview.json
+
+RUNNER_EXIT_CODE=0

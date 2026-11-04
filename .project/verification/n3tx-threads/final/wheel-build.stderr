@@ -1,0 +1,21 @@
+
+[notice] A new release of pip is available: 26.2.1 -> 26.2.2
+[notice] To update, run: /workspace/.venv-agents/bin/python -m pip install --upgrade pip
+ERROR: Exception:
+Traceback (most recent call last):
+  File "/workspace/.venv-agents/lib/python3.11/site-packages/pip/_internal/cli/base_command.py", line 109, in _run_wrapper
+    status = _inner_run()
+             ^^^^^^^^^^^^
+  File "/workspace/.venv-agents/lib/python3.11/site-packages/pip/_internal/cli/base_command.py", line 102, in _inner_run
+    return self.run(options, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/.venv-agents/lib/python3.11/site-packages/pip/_internal/cli/req_command.py", line 106, in wrapper
+    return func(self, options, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/.venv-agents/lib/python3.11/site-packages/pip/_internal/commands/wheel.py", line 106, in run
+    ensure_dir(options.wheel_dir)
+  File "/workspace/.venv-agents/lib/python3.11/site-packages/pip/_internal/utils/misc.py", line 133, in ensure_dir
+    os.makedirs(path)
+  File "<frozen os>", line 215, in makedirs
+  File "<frozen os>", line 225, in makedirs
+PermissionError: [Errno 13] Permission denied: '/tmp/opencode/n3tx-threads-checks'
