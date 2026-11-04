@@ -1,0 +1,30 @@
+{
+  "command": "scripts/test-backend.py --suite actors --overview-file .project/verification/where-actors.json -- packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api_where.py packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api_ordering.py -q -k test_network_api_where or test_network_api_ordering",
+  "created_at": "2026-11-02T07:28:15.234908+00:00",
+  "overview_file": ".project/verification/where-actors.json",
+  "suites": [
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 89,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "actors",
+      "previous_status": null,
+      "returncode": 0,
+      "status": "passed"
+    }
+  ],
+  "totals": {
+    "errors": 0,
+    "failed": 0,
+    "passed": 1,
+    "tests_failed": 0,
+    "tests_passed": 89,
+    "total": 1,
+    "warning": 0,
+    "warnings": 0
+  }
+}

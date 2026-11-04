@@ -1,0 +1,30 @@
+{
+  "command": "scripts/test-backend.py --suite core --overview-file .project/verification/where-core.json -- -q -k test_where or test_routes_where or test_rules or test_routes_ordering or test_sqlite_storage_ordering or test_storable_mixin_ordering",
+  "created_at": "2026-11-02T07:28:00.919950+00:00",
+  "overview_file": ".project/verification/where-core.json",
+  "suites": [
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 244,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "core",
+      "previous_status": null,
+      "returncode": 0,
+      "status": "passed"
+    }
+  ],
+  "totals": {
+    "errors": 0,
+    "failed": 0,
+    "passed": 1,
+    "tests_failed": 0,
+    "tests_passed": 244,
+    "total": 1,
+    "warning": 0,
+    "warnings": 0
+  }
+}
