@@ -55,6 +55,7 @@ class TXRecord(ActorModel):
         """Copy an envelope into an unstamped draft without persistence."""
         # 0. Serialize the native envelope without stringifying rich objects.
         envelope = _TX_ADAPTER.dump_python(tx, mode="json")
+        envelope["data"] = {"payload": envelope["data"]}
         return cls(thread=thread, predecessor=predecessor, **envelope)
 
     @classmethod
@@ -97,6 +98,7 @@ TXRecord.model_rebuild()
 
 
 # Changelog
+# - 2026-10-31: Store TX payloads inside a native JSON dictionary container.
 # - 2026-10-31: Add TX snapshots, atomic append and bound record reads.
 #   Validate exact SQL guards and use targeted append/codec queries; bound
 #   encoded envelopes independently of application history to 200000 bytes.

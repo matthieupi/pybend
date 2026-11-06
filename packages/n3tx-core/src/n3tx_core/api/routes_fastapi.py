@@ -456,6 +456,18 @@ def make_custom_post(attr, model_class, route_path):
                 parsed_args['user'] = user
         # 2. Invoke the action and adapt async generators to SSE responses.
         try:
+            if attr.__name__ in getattr(model_class, '__thread_roots__', ()):
+                from n3tx_agents.threaded_mixin import invoke_threaded
+                response = await invoke_threaded(
+                    instance, attr.__name__, parsed_args,
+                    user=_get_user(request),
+                )
+                if response.is_error:
+                    raise MethodError(
+                        response.data.get('message', 'Action failed'),
+                        response.data.get('code', 500),
+                    )
+                return response.data
             result = attr(instance, **parsed_args)
             if asyncio.iscoroutine(result):
                 result = await result
@@ -685,6 +697,7 @@ __all__ = ["router", "register_routes", "register_route"]
 
 
 # Changelog
+# - 2026-10-31: Bridge opt-in instance actions after native HTTP authorization.
 # - 2026-10-26: Authorize canonical effective PUT patches before model updates;
 #   reject unstable alias mappings, document operations and standardize layout.
 # - 2026-10-31: Map initial CRUD get/list PermissionError to a constant 403.

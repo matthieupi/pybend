@@ -1,0 +1,52 @@
+
+=== backend suite: threads ===
+cwd: /workspace/neuralys/collagen/lib/n3tx
+cmd: /workspace/.venv-agents/bin/python -m pytest packages/n3tx-threads/src/n3tx_threads/tests/ --color=yes -q -ra --tb=short
+[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[33m                                             [100%][0m
+[33m=============================== warnings summary ===============================[0m
+packages/n3tx-threads/src/n3tx_threads/tests/test_notes_mixin.py::test_flag_collects_lazy_ref_and_protected_union
+  /workspace/neuralys/collagen/lib/n3tx/packages/n3tx-actors/src/n3tx_actors/actor.py:77: UserWarning: Field name "tools" in "AgentActor" shadows an attribute in parent "AgentMixin"
+    cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+
+packages/n3tx-threads/src/n3tx_threads/tests/test_thread.py::test_payload_codec_round_trip_and_timestamp_order
+  /workspace/.venv-agents/lib/python3.11/site-packages/pydantic/type_adapter.py:581: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `dict[any, any]` - serialized value may not be as expected [field_name='data', input_value=False, input_type=bool])
+    return self.serializer.to_python(
+
+packages/n3tx-threads/src/n3tx_threads/tests/test_thread.py::test_payload_codec_round_trip_and_timestamp_order
+  /workspace/.venv-agents/lib/python3.11/site-packages/pydantic/type_adapter.py:581: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `dict[any, any]` - serialized value may not be as expected [field_name='data', input_value=7, input_type=int])
+    return self.serializer.to_python(
+
+packages/n3tx-threads/src/n3tx_threads/tests/test_thread.py::test_payload_codec_round_trip_and_timestamp_order
+  /workspace/.venv-agents/lib/python3.11/site-packages/pydantic/type_adapter.py:581: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `dict[any, any]` - serialized value may not be as expected [field_name='data', input_value='text', input_type=str])
+    return self.serializer.to_python(
+
+packages/n3tx-threads/src/n3tx_threads/tests/test_thread.py::test_payload_codec_round_trip_and_timestamp_order
+  /workspace/.venv-agents/lib/python3.11/site-packages/pydantic/type_adapter.py:581: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `dict[any, any]` - serialized value may not be as expected [field_name='data', input_value=['raw', 2], input_type=list])
+    return self.serializer.to_python(
+
+packages/n3tx-threads/src/n3tx_threads/tests/test_thread.py::test_partial_batch_failure_keeps_saved_prefix
+  /workspace/.venv-agents/lib/python3.11/site-packages/pydantic/type_adapter.py:581: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `dict[any, any]` - serialized value may not be as expected [field_name='data', input_value=1, input_type=int])
+    return self.serializer.to_python(
+
+packages/n3tx-threads/src/n3tx_threads/tests/test_thread.py::test_partial_batch_failure_keeps_saved_prefix
+  /workspace/.venv-agents/lib/python3.11/site-packages/pydantic/type_adapter.py:581: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `dict[any, any]` - serialized value may not be as expected [field_name='data', input_value=2, input_type=int])
+    return self.serializer.to_python(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+[33m[32m28 passed[0m, [33m[1m7 warnings[0m[33m in 7.31s[0m[0m
+
+=== Backend test summary ===
+
+suite    status     passed  failed    warn  errors  previous  note
+-------  -------    ------  ------    ----  ------  --------  ----
+threads  warning        28       0       7       0  -         
+
+Suites: 0 passed, 0 failed, 1 warning, 1 total
+Tests:  28 passed, 0 failed, 7 warnings, 0 errors
+Overview saved: /workspace/neuralys/collagen/lib/n3tx/.project/test-runs/backend-test-overview.json

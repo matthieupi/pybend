@@ -1,0 +1,11 @@
+test-file AST: 19 files, errors=0
+runtime AST: 24 files, errors=0
+runtime lines >80 columns: 0
+runtime missing module/class/function docstrings: 0
+metadata parses: 6
+PASS /workspace/neuralys/collagen/lib/n3tx/pyproject.toml keys=3
+PASS /workspace/neuralys/collagen/lib/n3tx/packages/n3tx-agents/pyproject.toml keys=3
+PASS /workspace/neuralys/collagen/lib/n3tx/packages/n3tx-threads/pyproject.toml keys=3
+PASS /workspace/neuralys/collagen/lib/n3tx/packages/n3tx/pyproject.toml keys=3
+PASS /workspace/neuralys/collagen/pyproject.toml keys=3
+PASS /workspace/neuralys/collagen/pyrightconfig.json keys=4

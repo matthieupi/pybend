@@ -1,0 +1,7 @@
+COMMAND: ["sh", "-n", "install-dev.sh"]
+CWD: /workspace/neuralys/collagen/lib/n3tx
+ENV: PYTHONDONTWRITEBYTECODE=1 N3TX_DEBUG=false N3TX_API_URL=https://threads.example PYTHONPATH=<seven package src dirs>
+EXIT: 0
+ELAPSED_SECONDS: 0.001
+--- STDOUT ---
+--- STDERR ---

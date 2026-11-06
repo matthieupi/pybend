@@ -135,20 +135,17 @@ implement rendering and any pagination affordance it wants to expose.
 | `select`, `deselect`, `toggle`, `clearSelection` | Local Set-based selection |
 | `SELECT(data,tx)` | Toggles selection, forwards NAVIGATE when `router` is set |
 
-### Independent method-query lists
+### Independent native list queries
 
 Set `query` to give a native `NTTList` its own result membership and page
 metadata while continuing to share record values through NTT. Configure the query
-before connecting the element; the method must be declared on its runtime schema.
+before connecting the element. Requests use the native collection GET endpoint.
 
 ```javascript
 const open = document.createElement('ntx-list');
 open.query = {
-  method: 'SEARCH',
-  query: '',
-  filters: {status: 'open'},
-  order_by: 'id',
-  direction: 'asc',
+  where: {status: 'open'},
+  order_asc: 'id',
   limit: 20,
 };
 open.setAttribute('model', 'Task');
@@ -160,7 +157,7 @@ The same configuration can be supplied declaratively as a JSON object:
 ```html
 <ntx-list
   model="Task"
-  query='{"filters":{"status":"open"},"limit":20}'>
+  query='{"where":{"status":"open"},"limit":20}'>
 </ntx-list>
 ```
 
@@ -173,7 +170,7 @@ READ. Use `query`, not the superseded `searchQuery` property; no alias is retain
 
 Native `query = null` or removing the attribute intentionally returns to legacy
 READ mode. The JSON text `null`, arrays and scalar attribute values are invalid.
-Only `method`, `query`, `filters`, `order_by`, `direction` and `limit` are accepted
+Only `where`, `order_asc`, `order_desc`, `limit`, `depth` and `populate` are accepted
 configuration keys; page offsets belong to `loadPage()`. Invalid JavaScript
 assignment throws `TypeError` after retiring the old query; invalid HTML displays
 an error instead of throwing from the element callback. Corrected explicit input
@@ -186,23 +183,25 @@ from legacy mode. `invalidateQuery(message)` retires pending configuration and
 membership without enabling READ. Do not clear that latch from automatic refresh
 or reconnect; only an explicit valid assignment should recover it.
 
-This example assumes the application exposes a compatible `Task.SEARCH` method.
-N3TX does not add that backend method or interpret application filter semantics.
-The declared collection POST receives `query`, `filters`, `order_by`, `direction`,
-`limit` and `offset`, returning `{data, meta}` with canonical records and
-`meta={total, limit, offset, has_more}`. The method name resolves through schema;
-the browser does not accept a raw SQL expression or a replacement HTTP client.
+The native READ transport JSON-encodes `where` in `GET /Task/_`. Defaults are
+`where={}`, `limit=20`, and `depth=0`; ordering is optional and its two directions
+are mutually exclusive. The backend compiles field conditions and `$or` groups
+within the existing row-policy restriction, then counts and pages in storage.
+The response remains `{data, meta}` with canonical records and
+`meta={total, limit, offset, has_more}`. No custom SEARCH method, capability hint,
+or replacement HTTP client is needed. Old method-query configuration is rejected.
 
 | Query-list surface | Ownership and behavior |
 |---|---|
 | `query` | Cloned configuration; changes retire pending replies immediately and start a fresh query when connected and ready. Query-to-query assignment preserves page state; switching query/legacy modes resets it. `null`, or removing the attribute, selects native legacy READ/cache mode. |
 | `value`, `meta` | This list's canonical record IDs and accepted page metadata, not every cached model instance. |
-| `loadPage(offset, {retain, append})` | Bounded native method request; replacement by default. `retain` keeps a confirmed same-context page during a refresh. |
+| `loadPage(offset, {retain, append})` | Bounded native collection GET; replacement by default. `retain` keeps a confirmed same-context page during a refresh. |
 | `loadMore()` | Appends the next page to this query's membership, preserving returned order and shared record identity. |
 | `state`, `error`, `pending`, `hasCurrentPage` | Instance-owned loading, response and recovery state. |
 | `retainChild(child)` | Optional application hook to keep a draft/controller outside membership; never adds it to counts. |
 | `isVisibleRetainedChild(child)` | Presentation of retained work within the same caller/model context; failed reads and changed contexts still hide it. |
 | `isVisibleRecord(record)` | Optional presentation filter; not server authorization or a substitute for query filtering before pagination. |
+| `focusFallback` | Optional connected, focusable element used before a focused card is hidden/removed; absent/disconnected targets fall back to the native heading. Headless/embedded views must supply a visible focus target. External focus and visible retained drafts are not moved. |
 | `canCreate`, `openCreateModal()` | Native creation affordance and overridable creation intent. |
 
 Native query responses are correlated with the request, model, schema and current

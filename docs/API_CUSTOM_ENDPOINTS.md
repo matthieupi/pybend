@@ -91,6 +91,19 @@ parser improvements are separate work.
 
 ## Response Format
 
+### Explicit interaction storage
+
+The former `__thread_roots__` / `invoke_threaded` capture bridge is removed.
+Generated direct routes call the Python action after their normal lookup,
+authorization and input parsing; composing `ThreadedMixin` does not redirect
+actions through Matrix or capture them automatically.
+
+Model actions may explicitly append TTX interactions through the shared
+parent-authorized helpers. Notes exposes `NOTE(message)` and `NOTES()`; agent
+execution stores finalized Message TTXs under semantic Thread roots. These
+operations do not provide automatic UPDATE history or transactional logging.
+See [TTX storage and notes](../packages/n3tx-threads/docs/thread.md).
+
 Direct routing returns the method result and FastAPI applies the declared return
 model when present. It does not universally call `model_response()` on custom
 results. For an enriched entity, explicitly include `entity.model_response()` in

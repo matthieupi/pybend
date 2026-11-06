@@ -1,0 +1,4 @@
+repo=/workspace/neuralys/collagen/lib/n3tx
+paths=packages/n3tx-threads/src/n3tx_threads/__init__.py packages/n3tx-threads/src/n3tx_threads/thread.py packages/n3tx-threads/src/n3tx_threads/threaded_mixin.py packages/n3tx-threads/src/n3tx_threads/notes_mixin.py packages/n3tx-threads/src/n3tx_threads/tx_record.py packages/n3tx-agents/src/n3tx_agents/__init__.py packages/n3tx-agents/src/n3tx_agents/agent.py packages/n3tx-agents/src/n3tx_agents/history.py packages/n3tx-agents/src/n3tx_agents/tools.py packages/n3tx-agents/src/n3tx_agents/thread.py packages/n3tx-agents/src/n3tx_agents/tx_record.py packages/n3tx-agents/src/n3tx_agents/notes_mixin.py packages/n3tx-core/src/n3tx_core/app.py packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py apps/veille/main.py scripts/test-backend.py packages/n3tx/src/n3tx_meta/__init__.py
+unstaged_exit=0
+staged_exit=0

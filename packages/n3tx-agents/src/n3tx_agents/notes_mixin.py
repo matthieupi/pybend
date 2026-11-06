@@ -213,10 +213,13 @@ class NotesMixin:
         # 2. Project only validated NOTE content and server provenance.
         data = []
         for record in page["data"]:
-            if record.name != "NOTE" or set(record.data) != {"content"}:
+            if record.name != "NOTE":
+                continue
+            payload = record.data["payload"]
+            if not isinstance(payload, dict) or set(payload) != {"content"}:
                 continue
             try:
-                content, kind = _content(record.data["content"])
+                content, kind = _content(payload["content"])
             except (TypeError, ValueError, MethodError):
                 continue
             data.append({
@@ -231,6 +234,7 @@ class NotesMixin:
 
 
 # Changelog (Python has no native block-comment syntax).
+# - 2026-10-31: Read NOTE content from the native payload container.
 # - 2026-10-31: Add owner-bound immutable notes and trusted NOTE dispatch.
 #   - Honor native decorator policy precedence and sanitize access denials.
 #   - Permit omitted tool caller arguments only through verified TX bindings.

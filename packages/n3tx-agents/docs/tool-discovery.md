@@ -62,7 +62,7 @@ does not make a denied operation authorized or undo an earlier side effect.
 | List | ActorModel consumes `meta.sql_filter`; tool routing does not compute it and list does not call `_authorize` |
 | Exposed action | ActorModel evaluates explicit decorator `access=` when caller is not `None`; no HTTP default-auth gate here |
 | Method argument `user` | Removed from discovery; raw ActorModel dispatch does not inject it from metadata |
-| `user=None` | Trusted internal bypass, including authenticated-only action rules |
+| Explicit raw `user=None` | Native trusted-internal bypass; the agent runtime instead normalizes a missing caller to `{}` |
 | Protected fields | Discovery filtering is not equivalent to HTTP protected-field stripping/injection |
 
 Do not expose private collections to stock list tools on the assumption that
@@ -72,15 +72,21 @@ propagation on each real entrypoint. The existing
 [tool auth tests](../src/n3tx_agents/tests/test_tool_call_auth.py) explicitly
 exercise the internal bypass; they are not proof of external-user isolation.
 
-Current Thread history is not stored in a mutable message list. See
-[Thread/TXRecord](thread.md): runtime agent addresses still route tools, while
-Thread access follows native owner/admin policy; `scope` is business metadata,
-not inherited authorization. Colgen's approved removal of its prior Thread
-override restores native Thread routes, but generic TXRecord CRUD remains
-denied. Presentation filtering is not an access rule. Notes uses the actual
-trusted Matrix `tx.meta.user` or named HTTP `user` injection, plus its existing
-explicit action policy and parent read/update checks; no separate Thread grant
-or caller-binding capability is used. Never trust body-supplied identity.
+Conversation history is stored as immediate Message TTXs beneath a semantic
+Thread root, not a mutable message list. See
+[TTX storage](../../n3tx-threads/docs/thread.md) and
+[agent history](mixin.md#thread-lifecycle). Runtime agent addresses still route
+tools; conversation access is checked against the real saved entity identified
+by `scope`. Read/update permission gates execution, read gates history access,
+and checkpoint writes recheck the parent. Root attribution is not a private
+owner grant. TTX declares deny-all access for configured HTTP boundaries, but
+raw Matrix LIST does not derive the corresponding filter. Do not offer raw TTX
+collection tools to untrusted callers; use parent-authorized history actions.
+
+Notes uses trusted Matrix `tx.meta.user` or named HTTP `user` injection. Its
+NOTE/NOTES actions follow parent update/read permission respectively. These
+specific capability guards do not establish caller injection for every exposed
+actor method. Never trust body-supplied identity or presentation filtering.
 
 ## Streaming tools
 

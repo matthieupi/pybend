@@ -1,5 +1,12 @@
 # N3TX
 
+> **Recovery checkpoint — 2026-11-06:** executable source is restored from
+> `d75bee4` plus the October 31 deployment's dirty changes, on `reconciliation`.
+> Thread/TXRecord live in `n3tx_agents`; canonical TTX and the separate threads
+> package are absent. Later documentation below is retained historical material,
+> not this runtime's contract. See the
+> [application recovery report](../../../.project/docs/reconciliation-20261106.md).
+
 Schema Driven Development (SDD) framework with native agentic integration, for building and extending systems in the AI era software.
 
 N3TX derives storage operations, HTTP routes, JSON Schema and UI contracts from
@@ -47,7 +54,8 @@ dependencies. Prefer the smaller install when you do not need those capabilities
 | [n3tx-core](packages/n3tx-core/README.md) | Models, SQLite, authorization, FastAPI, non-visual JS runtime | None |
 | [n3tx-ui](packages/n3tx-ui/README.md) | Web Components, forms, widgets, model view shells | Core |
 | [n3tx-actors](packages/n3tx-actors/README.md) | Actor, Matrix, TX and protocol adapters | Core |
-| [n3tx-agents](packages/n3tx-agents/README.md) | Pydantic AI integration and model-derived tools | Core, actors |
+| [n3tx-threads](packages/n3tx-threads/README.md) | TTX interaction storage, semantic Thread roots and model-owned notes | Core, actors |
+| [n3tx-agents](packages/n3tx-agents/README.md) | Pydantic AI integration and model-derived tools | Core, actors, threads |
 | [n3tx-files](packages/n3tx-files/README.md) | File metadata and separate byte stores | Core, actors |
 | [n3tx](packages/n3tx/README.md) | Installation meta-package; `n3tx_meta` re-exports | All above |
 

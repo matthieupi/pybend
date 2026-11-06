@@ -125,8 +125,30 @@ gap because AUTHENTICATED's SQL fragment is still `1=1`.
 ### The Where Rule
 
 Equality and `__lt`, `__gt`, `__lte`, `__gte`, `__ne`, `__in` are supported.
-Use trusted model field names and test NULL/composite cases against actual SQL;
-do not accept arbitrary user-written SQL conditions.
+`__contains` adds literal, case-sensitive substring matching. SQL generation
+delegates to `utils.where.compile_where`, also used by `Model.list(where=...)`.
+The compiler requires the context's model to declare each referenced field,
+validates identifier/operator syntax, and binds scalar values separately.
+Unknown fields/operators and unsupported values raise `ValueError`; custom
+rule contexts must supply the actual model rather than a placeholder class.
+NULL equality uses `IS NULL` (inequality uses `IS NOT NULL`). Other comparisons
+and membership retain SQLite NULL semantics; test composite/negated rules
+against actual rows rather than assuming Python/SQL NULL parity.
+Caller `list(where=...)` rejects private/dunder, hidden, and excluded fields.
+Write-protected readable fields support filtering and ordering without granting
+write access or bypassing row policies.
+Trusted `Where` policies can use hidden/excluded declared fields
+through the compiler's internal `public=False` option; this flag is never an HTTP
+or LIST parameter. All callers retain identifier/operator validation and bound
+values. Contains requires a text field. These query restrictions are not response
+redaction or a general model-value coercion mechanism.
+
+`$or` accepts nonempty condition objects as alternatives, nested at most eight
+levels. Ordinary sibling fields remain AND conditions. Public list predicates,
+including OR groups, are ANDed with the trusted row-policy SQL; alternatives
+never replace authorization. Native browser action presentation also honors
+serialized `NEVER` rules, including logical compositions. Browser presentation
+is not the backend permission boundary.
 
 ## Architecture
 

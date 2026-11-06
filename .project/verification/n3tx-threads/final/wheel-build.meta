@@ -1,0 +1,2 @@
+command=/workspace/.venv-agents/bin/python -m pip wheel --no-deps --no-build-isolation --wheel-dir /tmp/opencode/n3tx-threads-checks/wheels ./packages/n3tx-threads ./packages/n3tx-agents ./packages/n3tx
+exit=2

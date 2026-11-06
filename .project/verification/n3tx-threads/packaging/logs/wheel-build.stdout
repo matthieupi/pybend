@@ -1,0 +1,23 @@
+Processing ./packages/n3tx-threads
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Processing ./packages/n3tx-agents
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Processing ./packages/n3tx
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: n3tx-threads, n3tx-agents, n3tx
+  Building wheel for n3tx-threads (pyproject.toml): started
+  Building wheel for n3tx-threads (pyproject.toml): finished with status 'done'
+  Created wheel for n3tx-threads: filename=n3tx_threads-0.12.0-py3-none-any.whl size=27811 sha256=cfbf0255b10af955a1c73d1ee2103274441726d9107a2b6e5fcc2b51c49e244e
+  Stored in directory: /workspace/neuralys/collagen/lib/n3tx/.project/verification/n3tx-threads/packaging/tmp/pip-ephem-wheel-cache-_fbj6me1/wheels/cc/89/f7/ad13ca9ca5afd4d021a02a92ba87eb9fefaf2bc36302f40709
+  Building wheel for n3tx-agents (pyproject.toml): started
+  Building wheel for n3tx-agents (pyproject.toml): finished with status 'done'
+  Created wheel for n3tx-agents: filename=n3tx_agents-0.12.0-py3-none-any.whl size=76543 sha256=78e9e8b591680a20f16adc2302380f44663caadc75845ab40d923c616331de17
+  Stored in directory: /workspace/neuralys/collagen/lib/n3tx/.project/verification/n3tx-threads/packaging/tmp/pip-ephem-wheel-cache-_fbj6me1/wheels/a7/2f/9d/c6bc260d3769a25539a21aaba647dd33b59f91cb53fa5e280d
+  Building wheel for n3tx (pyproject.toml): started
+  Building wheel for n3tx (pyproject.toml): finished with status 'done'
+  Created wheel for n3tx: filename=n3tx-0.12.0-py3-none-any.whl size=2898 sha256=73c5bd29b9d5ce5951a6c234e09a6ac40139c42775c730f2db4a624ee88daa11
+  Stored in directory: /workspace/neuralys/collagen/lib/n3tx/.project/verification/n3tx-threads/packaging/tmp/pip-ephem-wheel-cache-_fbj6me1/wheels/3c/fc/b2/7dd791d8c526c025e95babded3aecc1573c9dae527d74488b3
+Successfully built n3tx-threads n3tx-agents n3tx

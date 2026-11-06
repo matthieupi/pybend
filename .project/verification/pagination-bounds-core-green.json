@@ -1,0 +1,30 @@
+{
+  "command": "scripts/test-backend.py --suite core --overview-file .project/verification/pagination-bounds-core-green.json -- -q -k pagination_bounds or test_sqlite_storage_ordering or test_routes_ordering or test_storable_mixin_ordering",
+  "created_at": "2026-11-02T18:11:58.741679+00:00",
+  "overview_file": ".project/verification/pagination-bounds-core-green.json",
+  "suites": [
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 71,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "core",
+      "previous_status": null,
+      "returncode": 0,
+      "status": "passed"
+    }
+  ],
+  "totals": {
+    "errors": 0,
+    "failed": 0,
+    "passed": 1,
+    "tests_failed": 0,
+    "tests_passed": 71,
+    "total": 1,
+    "warning": 0,
+    "warnings": 0
+  }
+}

@@ -1,0 +1,30 @@
+
+==================================== ERRORS ====================================
+__________________ ERROR collecting tests/test_agent_tools.py __________________
+ImportError while importing test module '/workspace/neuralys/collagen/tests/test_agent_tools.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_agent_tools.py:14: in <module>
+    from core.actors.agent_tools import (
+E   ImportError: cannot import name 'AgentThreadAccess' from 'core.actors.agent_tools' (/workspace/neuralys/collagen/core/actors/agent_tools.py)
+=============================== warnings summary ===============================
+lib/n3tx/packages/n3tx-actors/src/n3tx_actors/actor.py:77
+  /workspace/neuralys/collagen/lib/n3tx/packages/n3tx-actors/src/n3tx_actors/actor.py:77: UserWarning: Field name "tools" in "AgentActor" shadows an attribute in parent "AgentMixin"
+    cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:300
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:300
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:300
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:300
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:300
+  /workspace/neuralys/collagen/.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:300: PydanticDeprecatedSince20: `json_encoders` is deprecated. See https://pydantic.dev/docs/validation/2.14/concepts/serialization/#custom-serializers for alternatives. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.14/migration/
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/test_agent_tools.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+6 warnings, 1 error in 0.80s

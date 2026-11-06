@@ -1,5 +1,13 @@
 # N3TX Contributor Guide
 
+> **Recovery checkpoint — 2026-11-06:** executable source is October 31
+> `d75bee4` plus archived dirty changes; newer commits are preserved on `threads`,
+> `master` is at `d75bee4`, and current work is on `reconciliation`.
+> Thread/TXRecord are in `n3tx_agents`, not a
+> separate TTX package. Later documentation is preserved, not evidence of the
+> restored API. See the
+> [recovery report](../../../.project/docs/reconciliation-20261106.md).
+
 This file owns contribution rules and navigation, not a second API manual.
 Paths and commands are relative to the N3TX checkout, which may itself be a
 separate repository inside an application.

@@ -43,9 +43,13 @@ agentic_stream(self, task: str, thread_id: int = 0, **kwargs) -> async generator
 | Class-name mirrors | `/AgentActor/{id}/agentic[_stream]` | Same routing-mode-specific behavior |
 
 `call_config()` reads stored prompt and tool targets. Trusted Python kwargs can
-override LLM/output type/user and merge constraints over stored constraints;
+override LLM/output type/user/scope and merge constraints over stored constraints;
 they do **not** override prompt or tools. `thread_id=0` becomes `None`, causing a
-new thread. Do not assume arbitrary Python kwargs are accepted by HTTP routes.
+new conversation root. Scope is forwarded unchanged to runtime: a saved registered
+agent infers its own parent Ref when scope is absent; an unsaved agent requires
+an explicit saved local parent scope. No global root is synthesized. Do not assume
+arbitrary Python kwargs are accepted by HTTP routes. The former private
+`_resolve_tool_addrs` alias is removed; `call_config()` uses `tool_addrs()` directly.
 
 ### Response boundary
 
@@ -66,14 +70,17 @@ HTTP request works. Actor HTTP skips absent arguments and reaches Python default
 
 Thus HTTP clients must not assume routing-mode parity. The `messages` count is
 `message_count`; `messages` is a list. JSON `default=str` is not structured
-serialization of Pydantic AI message objects; persisted Thread messages use a
-separate serializer.
+serialization of Pydantic AI message objects; persisted `Message` children use
+the SDK's JSON serializer. `thread_id` remains an opaque conversation-root TTX ID;
+chat request/result fields and the Python string response are unchanged. The
+native direct-parser fix is explicitly outside this persistence change.
 
 ### Provider-free stored-agent example
 
-Use the setup in the [complete example](../../../docs/AGENTS.md#provider-free-how-to).
-Inside its `main()` after `create_app()`, this continuation uses the same
-temporary storage and test identity, with no network calls:
+This trusted Python fragment assumes disposable storage with AgentActor,
+AgentTool and TTX registered, plus an initialized Matrix. `caller` is trusted
+server context with read/update access to the saved agent. `llm='test'` uses the
+provider-free model; no network call is needed:
 
 ```python
 import json
@@ -84,7 +91,7 @@ created = AgentActor.create(AgentActor(
 ))
 agent = AgentActor.get(created.id)
 result = json.loads(await agent.agentic(
-    task='Hello', user={'user_id': 1, 'role': 'user'},
+    task='Hello', user=caller,
 ))
 assert result['message_count'] == len(result['messages'])
 assert result['thread_id'] is not None
@@ -100,20 +107,38 @@ before enabling private or mutating tools.
 The stock exposed methods have no explicit named `user` parameter. Generated
 HTTP injection checks for that parameter, so route authentication alone does
 not propagate a caller into `kwargs`. Actor dispatch also does not inject method
-arguments from metadata. Missing caller context invokes trusted internal paths.
+arguments from metadata. History treats a missing caller as anonymous `{}`;
+existing tool dispatch can still treat missing caller context as internal.
 Do not expose these routes to untrusted clients with sensitive tool collections
 until the actual caller path is verified and secured.
 
-AgentActor declares no owner-specific model access policy. Thread has a separate
-owner/admin policy, but that does not repair missing caller propagation. Treat
-agent configuration and tool selection as privileged application operations.
+AgentActor declares no owner-specific model access policy. The resolved parent's
+read/update rules now authorize execution/resume, and its read rule authorizes
+history. Update is rechecked at checkpoints. There is no separate root-owner
+grant: attribution does not make conversations private from other authorized
+parent users. Scope binding must match exactly on resume. This parent policy
+does not repair missing caller propagation or secure arbitrary HTTP/actor
+external execution. Collagen stock AgentActor execution remains separately
+denied. Treat configuration and tool selection as privileged operations; do not
+use body identities or dummy arguments to conceal the existing route limits.
+
+Only TTX is registered. A `Thread` is an empty semantic TTX subclass sharing its
+storage, not another model/container route. `Conversation` roots target their
+saved scope and have null payloads; immediate `Message` children carry SDK JSON
+and target `/TTX/<root-id>`. TTX declares deny-all access, enforced at configured
+HTTP boundaries. Raw Matrix LIST still relies on an upstream policy filter;
+caller metadata alone is not a collection-read guard. History uses the SDK
+decoder, without codec tags or automatic capture. See
+[thread lifecycle](mixin.md#thread-lifecycle) for raw evidence versus repaired
+provider context, checkpoint failure and early-close limits.
 
 ## Streaming and browser integration
 
 The method publishes event schemas for TextChunk, ToolCallEvent,
-ToolResultEvent, ThinkingChunk and DoneChunk. Runtime `done` also includes
-`thread_id`, which DoneChunk's declaration does not list. Schema publication
-does not validate every yielded dictionary.
+ToolResultEvent, ThinkingChunk and DoneChunk. DoneChunk declares the runtime's
+existing `thread_id` as an optional integer defaulting to `None`; this is schema
+alignment, not a chat-wire change. Schema publication does not validate every
+yielded dictionary.
 
 ```text
 NTTStream -> NTTStreamAgent -> ntx-chat
@@ -138,3 +163,8 @@ are undone.
 Sources: [actor.py](../src/n3tx_agents/actor.py),
 [tests](../src/n3tx_agents/tests/test_agent_actor.py),
 [components](../src/n3tx_agents/static/components/).
+
+## Changelog
+
+- 2026-11-04: Document scope forwarding, semantic TTX conversations and the
+  existing completion thread ID; retain response and caller/parser caveats.

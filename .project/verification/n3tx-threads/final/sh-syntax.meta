@@ -1,0 +1,2 @@
+command=sh -n install-dev.sh
+exit=0

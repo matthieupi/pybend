@@ -28,7 +28,7 @@ operation returning None.
 | `schema` | No storage lookup; schema dictionary |
 | `create` | Model fields; validated instance then `create`; entity response or 409 |
 | `get` | Required truthy `id`, optional `populate/depth`; entity or 404 |
-| `list` | Optional `limit/offset/populate/depth`; storage list result serialized |
+| `list` | Optional `limit/offset/populate/depth/order_asc/order_desc/where`; storage list result serialized |
 | `update` | Required `id` plus patch; merge/validate through storage update; entity or error |
 | `delete` | Required `id`; fetch, authorize, delete; `{deleted: id}` |
 
@@ -37,6 +37,17 @@ last-write-wins, not concurrency control. See the
 [CRUD contract](../../../docs/API_CRUD_ENDPOINTS.md#update-resource).
 Class `Model.update(id, patch)` and actor instance `instance.update(patch)` share
 the update primitive; neither direct Python call is an HTTP authorization gate.
+
+LIST forwards `where` conditions to the model. Actor HTTP decodes a JSON query
+parameter; internal TX uses a dictionary directly. The model compiles conditions
+and ANDs them with the boundary-supplied SQL policy before storage counts/pages.
+Invalid list conditions produce a 422 TX error. This does not add authorization
+to raw internal LIST dispatch; its existing caller/policy boundaries still apply.
+
+LIST forwards supplied ordering options to native storage. `order_asc` and
+`order_desc` accept one stored model field and are mutually exclusive. Invalid
+ordering returns a 422 error TX, translated to HTTP 422 by NetworkAPI. Ordering
+does not change list authorization filters, counts or response hydration.
 
 Exposed methods use descriptor-aware scope. Instance methods load `data.id`;
 class/static/actor methods do not. Arguments other than `id` are passed as

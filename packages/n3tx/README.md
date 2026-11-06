@@ -21,13 +21,15 @@ application example, follow [Getting started](../../docs/GETTING_STARTED.md).
 | [Core](../n3tx-core/README.md) | Models, storage, schema, auth, HTTP and JS runtime |
 | [UI](../n3tx-ui/README.md) | Components, forms, widgets and view shells |
 | [Actors](../n3tx-actors/README.md) | Messaging and network adapters |
+| [Threads](../n3tx-threads/README.md) | TX snapshots, notes and opt-in capture |
 | [Agents](../n3tx-agents/README.md) | Agent configuration, execution and tools |
 | [Files](../n3tx-files/README.md) | File metadata and byte stores |
 
 ## Re-export Map
 
 The import namespace is `n3tx_meta`, not `n3tx`. Its initializer star-imports
-core, actors and files; agent exports are attempted with an ImportError fallback.
+core, actors and files; threads exports are attempted with a narrowly scoped
+missing-package fallback, and agent exports with an ImportError fallback.
 It does not explicitly import UI. Prefer direct imports so capability ownership
 and initialization order are clear:
 
@@ -42,6 +44,11 @@ from n3tx_core.utils.decorators import expose_route
 
 Import `n3tx_agents` before defining models with `__agent__`. Installing packages
 does not configure providers, authorize tools, or grant file access.
+
+The full manifest in this directory includes `n3tx-threads` as a dependency.
+The repository-root manifest retains its smaller dependency set with `threads`
+and `agents` extras. This pre-existing dual-manifest distinction is not unified
+by the threads extraction; use `install-dev.sh` for the complete local family.
 
 ## Key Patterns
 

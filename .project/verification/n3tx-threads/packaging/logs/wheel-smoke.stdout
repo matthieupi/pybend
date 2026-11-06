@@ -1,0 +1,5 @@
+wheel import: /workspace/neuralys/collagen/lib/n3tx/.project/verification/n3tx-threads/packaging/wheel-install/n3tx_threads/__init__.py
+thread exports: ['Thread', 'TXRecord', 'NotesMixin', 'ThreadedMixin']
+thread requirements: ['n3tx-actors', 'n3tx-core']
+agents and meta wheel metadata: each Requires-Dist includes n3tx-threads
+Thread construction, TXRecord typed Thread reference, optional-package absence: PASS

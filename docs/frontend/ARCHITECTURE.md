@@ -127,8 +127,8 @@ NTTElement.value -> update(prev,next) or scheduleRender() -> UI
   prove cross-client live updates or conflict resolution.
 
 The flow above describes default READ/cache lists. Optional
-[`NTTList.query`](../../packages/n3tx-ui/docs/components.md#independent-method-query-lists)
-instead invokes a schema-declared collection POST and owns its returned IDs and
+[`NTTList.query`](../../packages/n3tx-ui/docs/components.md#independent-native-list-queries)
+instead invokes a filtered native collection GET and owns its returned IDs and
 pagination per instance. Two queries of the same model share NTT entities, not
 membership or page counts. Both modes use native list presentation.
 

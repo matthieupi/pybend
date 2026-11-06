@@ -1,0 +1,6 @@
+CHANGED PACKAGING METADATA AND REQUIRED CONFIG:
+PASS /workspace/neuralys/collagen/lib/n3tx/packages/n3tx/pyproject.toml
+PASS /workspace/neuralys/collagen/lib/n3tx/packages/n3tx-agents/pyproject.toml
+PASS /workspace/neuralys/collagen/lib/n3tx/packages/n3tx-threads/pyproject.toml
+PASS /workspace/neuralys/collagen/lib/n3tx/pyproject.toml
+PASS /workspace/neuralys/collagen/pyrightconfig.json

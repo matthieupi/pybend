@@ -9,6 +9,7 @@ authenticated entrypoints remain responsible for supplying their caller."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import replace
 from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import Field
@@ -18,7 +19,8 @@ from n3tx_actors.tx import TX
 from n3tx_core.authorize import (
     AUTHENTICATED, OWNER, ROLE, AccessContext, DefaultResolver,
 )
-from n3tx_core.models.ref import Ref, public_id_url
+from n3tx_core.models.ref import Ref, local_ref_id, public_id_url
+from n3tx_core.utils.descriptors import fullmethod
 
 if TYPE_CHECKING:
     from .tx_record import TXRecord
@@ -43,6 +45,49 @@ class Thread(ActorModel):
 
     user_owner: int | None = Field(default=None, description="Owner user ID")
     scope: Ref | None = Field(default=None, description="Business scope")
+
+    def THREAD(
+        self, child: Thread, *, user: dict | None, tx: TX | None = None,
+    ) -> TXRecord:
+        """Append a self-addressed child link without changing either scope.
+
+        Routed calls retain the supplied UUID/time. Repeated calls append
+        repeated links, like ordinary records; no graph rules are enforced."""
+        # 0. Read the saved child under its independent native permission.
+        child = Thread.get(child.id)
+        if child is None:
+            raise ValueError("Child Thread is unavailable")
+        child._authorize_records(user=user)
+        # 1. Store one explicit THREAD command in the parent's TX history.
+        address = public_id_url(self.id, target_cls=Thread)
+        data = {"child": public_id_url(child.id, target_cls=Thread)}
+        snapshot = (
+            TX("THREAD", address, address, data=data) if tx is None else
+            replace(tx, source=address, target=address, data=data, meta={})
+        )
+        return self.append(snapshot, user=user)
+
+    @fullmethod
+    async def handler(target, tx: TX) -> None:
+        """Adapt explicit THREAD commands; leave ordinary native CRUD intact."""
+        # 0. Only child-link commands need this typed-argument adapter.
+        if tx.name != "THREAD":
+            await super(Thread, target).handler(tx)
+            return
+        try:
+            parent = target.get(tx.data["id"]) if isinstance(
+                target, type,
+            ) else target
+            child_id = local_ref_id(tx.data["child"], target_cls=Thread)
+            child = Thread.get(child_id) if child_id is not None else None
+            if parent is None or child is None:
+                raise ValueError("Parent or child Thread is unavailable")
+            record = parent.THREAD(child, user=tx.meta.get("user"), tx=tx)
+            response = tx.reply(data={"id": record.id})
+        except Exception as error:
+            response = tx.exception(error)
+        # 1. Send one reply without capturing persistence infrastructure.
+        await target.send(response)
 
     def _authorize_records(
         self, *, user: dict | None, action: str = "read",
@@ -104,7 +149,8 @@ class Thread(ActorModel):
         )
         # 1. Let the native adapter restore complete protocol message objects.
         return list(ModelMessagesTypeAdapter.validate_python([
-            row.data for row in records if row.meta.get("codec") == codec
+            row.data["payload"]
+            for row in records if row.meta.get("codec") == codec
         ]))
 
     def records(
@@ -131,6 +177,8 @@ class Thread(ActorModel):
         return {"data": page, "cursor": next_cursor, "has_more": has_more}
 
 # Changelog
+# - 2026-10-31: Add explicit self-addressed THREAD child-link commands.
+# - 2026-10-31: Decode protocol messages from their payload containers.
 # - 2026-10-31: Apply owner/admin policy to collection reads as well as members.
 # - 2026-10-31: Replace mutable messages/routing fields with scoped TX records.
 #   - Preserve the supplied transaction during native read-policy evaluation.

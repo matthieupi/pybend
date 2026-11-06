@@ -8,7 +8,6 @@ The generated functions use exec() for dynamic signatures — same approach
 as dataclasses, namedtuple, and attrs. All input comes from trusted model
 schemas (our own code), not user input."""
 
-import inspect
 import json
 import logging
 from dataclasses import dataclass
@@ -294,28 +293,6 @@ async def _route_stream_tool_call(root, tx: TX) -> str:
     return json.dumps({'events': events}, default=str)
 
 
-async def _observe_tool(ctx, tx: TX, status: str) -> None:
-    """Send optional metadata-only observation without changing tool results."""
-    # 0. Keep observation opt-in and exclude arguments, results and error text.
-    sink = getattr(ctx.deps, 'activity_sink', None)
-    if sink is None:
-        return
-    summary = {
-        'phase': 'tool',
-        'status': status,
-        'tool': tx.name[:64],
-        'target': tx.target[:64],
-        'tx_uuid': tx.uuid,
-    }
-    # 1. Observation failures are logged, not retried or used as dispatch gates.
-    try:
-        result = sink(summary)
-        if inspect.isawaitable(result):
-            await result
-    except Exception:
-        logger.warning('Tool observation failed')
-
-
 async def _route_tool_call(
     ctx, target_addr: str, method_name: str, data: dict,
     *, stream: bool = False,
@@ -323,8 +300,7 @@ async def _route_tool_call(
     """Route a tool call through Matrix as TX. Used by generated tool functions.
 
     Creates a TX, sends via Matrix.request() for correlation, returns
-    the response as a JSON string (tool results are always text for the LLM).
-    Optional observation contains metadata only and cannot trigger retries."""
+    the response as a JSON string (tool results are always text for the LLM)."""
     # 0. Construct one native envelope with the existing caller propagation.
     from n3tx_actors.actor import Actor
 
@@ -337,25 +313,16 @@ async def _route_tool_call(
         data=data,
         meta=meta,
     )
-    # 1. Observe the existing native dispatch without introducing replay.
-    await _observe_tool(ctx, tx, 'started')
-    status = 'unknown'
-    try:
-        if stream:
-            result = await _route_stream_tool_call(root, tx)
-        else:
-            response = await root.request(tx)
-            if response.is_error:
-                from pydantic_ai import ModelRetry
-                raise ModelRetry(
-                    response.data.get('message', 'Tool call failed'),
-                )
-            result = json.dumps(response.data, default=str)
-        status = 'completed'
-        return result
-    finally:
-        # 2. Report completion or unknown outcome without claiming rollback.
-        await _observe_tool(ctx, tx, status)
+    # 1. Dispatch once through the existing native request or stream path.
+    if stream:
+        return await _route_stream_tool_call(root, tx)
+    response = await root.request(tx)
+    if response.is_error:
+        from pydantic_ai import ModelRetry
+        raise ModelRetry(
+            response.data.get('message', 'Tool call failed'),
+        )
+    return json.dumps(response.data, default=str)
 
 
 def create_tool_function(spec: ToolSpec):
@@ -454,6 +421,7 @@ def make_tool(spec: ToolSpec):
 
 
 # Changelog (Python has no block-comment syntax):
+# - 2026-10-31: Remove synthetic tool observations; retain native TX dispatch.
 # - 2026-10-31: Add payload-free tool observation; retain Matrix routing.
 #   Normalize documentation and source layout.
 #   Stop later dispatch across parallel tools after observer failure.

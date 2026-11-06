@@ -8,6 +8,16 @@
 
 # Unreleased
 
+## Threads package — 2026-11-02
+
+- Extract generic Thread/TXRecord storage, NotesMixin and ThreadedMixin into
+  `n3tx-threads` (`n3tx_threads`), depending only on core and actors.
+- Remove their former agent modules/exports without compatibility shims.
+  Replace `Thread.history()` with codec-neutral `Thread.payloads()` and use
+  `n3tx_agents.history.read_history()` for Pydantic AI decoding.
+- Preserve tables, canonical identities, stored payloads and authorization.
+  This source extraction does not constitute a data migration or PyPI release.
+
 ## Backend / API
 - [x] **Class-name response identity** — response `$id` values are now class-name based (`/Product/1`) instead of table-name based (`/products/1`). Nested entities use parent-scoped class-name identity such as `/Product/1/Comment/2`.
   - Legacy table-name routes remain available as compatibility transport paths.

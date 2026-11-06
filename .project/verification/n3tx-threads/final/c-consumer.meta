@@ -1,0 +1,2 @@
+command=PYTHONPATH=<N seven source dirs>:C PYTHONDONTWRITEBYTECODE=1 N3TX_DEBUG=false N3TX_API_URL=https://neuralys.cloud C/.venv/bin/python -m pytest -p no:cacheprovider -q -ra --tb=short tests/test_agent_backend.py tests/test_agent_tools.py tests/test_query_offset_bounds.py tests/test_base_actor_model.py
+exit=2
