@@ -49,7 +49,7 @@ alternative to the current FastAPI path.
 | ActorModel / Matrix | Message dispatch and actor-aware model behavior | A universal security boundary for arbitrary Python code |
 | JS runtime | Schema-derived entities, messaging and transport | Visual components |
 | UI package | Native forms/components, view shells, renderer/widget extensions | Backend enforcement |
-| Thread package | TTX snapshots, semantic Thread roots and parent-authorized notes | Agent SDK decoding, automatic capture, graph authorization or atomic append |
+| Agent package | Separate Thread/TXRecord storage, caller-attributed append, Notes projection | Atomic multi-append, exhaustive timestamp replay or access from scope metadata |
 | Agent package | Policy/runtime binding to Pydantic AI and model-derived tools | Permission granted merely by discovery |
 | File package | Metadata model plus explicit byte-store operations | A filesystem sandbox or static upload directory |
 

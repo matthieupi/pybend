@@ -1,6 +1,9 @@
-"""Native Thread metadata, persistence and provider-free agent history."""
+"""Thread contract tests — native snapshots and provider-free agent history.
 
-from datetime import datetime, timedelta, timezone
+Exercise append, records and history through disposable native storage.
+Thread owns owner/admin policy; TXRecord retains wrapped TX data and event time.
+No provider calls, live records or migration behavior belong to this suite."""
+
 from queue import Empty
 
 import pytest
@@ -142,40 +145,50 @@ def test_owner_scope_round_trip_and_thread_delete(native):
 
 def test_from_tx_is_pure_deep_copy(native):
     """Snapshot conversion copies native JSON without saving or dispatching."""
-    # 0. Convert a native envelope without server persistence stamps.
+    # 0. Convert a native envelope without attribution or persistence stamps.
     thread = Thread.create(Thread(user_owner=1))
     tx = TX("NOTE", "original", "sink", data={"items": [{"value": 1}]})
     draft = TXRecord.from_tx(tx, thread=Ref[Thread](_ref(thread)))
-    assert draft.id == 0 and draft.recorded_at is None
-    assert draft.recorded_by is None and draft.uuid == tx.uuid
+    assert draft.id == 0 and draft.user_owner is None
+    assert draft.uuid == tx.uuid
+    assert not {"recorded_at", "recorded_by"} & TXRecord.model_fields.keys()
+    properties = TXRecord.model_json_schema()["properties"]
+    assert not {"recorded_at", "recorded_by"} & properties.keys()
+    assert properties["timestamp"]["type"] == "number"
+    assert properties["user_owner"]["default"] is None
     assert draft.source == tx.source and draft.timestamp == tx.timestamp
     # 1. The copy is detached, and conversion alone creates no records.
     tx.data["items"][0]["value"] = 2
-    assert draft.data == {"items": [{"value": 1}]}
+    assert draft.data == {"payload": {"items": [{"value": 1}]}}
     assert thread.records(user=USER)["data"] == []
 
 
-def test_append_many_persists_links_and_accepts_duplicate_uuids(native):
+def test_repeated_append_persists_explicit_links_and_duplicate_uuids(native):
     """Append ordinary rows sequentially without dispatch or retry dedup."""
-    # 0. Persist a batch, then append the same envelopes as another batch.
+    # 0. Repeat independent appends, explicitly linking only the first pair.
     thread = Thread.create(Thread(user_owner=1))
     txs = [TX("NOTE", "test", "sink", data={"n": n}) for n in (1, 2)]
-    first = thread.append_many(txs, user=USER)
-    repeated = thread.append_many(txs, user=USER)
+    first = [thread.append(txs[0], user=USER)]
+    first.append(thread.append(
+        txs[1], user=USER, predecessor=_ref(first[0]),
+    ))
+    repeated = [thread.append(tx, user=USER) for tx in txs]
+    assert not hasattr(Thread, "append_many")
     assert [row.uuid for row in repeated] == [row.uuid for row in first]
     assert set(row.id for row in first).isdisjoint(
         row.id for row in repeated
     )
     assert first[0].predecessor is None
     assert first[1].predecessor == _ref(first[0])
-    assert all(row.recorded_by == 1 for row in first)
-    assert all(row.recorded_at is not None for row in first)
-    # 1. An explicit predecessor remains reference metadata for the batch.
-    linked = thread.append_many(
-        [TX("NOTE", "test", "sink")], user=USER,
+    assert all(row.user_owner == 1 for row in first)
+    assert [row.timestamp for row in first] == [tx.timestamp for tx in txs]
+    assert all(row.predecessor is None for row in repeated)
+    # 1. An explicit predecessor remains reference metadata for one append.
+    linked = thread.append(
+        TX("NOTE", "test", "sink"), user=USER,
         predecessor=_ref(first[-1]),
     )
-    assert linked[0].predecessor == _ref(first[-1])
+    assert linked.predecessor == _ref(first[-1])
     assert len(thread.records(user=USER)["data"]) == 5
 
 
@@ -186,7 +199,7 @@ def test_owner_admin_policy_not_scope_inheritance(native, scope):
     thread = Thread.create(Thread(user_owner=1, scope=scope))
     thread.append(TX("NOTE", "owner", "sink"), user=USER)
     saved = thread.append(TX("NOTE", "admin", "sink"), user=ADMIN)
-    assert saved.recorded_by == ADMIN["user_id"]
+    assert saved.user_owner == ADMIN["user_id"]
     assert len(thread.records(user=ADMIN)["data"]) == 2
     assert thread.history(user=ADMIN, codec=HISTORY_CODEC) == []
     # 1. Another staff caller has no access through a matching scope alone.
@@ -204,7 +217,8 @@ def test_explicit_none_is_trusted_internal_python(native):
     # 0. Internal Python calls need no caller provenance stamp.
     thread = Thread.create(Thread(user_owner=1))
     saved = thread.append(TX("NOTE", "internal", "sink"), user=None)
-    assert saved.recorded_by is None
+    assert saved.user_owner is None
+    assert TXRecord.get(saved.id).user_owner is None
     assert thread.records(user=None)["data"][0].id == saved.id
     assert thread.history(user=None) == []
     # 1. An anonymous transport-shaped dictionary is not internal None.
@@ -214,7 +228,7 @@ def test_explicit_none_is_trusted_internal_python(native):
 
 def test_history_native_codec_round_trip_and_timestamp_order(native):
     """Restore complete protocol messages and exclude nonprotocol records."""
-    # 0. Save protocol out of insertion order with distinct server timestamps.
+    # 0. Save protocol out of insertion order with distinct TX timestamps.
     thread = Thread.create(Thread(user_owner=1))
     messages = _messages() + [
         ModelResponse(parts=[ToolCallPart(
@@ -224,41 +238,47 @@ def test_history_native_codec_round_trip_and_timestamp_order(native):
             "lookup", {"found": True}, tool_call_id="paired-call",
         )]),
     ]
-    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
     for index in reversed(range(len(messages))):
-        saved = thread.append(_protocol_txs([messages[index]])[0], user=USER)
-        TXRecord.update(saved.id, {"recorded_at": base + timedelta(
-            seconds=index,
-        )})
+        tx = _protocol_txs([messages[index]])[0]
+        tx.timestamp = index + 0.125
+        thread.append(tx, user=USER)
     thread.append(TX("activity", "host", "sink"), user=USER)
     # 1. Native serialization agrees on prompts, text and paired tool IDs.
     assert _payload(thread.history(user=USER)) == _payload(messages)
 
 
-def test_timestamp_cursor_and_latest_window(native):
+@pytest.mark.parametrize("boundary", [0.0, 0.125])
+def test_timestamp_cursor_and_latest_window(native, boundary):
     """Page distinct timestamps and replace the latest bounded window."""
     # 0. Deliberately make insertion IDs disagree with timestamp ordering.
     thread = Thread.create(Thread(user_owner=1))
-    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
     for second in (2, 0, 1):
-        record = thread.append(TX(
+        thread.append(TX(
             "NOTE", "test", "sink", data={"second": second},
+            timestamp=boundary + second - 1,
         ), user=USER)
-        TXRecord.update(record.id, {"recorded_at": base + timedelta(
-            seconds=second,
-        )})
     # 1. The cursor is a timestamp, without a high-water or ID continuation.
     page = thread.records(user=USER, limit=2)
-    assert [row.data["second"] for row in page["data"]] == [2, 1]
+    assert [row.data["payload"]["second"] for row in page["data"]] == [2, 1]
     assert set(page) == {"data", "cursor", "has_more"}
-    assert datetime.fromisoformat(page["cursor"]) == base + timedelta(seconds=1)
+    assert page["cursor"] == str(boundary)
+    assert float(page["cursor"]) == boundary
     older = thread.records(user=USER, cursor=page["cursor"], limit=2)
-    assert [row.data["second"] for row in older["data"]] == [0]
+    assert [row.data["payload"]["second"] for row in older["data"]] == [0]
     assert older["cursor"] == "" and older["has_more"] is False
     latest = thread.records(user=USER, limit=2)
-    assert [row.data["second"] for row in latest["data"]] == [2, 1]
+    assert [row.data["payload"]["second"] for row in latest["data"]] == [2, 1]
     assert latest["cursor"] == page["cursor"]
     assert latest["has_more"] is True
+
+
+@pytest.mark.parametrize("cursor", ["2026-01-01T00:00:00Z", "not-a-time"])
+def test_records_reject_non_numeric_cursor(native, cursor):
+    """Reject obsolete ISO and nonnumeric cursors through native paging."""
+    # 0. Authorize a real Thread before exercising float cursor parsing.
+    thread = Thread.create(Thread(user_owner=1))
+    with pytest.raises(ValueError):
+        thread.records(user=USER, cursor=cursor)
 
 
 @pytest.mark.asyncio
@@ -326,6 +346,8 @@ async def test_agent_rejects_missing_or_denied_thread(native, case):
 
 
 # Changelog (Python has no native block-comment syntax).
+# - 2026-11-06: Cover TX-time ordering/cursors, nullable caller attribution and
+#   explicit repeated append links; restore wrapped detached-copy assertions.
 # - 2026-10-31: Replace obsolete mutable Thread assertions with scoped records,
 #   strict disposable bootstrap, immutable append and native history coverage.
 #   - Cover complete output overflow, successful transaction-policy connection

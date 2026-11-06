@@ -1,5 +1,9 @@
 # Agents: model policy, stored configuration, and execution
 
+> Current Thread/TXRecord reference: [thread guide](../packages/n3tx-agents/docs/thread.md).
+> TTX sections below are retained historical implementation, not current API
+> authority for the restored October 31 source.
+
 `n3tx-agents` binds N3TX model schemas and actor tools to Pydantic AI. It does
 not provide a scheduler, permission sandbox, or durable job queue. Start with
 ordinary model CRUD and exposed domain methods; add reasoning only where needed.

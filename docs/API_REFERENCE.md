@@ -68,19 +68,12 @@ stream=False, events=None)`. [Scope, parsing, caller and errors](API_CUSTOM_ENDP
 Schema and dump extension decorators live in `models.proto_schema` and
 `models.proto_dump`, respectively. [Extension reference](../packages/n3tx-core/docs/schema-pipeline.md).
 
-## Threads (optional n3tx-threads)
+## Thread/TXRecord history and Notes
 
-`n3tx_threads` exports `TTX`, its empty semantic `Thread` subclass, `NotesMixin`
-and `ThreadedMixin`. Register only TTX; storage and references remain canonical
-`tx_records` / `/TTX/<id>`. Import the package before declaring `__notes__` models.
-Notes exposes `NOTE(message, user)` and `NOTES(user)` with parent update/read
-permission respectively.
-
-Trusted Python child operations are `TTX.APPEND(tx, *, user_owner=None)` and
-`TTX.threads(*, cursor=None, limit=50)`. The latter returns descending timestamp
-pages and may omit tied entries across page boundaries. These helpers do not
-resolve graph permissions or expose HTTP actions. See the
-[TTX and notes contract](../packages/n3tx-threads/docs/thread.md).
+The restored current contract is maintained in the
+[Thread/TXRecord guide](../packages/n3tx-agents/docs/thread.md). Thread and
+TXRecord are separate registered models; retained TTX API pages are historical,
+not current authority.
 
 ## Agents
 
@@ -101,17 +94,11 @@ Use the [tool-discovery reference](../packages/n3tx-agents/docs/tool-discovery.m
 for current dependency context, explicit addresses and generated tool behavior;
 do not copy the obsolete adapter-bearing AgentDeps shape from older snapshots.
 
-### read_history
+### Thread.history
 
-`n3tx_agents.history.read_history(thread: Thread, *, user)` checks the current
-conversation root and its saved local owner's read policy, then decodes direct
-`Message` TTX children to Pydantic AI messages without repairing them. It uses a
-single ascending timestamp query, not exclusive timestamp paging or codecs.
-
-`open_thread(*, scope, agent_addr, user, thread_id=None)` creates a Conversation
-root or resumes exactly the supplied root ID under the expected scope. Both read
-and update permission on the saved owner are required. See
-[agent history](../packages/n3tx-agents/docs/mixin.md#thread-lifecycle).
+`Thread.history(user=...)` returns codec-selected SDK messages from its TXRecord
+rows. Notes models expose `NOTE` and `read_notes`; see the current
+[Thread/TXRecord guide](../packages/n3tx-agents/docs/thread.md).
 
 ## Files (optional n3tx-files)
 

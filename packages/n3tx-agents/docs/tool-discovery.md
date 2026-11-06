@@ -62,7 +62,7 @@ does not make a denied operation authorized or undo an earlier side effect.
 | List | ActorModel consumes `meta.sql_filter`; tool routing does not compute it and list does not call `_authorize` |
 | Exposed action | ActorModel evaluates explicit decorator `access=` when caller is not `None`; no HTTP default-auth gate here |
 | Method argument `user` | Removed from discovery; raw ActorModel dispatch does not inject it from metadata |
-| Explicit raw `user=None` | Native trusted-internal bypass; the agent runtime instead normalizes a missing caller to `{}` |
+| Explicit raw `user=None` | Native trusted-internal bypass; the restored runtime preserves `None`, so authenticated entrypoints must supply their caller |
 | Protected fields | Discovery filtering is not equivalent to HTTP protected-field stripping/injection |
 
 Do not expose private collections to stock list tools on the assumption that
@@ -72,19 +72,19 @@ propagation on each real entrypoint. The existing
 [tool auth tests](../src/n3tx_agents/tests/test_tool_call_auth.py) explicitly
 exercise the internal bypass; they are not proof of external-user isolation.
 
-Conversation history is stored as immediate Message TTXs beneath a semantic
-Thread root, not a mutable message list. See
-[TTX storage](../../n3tx-threads/docs/thread.md) and
-[agent history](mixin.md#thread-lifecycle). Runtime agent addresses still route
-tools; conversation access is checked against the real saved entity identified
-by `scope`. Read/update permission gates execution, read gates history access,
-and checkpoint writes recheck the parent. Root attribution is not a private
-owner grant. TTX declares deny-all access for configured HTTP boundaries, but
-raw Matrix LIST does not derive the corresponding filter. Do not offer raw TTX
-collection tools to untrusted callers; use parent-authorized history actions.
+Conversation history currently uses separate Thread and TXRecord models. See
+the [Thread guide](thread.md). Thread enforces its own native owner/admin policy;
+`scope` metadata does not grant Thread access. Application parent/action checks
+are separate from native Thread authorization. Notes applies its host/action
+checks independently before using Thread. Thread.user_owner governs owner
+access; TXRecord.user_owner identifies the appender and grants no independent
+access. TXRecord declares deny-all access for configured HTTP boundaries,
+but raw Matrix LIST does not derive the corresponding filter. Do not offer raw
+record collection tools to untrusted callers; use authorized history actions.
 
 Notes uses trusted Matrix `tx.meta.user` or named HTTP `user` injection. Its
-NOTE/NOTES actions follow parent update/read permission respectively. These
+`NOTE` and `read_notes` actions perform the host/action checks for write/read.
+These
 specific capability guards do not establish caller injection for every exposed
 actor method. Never trust body-supplied identity or presentation filtering.
 

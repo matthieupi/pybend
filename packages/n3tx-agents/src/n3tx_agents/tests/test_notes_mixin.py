@@ -1,4 +1,8 @@
-"""Native Notes fields, owner/admin history and HTTP/TX/tool integration."""
+"""Notes contract tests — native projection and HTTP/TX/tool integration.
+
+Exercise NOTE and read_notes against disposable registered models. Parent
+actions and Thread owner/admin policy stay independent; trusted transport
+callers supply attribution, and pages expose original numeric TX time."""
 
 import json
 from copy import deepcopy
@@ -170,7 +174,10 @@ async def test_http_injection_protection_and_non_note_crud(notes_runtime):
         json={"cursor": "", "limit": 10, "user": OTHER},
     )
     assert page.status_code == 200, page.text
-    assert page.json()["data"][0]["recorded_by"] == 1
+    row = page.json()["data"][0]
+    assert set(row) == {"id", "kind", "content", "timestamp", "user_owner"}
+    assert row["user_owner"] == 1
+    assert row["timestamp"] == _records(owner)[0].timestamp
     denied = client.post(
         f"/Notebook/{owner.id}/read_notes", headers=_headers(OTHER),
         json={"cursor": "", "limit": 10, "user": WRITER},
@@ -248,6 +255,7 @@ async def test_discovered_testmodel_tools_note_and_admin_read(notes_runtime):
         Notebook.get(owner.id).notes,
     ))
     assert returns["read_notes"]["data"][0]["content"] == "agent tool note"
+    assert returns["read_notes"]["data"][0]["user_owner"] == 1
 
 
 @pytest.mark.asyncio
@@ -292,9 +300,13 @@ async def test_native_routed_snapshot_and_single_reply(
         original.uuid, original.source, original.target, original.timestamp,
     )
     assert record.meta == {} and record.data == {
-        "content": "original routed note",
+        "payload": {"content": "original routed note"},
     }
-    assert record.recorded_by == 1 and record.recorded_at is not None
+    assert record.user_owner == 1
+    assert owner.read_notes("", 10, WRITER)["data"] == [{
+        "id": record.id, "kind": "text", "content": "original routed note",
+        "timestamp": 1234.5, "user_owner": 1,
+    }]
 
 
 @pytest.mark.asyncio
@@ -344,7 +356,7 @@ def test_parent_read_does_not_grant_thread_and_admin_can_access(notes_runtime):
     # 1. Native admin access works when the parent also permits that action.
     owner.NOTE("admin note", ADMIN)
     page = owner.read_notes("", 10, ADMIN)
-    assert {row["recorded_by"] for row in page["data"]} == {1, 3}
+    assert {row["user_owner"] for row in page["data"]} == {1, 3}
     denied_parent = {"user_id": 1, "role": "user"}
     with pytest.raises(MethodError) as caught:
         owner.read_notes("", 10, denied_parent)
@@ -413,6 +425,38 @@ async def test_none_decorator_falls_back_to_named_action_policy(
     assert reply.is_error and reply.data["code"] == 403
 
 
+def test_notes_numeric_paging_preserves_filtering_and_nullable_owner(
+    notes_runtime,
+):
+    """Keep native page bounds while projecting TX time and nullable callers."""
+    # 0. Save notes out of time order with one non-NOTE in the older page.
+    owner = Notebook.create(Notebook())
+    thread = Thread.create(Thread(user_owner=1, scope=_ref(owner)))
+    owner.update({"notes": _ref(thread)})
+    for timestamp, name, caller in (
+        (2.25, "NOTE", WRITER), (-1.0, "NOTE", None),
+        (0.0, "execution", WRITER), (0.125, "NOTE", ADMIN),
+    ):
+        thread.append(TX(
+            name, "test", "sink", data={"content": str(timestamp)},
+            timestamp=timestamp,
+        ), user=caller)
+    # 1. The projected envelope uses the unfiltered native continuation.
+    page = owner.read_notes("", 2, WRITER)
+    assert set(page) == {"data", "cursor", "has_more"}
+    assert page["cursor"] == "0.125" and page["has_more"] is True
+    assert [row["timestamp"] for row in page["data"]] == [2.25, 0.125]
+    assert [row["user_owner"] for row in page["data"]] == [1, 3]
+    older = owner.read_notes(page["cursor"], 2, WRITER)
+    assert older["cursor"] == "" and older["has_more"] is False
+    assert len(older["data"]) == 1
+    assert older["data"][0] == {
+        "id": thread.records(user=WRITER)["data"][-1].id,
+        "kind": "text", "content": "-1.0", "timestamp": -1.0,
+        "user_owner": None,
+    }
+
+
 def test_bounded_content_and_native_resource_projection(notes_runtime):
     """Retain bounded notes content and native resource reference projection."""
     # 0. Invalid content cannot allocate a notes Thread.
@@ -432,6 +476,8 @@ def test_bounded_content_and_native_resource_projection(notes_runtime):
 
 
 # Changelog (Python has no native block-comment syntax).
+# - 2026-11-06: Assert timestamp/user_owner projections across HTTP, tools and
+#   raw NOTE; restore wrapped payloads and cover filtered numeric-time pages.
 # - 2026-10-31: Cover flag-based notes fields, HTTP/tool/raw caller boundaries,
 #   native action policies, immutable snapshots and transaction-time revocation.
 #   - Use notes-only native bootstrap without fixture policy replacements.

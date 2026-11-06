@@ -122,15 +122,10 @@ external execution. Collagen stock AgentActor execution remains separately
 denied. Treat configuration and tool selection as privileged operations; do not
 use body identities or dummy arguments to conceal the existing route limits.
 
-Only TTX is registered. A `Thread` is an empty semantic TTX subclass sharing its
-storage, not another model/container route. `Conversation` roots target their
-saved scope and have null payloads; immediate `Message` children carry SDK JSON
-and target `/TTX/<root-id>`. TTX declares deny-all access, enforced at configured
-HTTP boundaries. Raw Matrix LIST still relies on an upstream policy filter;
-caller metadata alone is not a collection-read guard. History uses the SDK
-decoder, without codec tags or automatic capture. See
-[thread lifecycle](mixin.md#thread-lifecycle) for raw evidence versus repaired
-provider context, checkpoint failure and early-close limits.
+Current storage uses separate registered Thread and TXRecord models. See the
+[Thread/TXRecord guide](thread.md) for record access and timestamp semantics.
+The TTX `Conversation`/`Message` description above in older examples is
+historical and is not the restored API.
 
 ## Streaming and browser integration
 

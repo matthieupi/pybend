@@ -91,68 +91,32 @@ AgentActor separately JSON-serializes the result with `default=str`.
 
 ## Thread lifecycle
 
-See [TTX storage](../../n3tx-threads/docs/thread.md). `Thread` is an empty semantic
-TTX subclass with automatic actor registration disabled; both share TTX storage.
-Register **TTX only**. Canonical public references always use `/TTX/<id>`;
-`Thread.get(id)` alone does not prove the row is a conversation.
+Current storage contract: [Thread/TXRecord guide](thread.md). Thread is a
+separate storable model; TXRecord stores copied TX envelopes beneath it. Register
+both. The retained TTX lifecycle details below are historical, not current API.
 
-```text
-saved local scope <- Conversation TTX (semantic Thread)
-                        ^
-                        +-- Message TTX: SDK JSON
-                        +-- Message TTX: SDK JSON
-```
-
-The root has `name='Conversation'`, a null payload, source equal to the executing
-agent address and target equal to the resolved scope. Each finalized SDK message
-is an immediate child named `Message`; its target is the canonical root TTX Ref.
-The public integer `thread_id` is this root's opaque ID, not a message ID or a
-separate Thread container. TTX physically wraps payloads in `data.payload`;
-`value` exposes the payload, including the root's `None`.
-
-Agent-owned `open_thread` validates new/resumed roots and exact scope binding.
-Preparation requires parent `read` and `update`; `read_history(thread, *, user)`
-requires parent `read`. Checkpoints reauthorize parent update access. Missing
-callers become anonymous `{}`, never a history bypass. Root `source` and
-`user_owner` are attribution, not a separate private-thread permission grant.
-Another caller with the required parent access can access the same conversation.
-TTX declares deny-all access. Configured HTTP boundaries enforce that policy,
-including an empty filtered LIST. Raw Matrix LIST is a trusted internal path
-that does not derive its own authorization filter; do not expose it as a TTX
-collection tool. Parent-history checks do not repair transport caller injection
-or grant tool permissions.
-
-Import `Thread` and `TTX` from `n3tx_threads`, and `open_thread` / `read_history`
-from `n3tx_agents.history`. History selects immediate `Message` children and
-decodes their payloads with Pydantic AI's `ModelMessagesTypeAdapter`. There is no
-`HISTORY_CODEC`, codec argument, `Thread.payloads()` or capture API. The decoder
-does not repair messages, rewrite records or call a provider. Malformed payloads
-and access denials propagate to the caller.
-
-The runtime checkpoints finalized messages through SDK node hooks and flushes
-final results. A cursor counts only new messages in this invocation; after a
-short/failed append it stops further checkpoints without replaying tools or
-inference. SDK context receives `repair_messages(deepcopy(history))`, while
-returned evidence remains the raw loaded prefix plus new messages. Prompt-less
-continuation and rewriting already-checkpointed messages remain unsupported.
-Persistence is not an atomic multi-message append, provider replay, tool rollback
-or durable delivery guarantee. Parent permission checks and writes are not a
-single transaction. Native timestamp-only child paging has no ID tie-breaker or
-concurrent snapshot guarantee; do not infer complete replay from that helper.
+The former TTX layout, `open_thread`/`read_history` helpers and parent-grant
+authorization are historical, not current APIs. Thread enforces native
+owner/admin policy independently of `scope`; application parent/action checks
+remain separate. The restored runtime checkpoints finalized messages through
+its existing agent hooks; a returned answer does not certify saved history.
+Consult the current guide for caller attribution and timestamp-only page limits.
 
 ## Scope examples
 
 These are trusted Python fragments after registering a storable agent-enabled
-`Note` model and TTX with disposable storage. `caller` is server-authenticated
-context with read/update access to `note`, not client-supplied identity:
+`Note` model, Thread and TXRecord with disposable storage. `caller` is an
+authenticated caller mapping, not client-supplied identity. Scope metadata does
+not grant native Thread access or replace application business checks:
 
 ```python
 from n3tx_core.models.ref import Ref, public_id_url
 
 note = Note.create(Note(text='Documentation context'))
+# Omitted scope stays None, even for a saved instance.
 result = await note.agentic(task='Summarize', tools=[], llm='test', user=caller)
 
-# Class context uses an actual saved parent, not an invented URL/global root.
+# Explicit scope is optional metadata; the native runtime does not load it.
 scope = Ref(public_id_url(note.id, target_cls=Note))
 async for event in Note.agentic_stream(
     task='Describe this model', tools=[], llm='test', user=caller, scope=scope,
@@ -160,11 +124,12 @@ async for event in Note.agentic_stream(
     print(event['name'])
 ```
 
-The saved instance infers its own canonical Ref. Class, non-storable and unsaved
-targets must supply a real saved local scope. Omitting `scope` never creates a
-global conversation. Resume must use the same resolved scope, including when
-the caller is an administrator. Legacy container histories require a separately
-reviewed migration; this source contract does not migrate storage or deploy it.
+The native runtime does not infer scope from the target or require a saved local
+parent. New Threads receive the explicit Ref or `None`; existing Threads resume
+by ID under owner/admin policy, without comparing the requested scope. Colgen
+adds its own source/binding checks outside this native lifecycle. Existing data
+still requires a separate operational decision before restarting with changed
+model fields; this source contract does not migrate storage or deploy it.
 
 ## Streaming and errors
 
@@ -187,5 +152,7 @@ Tests: [test_mixin.py](../src/n3tx_agents/tests/test_mixin.py),
 
 ## Changelog
 
+- 2026-11-06: Document optional creation scope and independent native Thread
+  ownership; retain application binding and saved-evidence checks separately.
 - 2026-11-04: Document direct class streaming, saved-parent scope resolution,
   semantic Thread/TTX identity and parent-authorized SDK history without codecs.

@@ -98,11 +98,10 @@ Generated direct routes call the Python action after their normal lookup,
 authorization and input parsing; composing `ThreadedMixin` does not redirect
 actions through Matrix or capture them automatically.
 
-Model actions may explicitly append TTX interactions through the shared
-parent-authorized helpers. Notes exposes `NOTE(message)` and `NOTES()`; agent
-execution stores finalized Message TTXs under semantic Thread roots. These
-operations do not provide automatic UPDATE history or transactional logging.
-See [TTX storage and notes](../packages/n3tx-threads/docs/thread.md).
+Model actions may explicitly append Thread records through the current agent
+history API. Notes is a model-owned projection. These operations do not provide
+automatic UPDATE history or transactional logging. See the
+[Thread/TXRecord guide](../packages/n3tx-agents/docs/thread.md).
 
 Direct routing returns the method result and FastAPI applies the declared return
 model when present. It does not universally call `model_response()` on custom

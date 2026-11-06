@@ -1,10 +1,33 @@
-"""Native model notes over Thread records.
+"""NotesMixin — model-owned notes enabled by __notes__ = True.
 
-Import and register this mixin before declaring ``__notes__`` models. Routed
-calls use native trusted actor caller metadata; HTTP uses named user injection.
-Notes enforces parent and action permissions, then native Thread owner/admin
-policy controls record access. Scope is metadata, not an access grant.
-First-note creation is not concurrency-safe or multi-write atomic."""
+One protected notes reference links a saved model to a lazy Thread. NOTE rows
+retain their original TX timestamp and the appending caller's user_owner.
+
+API Surface (injected instance methods unless marked):
+    NOTE()                — POST /NOTE: validate and append text or a reference
+    read_notes()          — POST /read_notes: project a bounded timestamp page
+    handler() @fullmethod — Adapt actor NOTE/read_notes with trusted TX identity
+    _append_note()        — Internal owner checks, lazy linking and persistence
+
+The split: Notes owns content validation, parent/action access and projection.
+Thread separately enforces owner/admin record access; scope grants no access.
+HTTP uses named user injection; actor calls use trusted tx.meta.user. Neither
+accepts identity from the request body. References are returned, not hydrated.
+
+Import n3tx_agents before defining models with __notes__ = True; register the
+host, Thread and TXRecord with storage. The first note creates a Thread, links
+the host and appends a record in separate writes, without atomicity or locking.
+read_notes returns {data, cursor, has_more}; rows contain id/kind/content plus
+numeric timestamp and nullable user_owner. Cursors are numeric time strings.
+
+Usage:
+    # Saved notes-enabled host, registered storage, authenticated caller.
+    receipt = notebook.NOTE("Follow up tomorrow", user=caller)
+    page = notebook.read_notes(cursor="", limit=20, user=caller)
+    if page["has_more"]:
+        older = notebook.read_notes(
+            cursor=page["cursor"], limit=20, user=caller,
+        )"""
 
 from typing import ClassVar
 
@@ -71,11 +94,20 @@ def _notes_thread(owner) -> Thread:
 
 
 class NotesMixin:
-    """Add lazy native note storage and explicit NOTE/read_notes actions.
+    """NotesMixin — injected notes pointer and authorized note actions.
 
-    ProtoModel's registered-mixin injection prepends this plain mixin before
-    Pydantic collects inherited type hints. Validate model_fields/schema/storage
-    on the installed revision before enabling application opt-ins."""
+    ProtoModel prepends this plain mixin before collecting Pydantic fields.
+    notes is a protected Ref[Thread]; __notes__ enables capability injection.
+
+    API Surface:
+        NOTE()        — Append one validated note; return record/Thread IDs
+        read_notes()  — Read content, TX timestamp and caller attribution
+        handler()     — Preserve native class/instance actor dispatch
+
+    The split: _owner reloads the host and checks its CRUD/action rules;
+    _append_note and read_notes then use the independently authorized Thread.
+    Changing the parent policy does not grant access to another user's Thread.
+    Validate model_fields/schema/storage before enabling application opt-ins."""
 
     notes: Ref[Thread] | None = None
     __notes__: ClassVar[bool] = True
@@ -192,7 +224,10 @@ class NotesMixin:
 
     @expose_route("/read_notes", methods=["POST"])
     def read_notes(self, cursor: str, limit: int, user: dict = None) -> dict:
-        """Read a safe notes page using native caller and owner/admin policy."""
+        """Read authorized notes with numeric TX time and user_owner.
+
+        cursor is empty or a numeric timestamp string; limit is 1 through 50.
+        The native page cursor/has_more survive content filtering unchanged."""
         # 0. Authorize even empty notes and validate the native paging inputs.
         user = user or {}
         if not isinstance(cursor, str) or type(limit) is not int:
@@ -210,7 +245,7 @@ class NotesMixin:
             page = thread.records(user=user, cursor=cursor, limit=limit)
         except AccessDenied:
             raise MethodError("Notes access denied", 403) from None
-        # 2. Project only validated NOTE content and server provenance.
+        # 2. Project validated NOTE content, TX time and caller attribution.
         data = []
         for record in page["data"]:
             if record.name != "NOTE":
@@ -224,8 +259,8 @@ class NotesMixin:
                 continue
             data.append({
                 "id": record.id, "kind": kind, "content": content,
-                "recorded_at": record.recorded_at.isoformat(),
-                "recorded_by": record.recorded_by,
+                "timestamp": record.timestamp,
+                "user_owner": record.user_owner,
             })
         return {
             "data": data, "cursor": page["cursor"],
@@ -234,6 +269,8 @@ class NotesMixin:
 
 
 # Changelog (Python has no native block-comment syntax).
+# - 2026-11-06: Project original TX timestamps and user_owner in notes pages;
+#   document numeric cursors and the separate host/Thread access boundaries.
 # - 2026-10-31: Read NOTE content from the native payload container.
 # - 2026-10-31: Add owner-bound immutable notes and trusted NOTE dispatch.
 #   - Honor native decorator policy precedence and sanitize access denials.

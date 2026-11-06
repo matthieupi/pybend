@@ -54,10 +54,13 @@ dependencies. Prefer the smaller install when you do not need those capabilities
 | [n3tx-core](packages/n3tx-core/README.md) | Models, SQLite, authorization, FastAPI, non-visual JS runtime | None |
 | [n3tx-ui](packages/n3tx-ui/README.md) | Web Components, forms, widgets, model view shells | Core |
 | [n3tx-actors](packages/n3tx-actors/README.md) | Actor, Matrix, TX and protocol adapters | Core |
-| [n3tx-threads](packages/n3tx-threads/README.md) | TTX interaction storage, semantic Thread roots and model-owned notes | Core, actors |
-| [n3tx-agents](packages/n3tx-agents/README.md) | Pydantic AI integration and model-derived tools | Core, actors, threads |
+| [n3tx-agents](packages/n3tx-agents/README.md) | Pydantic AI integration, Thread/TXRecord history and model-derived tools | Core, actors |
 | [n3tx-files](packages/n3tx-files/README.md) | File metadata and separate byte stores | Core, actors |
 | [n3tx](packages/n3tx/README.md) | Installation meta-package; `n3tx_meta` re-exports | All above |
+
+The separate `n3tx-threads` package and its TTX contract are retained historical
+material in this restored checkout; current Thread/TXRecord APIs are in
+`n3tx-agents` (see its [Thread guide](packages/n3tx-agents/docs/thread.md)).
 
 ## Architecture
 
@@ -78,6 +81,7 @@ depends on concurrent writers.
 | Need | Guide |
 |---|---|
 | Learning path and reference map | [Documentation index](docs/README.md) |
+| Thread/TXRecord and Notes | [Current agent history guide](packages/n3tx-agents/docs/thread.md) |
 | System boundaries | [Architecture](docs/ARCHITECTURE.md) |
 | Models and relationships | [Models](docs/MODELS.md) |
 | HTTP contract | [API index](docs/API_INDEX.md) |

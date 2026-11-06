@@ -132,7 +132,12 @@ is not authorization. Discovery uses `config.API_URL` for its public base URL,
 model links and login URL, preserving the configured HTTP or HTTPS origin rather
 than deriving it from the listener's HOST/PORT.
 
-### Optional TTX Infrastructure and App Assistant Provisioning
+### Historical TTX Infrastructure and App Assistant Provisioning
+
+The TTX registration behavior described in this historical section is not the
+restored Thread/TXRecord API. See the current
+[Thread guide](../../n3tx-agents/docs/thread.md); apps using the restored models
+register Thread and TXRecord as ordinary storables.
 
 Bootstrap registers only canonical `n3tx_threads.TTX` when selected models use
 `__agent__`, `__notes__`, agent ancestry, or the threads package's `TTX`,
