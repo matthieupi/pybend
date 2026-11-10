@@ -3,6 +3,7 @@
 API Surface:
     handler()        — Dispatch CRUD or exposed actions; inject named callers
     handler_crud()   — Adapt native CRUD and apply resource policy checks
+                       LIST forwards native where and ordering within policy
     ref()            — Construct an explicit remote model handle
     _authorize()     — Internal CRUD policy check using trusted TX metadata
     _publish_lifecycle() — Publish CRUD events to configured subscribers
@@ -395,13 +396,25 @@ class ActorModel(Actor, ProtoModel):
 
             elif name == 'list':
                 # sql_filter computed by Tier 1 interceptor, passed via meta
+                # 0. Keep native conditions inside the supplied SQL policy.
                 populate = _parse_populate_from_data(data)
-                result = cls.list(
+                list_kwargs = dict(
                     sql_filter=tx.meta.get('sql_filter'),
                     limit=data.get('limit'),
                     offset=data.get('offset'),
                     populate=populate,
                 )
+                for ordering in ('order_asc', 'order_desc'):
+                    if data.get(ordering) is not None:
+                        list_kwargs[ordering] = data[ordering]
+                if 'where' in data:
+                    if not isinstance(data['where'], dict):
+                        return tx.error('where must be an object', code=422)
+                    list_kwargs['where'] = data['where']
+                try:
+                    result = cls.list(**list_kwargs)
+                except ValueError as exc:
+                    return tx.error(str(exc), code=422)
                 # Serialize instances with native $schema/$id identities.
                 _ser = lambda r: (
                     r.model_response() if hasattr(r, 'model_response') else r
@@ -489,6 +502,8 @@ class ActorModel(Actor, ProtoModel):
 
 
 # Changelog
+# - 2026-11-10: Import native LIST predicates, ordering and TX 422 mapping;
+#   preserve metadata-only exposed-action caller injection unchanged.
 # - 2026-11-09: Inject exposed actions' named user from trusted TX metadata;
 #   ignore body identity and resolve concrete storable caller annotations.
 #   Document dispatch boundaries and wrap the module to 80 columns.

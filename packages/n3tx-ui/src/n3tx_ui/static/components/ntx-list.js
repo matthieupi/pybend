@@ -1,4 +1,9 @@
-/** Native collection chrome, stable keyed children and packed card layout. */
+/** Native collection chrome, stable keyed children and packed card layout.
+ * API: NTTList renders ListElement membership, native create/paging controls
+ * and retained child controllers; focusFallback can receive retiring focus.
+ * ListElement owns querying and correlation; NTT owns shared entity values.
+ * Backend policy remains authoritative. Import registers the ntx-list tag;
+ * use its query property or JSON query attribute for independent pages. */
 import './ntx-item.js';
 import {ListElement} from './ListElement.js';
 import {NTT} from '../core/NTT.js';
@@ -18,6 +23,10 @@ export class NTTList extends ListElement {
   #description;
   #icon;
   #createLabel;
+
+  /** Optional focus destination when an owned card becomes unavailable.
+   * @type {HTMLElement|null} */
+  focusFallback = null;
 
   /** Resolve the default collection stylesheet.
    * @returns {string} Stylesheet URL. */
@@ -90,6 +99,7 @@ export class NTTList extends ListElement {
     `;
     this.items = this.shadowRoot.querySelector('.list-grid');
     this.heading = this.shadowRoot.querySelector('.list-title');
+    this.heading.tabIndex = -1;
     this.status = this.shadowRoot.querySelector('.list-status');
     this.create = this.shadowRoot.querySelector('.add-btn');
     this.refresh = this.shadowRoot.querySelector('.refresh-btn');
@@ -323,6 +333,18 @@ export class NTTList extends ListElement {
     }
   }
 
+  /** Transfer focus before hiding or disconnecting its owning card.
+   * @param {HTMLElement} child Card about to become unavailable.
+   * @returns {void} */
+  #retireFocus(child) {
+    // 0. Never disturb focus outside the disappearing card's subtree.
+    const active = this.shadowRoot.activeElement;
+    if (!active || (active !== child && !child.contains(active))) return;
+    const target = this.focusFallback?.isConnected
+      ? this.focusFallback : this.heading;
+    if (target?.isConnected) target.focus();
+  }
+
   /** Reconcile membership while preserving connected controller identity.
    * @param {boolean} query Whether membership is owned by a query.
    * @returns {void} */
@@ -330,9 +352,12 @@ export class NTTList extends ListElement {
     // 0. Keep controllers parked during reads/errors; never expose old callers.
     const context = this.queryContextKey;
     const current = query && this.hasCurrentPage && this.hasQueryContext;
+    const existing = Array.from(this.items.children);
+    if (query && !current) {
+      for (const child of existing) this.#retireFocus(child);
+    }
     this.items.hidden = query && !current;
     this.items.inert = this.items.hidden;
-    const existing = Array.from(this.items.children);
     if (query && !current) {
       this.removeAttribute('data-order-deferred');
       for (const child of existing) {
@@ -362,8 +387,10 @@ export class NTTList extends ListElement {
       if (!templated && child.getAttribute('display') !== this.childDisplay) {
         child.setAttribute('display', this.childDisplay);
       }
-      child.hidden = !visible && !(this.retainChild(child) &&
+      const hidden = !visible && !(this.retainChild(child) &&
         this.isVisibleRetainedChild(child));
+      if (hidden) this.#retireFocus(child);
+      child.hidden = hidden;
       child.inert = child.hidden;
       members.push(child);
     }
@@ -372,6 +399,7 @@ export class NTTList extends ListElement {
     for (const child of existing) {
       if (memberSet.has(child)) continue;
       if (!this.retainChild(child)) {
+        this.#retireFocus(child);
         child.remove();
         continue;
       }
@@ -379,8 +407,10 @@ export class NTTList extends ListElement {
           child.getAttribute('display') !== this.childDisplay) {
         child.setAttribute('display', this.childDisplay);
       }
-      child.hidden = (query && this.#childContexts.get(child) !== context) ||
+      const hidden = (query && this.#childContexts.get(child) !== context) ||
         !this.isVisibleRetainedChild(child);
+      if (hidden) this.#retireFocus(child);
+      child.hidden = hidden;
       child.inert = child.hidden;
       members.push(child);
     }
@@ -456,6 +486,8 @@ export class NTTList extends ListElement {
 customElements.define('ntx-list', NTTList);
 
 /* Changelog
+ * - 2026-11-10: Restore focus recovery for unavailable list cards.
+ * - 2026-11-02: Recover focus before owned cards are hidden or removed.
  * - 2026-10-26: Preserve native chrome and keyed query child controllers.
  *   Project list state, defer unsafe moves and isolate retained visibility.
  *   Update reused displays and avoid creating suppressed controllers.

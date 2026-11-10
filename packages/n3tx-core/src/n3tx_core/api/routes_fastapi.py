@@ -1,4 +1,9 @@
-"""Generate direct FastAPI CRUD and model-action authorization boundaries."""
+"""Generate direct FastAPI CRUD and model-action authorization boundaries.
+
+API: register_routes installs model CRUD/schema and exposed-action factories.
+Collection handlers decode native where/ordering inside resolver SQL policy.
+Model and storage layers validate fields and own selection/counting; action
+handlers retain caller injection and the opt-in threaded dispatch bridge."""
 
 import asyncio
 import inspect
@@ -139,6 +144,9 @@ def make_get_all_instances(model_class):
         offset: int = Query(default=None, ge=0),
         populate: str = Query(default=None),
         depth: int = Query(default=None, ge=0, le=3),
+        order_asc: str | None = Query(default=None),
+        order_desc: str | None = Query(default=None),
+        where: str | None = Query(default=None),
     ):
         """Apply the SQL policy and serialize a collection or paginated page."""
         # 0. Resolve list policy as a SQL filter, not member authorization.
@@ -149,10 +157,22 @@ def make_get_all_instances(model_class):
             raise HTTPException(status_code=403, detail=str(e))
         # 1. Fetch the requested population and page under the SQL restriction.
         pop_spec = parse_populate(populate, depth)
-        result = model_class.list(
-            sql_filter=auth_filter, limit=limit, offset=offset,
-            populate=pop_spec,
-        )
+        list_kwargs = {
+            'sql_filter': auth_filter, 'limit': limit, 'offset': offset,
+            'populate': pop_spec,
+        }
+        if order_asc is not None:
+            list_kwargs['order_asc'] = order_asc
+        if order_desc is not None:
+            list_kwargs['order_desc'] = order_desc
+        try:
+            if where is not None:
+                list_kwargs['where'] = json.loads(where)
+                if not isinstance(list_kwargs['where'], dict):
+                    raise ValueError('where must be an object')
+            result = model_class.list(**list_kwargs)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
         # 2. Preserve paginated and unpaginated response shapes.
         if isinstance(result, dict) and 'data' in result:
             return {
@@ -697,6 +717,8 @@ __all__ = ["router", "register_routes", "register_route"]
 
 
 # Changelog
+# - 2026-11-10: Import native collection where/ordering and HTTP 422 mapping;
+#   retain current custom-action caller injection and threaded dispatch.
 # - 2026-10-31: Bridge opt-in instance actions after native HTTP authorization.
 # - 2026-10-26: Authorize canonical effective PUT patches before model updates;
 #   reject unstable alias mappings, document operations and standardize layout.

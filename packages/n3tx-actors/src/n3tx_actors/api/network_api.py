@@ -1,20 +1,10 @@
-"""NetworkAPI -- HTTP API adapter for Level 3 actor routing.
+"""Bridge generated FastAPI routes to actors through Matrix and TX.
 
-Bridges FastAPI HTTP routes to the Matrix via TX messaging.
-Every request becomes a TX routed through adapter.request(), which
-runs interceptors (auth) then sends into the actor system and awaits
-the correlated reply.
-
-Level 3 alternative to routes_fastapi.py:
-    Level 1/2: ProtoModel/ActorModel + routes_fastapi.py (direct)
-    Level 3:   ActorModel + NetworkAPI (full actor routing)
-
-Usage:
-    api = NetworkAPI()
-    matrix.register(api)
-    api.use(auth_interceptor, on='request')
-    app.include_router(create_api_routes(api, registered_models))
-"""
+API: NetworkAPI and create_api_routes provide schema, CRUD and action routes.
+Flow: HTTP identity and model metadata accompany adapter requests through the
+configured interceptors; list routes decode caller conditions into TX data.
+Integration: register the adapter with Matrix, attach the auth interceptor,
+and mount create_api_routes(api, registered_models) on the application."""
 
 import json
 import logging
@@ -35,7 +25,7 @@ _SSE_FLUSH_PADDING = ':' + (' ' * 2048) + '\n'
 
 
 def _sse_frame(event: str, data: Any) -> str:
-    """Serialize one SSE frame with padding to discourage proxy/browser buffering."""
+    """Serialize an SSE frame with padding against intermediary buffering."""
     return (
         f"{_SSE_FLUSH_PADDING}"
         f"event: {event}\n"
@@ -47,6 +37,7 @@ class NetworkAPI(NetworkAdapter, auto_register=False):
     """HTTP API adapter. Bridges FastAPI routes to Matrix via TX messaging."""
 
     def __init__(self, **kwargs):
+        """Initialize the adapter with its default API address."""
         kwargs.setdefault('addr', 'api')
         super().__init__(**kwargs)
 
@@ -76,23 +67,12 @@ def _read_data(id: int, populate: str | None, depth: int | None) -> dict:
 
 
 def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
-    """Create FastAPI routes that bridge HTTP to actor TX messaging.
-
-    Mirrors the route structure of routes_fastapi.py but routes everything
-    through the actor system via api_adapter.request().
-
-    Args:
-        api_adapter: The NetworkAPI adapter instance (registered with Matrix).
-        models_dict: The registered_models dict {tablename: model_class}.
-
-    Returns:
-        A FastAPI APIRouter with all CRUD and custom method routes.
-    """
+    """Build generated CRUD and custom-action routes through the TX adapter."""
     from n3tx_core.utils.typer import flatten_refs
 
     router = APIRouter()
+    # 1. Register utility identity independently of model dispatch.
 
-    # Utility routes (not model-specific, no actor routing needed)
     @router.get("/auth/me", tags=["Auth"])
     async def auth_me(request: Request):
         """Return the current user's identity from the JWT token."""
@@ -105,6 +85,7 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
             "role": user.get("role", "user"),
         }
 
+    # 2. Register each model's schema, CRUD, and declared action routes.
     for model_name, model_class in models_dict.items():
         is_storable = issubclass(model_class, StorableMixin)
         tag = model_class.__tablename__.capitalize()
@@ -117,7 +98,9 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
         # This keeps n3tx-actors package-neutral: ViewableMixin lives in
         # n3tx-ui, but actor routing can delegate to any model capability that
         # exposes this small protocol hook.
-        register_view_routes = getattr(model_class, 'register_view_routes', None)
+        register_view_routes = getattr(
+            model_class, 'register_view_routes', None
+        )
         if callable(register_view_routes):
             register_view_routes(router, tag=tag)
 
@@ -125,7 +108,9 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
         # keeping actor routing free of hard imports. n3tx-files uses this for
         # multipart upload and binary download routes that cannot round-trip as
         # JSON TX payloads.
-        register_extra_routes = getattr(model_class, 'register_extra_routes', None)
+        register_extra_routes = getattr(
+            model_class, 'register_extra_routes', None
+        )
         if callable(register_extra_routes):
             register_extra_routes(router, tag=tag)
 
@@ -157,6 +142,7 @@ def _register_schema_route(router, api_adapter, model_class, tag):
         scaffold: str = Query(default=None),
         _addr=addr, _cls=model_class,
     ):
+        """Return the model schema or requested scaffold source."""
         if scaffold:
             from fastapi.responses import PlainTextResponse
             from n3tx_core.utils.scaffold import scaffold_single
@@ -180,7 +166,10 @@ def _register_class_read_mirror(router, api_adapter, model_class, tag):
     class_name = model_class.__name__
     addr = model_class.__tablename__
 
-    @router.get(f"/{class_name}/{{id:int}}", tags=[tag], name=f"get_{addr}_class")
+    @router.get(
+        f"/{class_name}/{{id:int}}", tags=[tag],
+        name=f"get_{addr}_class",
+    )
     async def get_instance_by_class(
         request: Request,
         id: int,
@@ -188,6 +177,7 @@ def _register_class_read_mirror(router, api_adapter, model_class, tag):
         depth: int = Query(default=None, ge=0, le=3),
         _addr=addr, _cls=model_class,
     ):
+        """Fetch one model instance through its class-name route."""
         user = _get_user(request)
         response = await api_adapter.request(
             TX(
@@ -206,8 +196,8 @@ def _register_crud_routes(
     """Register POST, GET (list), GET (item), PUT, DELETE routes."""
     addr = model_class.__tablename__
     param_class = model_class
+    # 1. Register collection creation and inject protected owner identity.
 
-    # POST - create
     @router.post(endpoint_base, tags=[tag], status_code=201,
                  name=f"create_{addr}")
     async def create_instance(
@@ -215,6 +205,7 @@ def _register_crud_routes(
         data: param_class,
         _addr=addr, _cls=model_class, _param_cls=param_class,
     ):
+        """Create an entity through the model actor."""
         from n3tx_core.utils.typer import flatten_refs
         user = _get_user(request)
         data_dict = flatten_refs(data)
@@ -238,7 +229,7 @@ def _register_crud_routes(
         )
         return _response_or_raise(response)
 
-    # GET - list
+    # 2. Register collection listing and forward supplied query options.
     @router.get(endpoint_base, tags=[tag], name=f"list_{addr}")
     async def list_instances(
         request: Request,
@@ -246,8 +237,12 @@ def _register_crud_routes(
         offset: int = Query(default=None, ge=0),
         populate: str = Query(default=None),
         depth: int = Query(default=None, ge=0, le=3),
+        order_asc: str | None = Query(default=None),
+        order_desc: str | None = Query(default=None),
+        where: str | None = Query(default=None),
         _addr=addr, _cls=model_class,
     ):
+        """List entities through the model actor."""
         user = _get_user(request)
         data = {}
         if limit is not None:
@@ -258,6 +253,17 @@ def _register_crud_routes(
             data['populate'] = populate
         if depth is not None:
             data['depth'] = depth
+        if order_asc is not None:
+            data['order_asc'] = order_asc
+        if order_desc is not None:
+            data['order_desc'] = order_desc
+        if where is not None:
+            try:
+                data['where'] = json.loads(where)
+                if not isinstance(data['where'], dict):
+                    raise ValueError('where must be an object')
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc))
 
         response = await api_adapter.request(
             TX(
@@ -271,7 +277,7 @@ def _register_crud_routes(
 
         return result
 
-    # GET - single item
+    # 3. Register item reads and share the common populate payload.
     @router.get(f"{endpoint_base}/{{id:int}}", tags=[tag],
                 name=f"get_{addr}")
     async def get_instance(
@@ -281,6 +287,7 @@ def _register_crud_routes(
         depth: int = Query(default=None, ge=0, le=3),
         _addr=addr, _cls=model_class,
     ):
+        """Fetch one entity through the model actor."""
         user = _get_user(request)
         response = await api_adapter.request(
             TX(
@@ -292,7 +299,7 @@ def _register_crud_routes(
         )
         return _response_or_raise(response)
 
-    # PUT - update
+    # 4. Register updates after canonicalizing and stripping protected fields.
     @router.put(f"{endpoint_base}/{{id:int}}", tags=[tag],
                 name=f"update_{addr}")
     async def update_instance(
@@ -301,6 +308,7 @@ def _register_crud_routes(
         data: Dict[str, Any] = Body(...),
         _addr=addr, _cls=model_class, _param_cls=param_class,
     ):
+        """Update an entity through the model actor."""
         user = _get_user(request)
         try:
             data_dict = _cls._canonical_update_patch(dict(data))
@@ -312,7 +320,7 @@ def _register_crud_routes(
             raise HTTPException(status_code=400, detail=str(exc))
         data_dict.pop('id', None)
 
-        # Strip protected fields on update
+        # Strip protected fields on update.
         protected = (
             getattr(_cls, '__protected_fields__', None)
             or getattr(_param_cls, '__protected_fields__', set())
@@ -332,7 +340,7 @@ def _register_crud_routes(
         )
         return _response_or_raise(response)
 
-    # DELETE
+    # 5. Register deletion and preserve the actor authorization boundary.
     @router.delete(f"{endpoint_base}/{{id:int}}", tags=[tag],
                    name=f"delete_{addr}")
     async def delete_instance(
@@ -340,6 +348,7 @@ def _register_crud_routes(
         id: int,
         _addr=addr, _cls=model_class,
     ):
+        """Delete an entity through the model actor."""
         user = _get_user(request)
         response = await api_adapter.request(
             TX(
@@ -370,7 +379,9 @@ def _register_crud_routes(
     )(delete_instance)
 
 
-def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag):
+def _register_custom_routes(
+    router, api_adapter, model_class, endpoint_base, tag,
+):
     """Register @expose_route custom method routes."""
     from inspect import signature as get_sig
     from typing import get_type_hints
@@ -433,6 +444,7 @@ def _add_custom_handler(
     type_hints = get_type_hints(attr)
 
     if is_instance_method:
+
         @router.api_route(full_route, methods=methods, tags=[tag],
                           name=f"custom_{addr}_{attr_name}")
         async def custom_with_id(
@@ -442,6 +454,7 @@ def _add_custom_handler(
             _attr=attr, _attr_name=attr_name, _sig=sig,
             _type_hints=type_hints, _addr=addr, _cls=model_class,
         ):
+            """Dispatch an instance action using its path ID."""
             user = _get_user(request)
             # Build data payload from body params
             payload = await _parse_method_args(_sig, _type_hints, data, request)
@@ -457,6 +470,7 @@ def _add_custom_handler(
             )
             return _response_or_raise(response)
     else:
+
         @router.api_route(full_route, methods=methods, tags=[tag],
                           name=f"custom_{addr}_{attr_name}")
         async def custom_no_id(
@@ -465,6 +479,7 @@ def _add_custom_handler(
             _attr=attr, _attr_name=attr_name, _sig=sig,
             _type_hints=type_hints, _addr=addr, _cls=model_class,
         ):
+            """Dispatch a class action without an instance ID."""
             user = _get_user(request)
             payload = await _parse_method_args(_sig, _type_hints, data, request)
 
@@ -482,9 +497,7 @@ def _add_custom_handler(
 async def _sse_from_stream(adapter, tx):
     """Convert NetworkAdapter.stream() into SSE text lines.
 
-    Serializes the full TX envelope so the frontend receives complete
-    transactions (routing, meta, inner data) — not just chunk.data.
-    """
+    Serialize complete TX envelopes with routing, metadata, and chunk data."""
     from dataclasses import asdict
 
     async for chunk in adapter.stream(tx, timeout=120.0):
@@ -509,6 +522,7 @@ def _add_streaming_handler(
     type_hints = get_type_hints(attr)
 
     if is_instance_method:
+
         @router.api_route(full_route, methods=methods, tags=[tag],
                           name=f"stream_{addr}_{attr_name}")
         async def stream_with_id(
@@ -518,6 +532,7 @@ def _add_streaming_handler(
             _attr=attr, _attr_name=attr_name, _sig=sig,
             _type_hints=type_hints, _addr=addr, _cls=model_class,
         ):
+            """Dispatch an instance action and return its SSE stream."""
             user = _get_user(request)
             payload = await _parse_method_args(_sig, _type_hints, data, request)
             payload['id'] = id
@@ -536,6 +551,7 @@ def _add_streaming_handler(
                 },
             )
     else:
+
         @router.api_route(full_route, methods=methods, tags=[tag],
                           name=f"stream_{addr}_{attr_name}")
         async def stream_no_id(
@@ -544,6 +560,7 @@ def _add_streaming_handler(
             _attr=attr, _attr_name=attr_name, _sig=sig,
             _type_hints=type_hints, _addr=addr, _cls=model_class,
         ):
+            """Dispatch a class action and return its SSE stream."""
             user = _get_user(request)
             payload = await _parse_method_args(_sig, _type_hints, data, request)
             tx = TX(
@@ -565,9 +582,7 @@ def _add_streaming_handler(
 async def _parse_method_args(sig, type_hints, data, request):
     """Parse method arguments from request body or query params.
 
-    For GET requests the body is empty, so query string parameters are
-    checked as a fallback.  Body takes precedence over query params.
-    """
+    For GET, query values are fallbacks and body values take precedence."""
     # Merge query params as fallback (body values override query params)
     query_params = dict(request.query_params) if request.query_params else {}
     merged = {**query_params, **data}
@@ -588,7 +603,8 @@ async def _parse_method_args(sig, type_hints, data, request):
                 user=_get_user(request),
                 context={'param': name},
             )
-            if isinstance(param_type, type) and issubclass(param_type, BaseModel):
+            if (isinstance(param_type, type)
+                    and issubclass(param_type, BaseModel)):
                 payload[name] = (
                     raw if isinstance(raw, param_type)
                     else param_type(**raw) if isinstance(raw, dict)
@@ -600,7 +616,10 @@ async def _parse_method_args(sig, type_hints, data, request):
             from n3tx_core.utils.erroring import MethodError
             if isinstance(e, MethodError):
                 raise HTTPException(status_code=e.status_code, detail=e.message)
-            raise HTTPException(status_code=422, detail=f"Invalid field '{name}': {e}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid field '{name}': {e}",
+            )
 
     # Inject user marker — handler_crud and custom handlers resolve this
     if 'user' in sig.parameters:
@@ -617,3 +636,8 @@ async def _parse_method_args(sig, type_hints, data, request):
                 payload['user'] = user
 
     return payload
+
+# Changelog
+# - 2026-11-02: Add optional order_asc/order_desc HTTP query args.
+# - 2026-11-02: Forward decoded where objects through native LIST messages.
+# - 2026-11-10: Restore native HTTP list query forwarding from 123d825.

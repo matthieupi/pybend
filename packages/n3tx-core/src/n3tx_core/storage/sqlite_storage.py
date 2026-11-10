@@ -1,4 +1,9 @@
-"""Native SQLite persistence, pooled connections and explicit row conversion."""
+"""Native SQLite persistence, pooled connections and explicit row conversion.
+
+API: SQLiteStorage provides model CRUD, ordering, hydration and population.
+Boundary: StorableMixin validates model updates and caller conditions; storage
+executes trusted SQL predicates and does not enforce route authorization.
+Integration: inject a registered backend through model registration."""
 
 import contextlib
 import asyncio
@@ -21,6 +26,7 @@ from n3tx_core.utils.introspection import (
     get_ref_list_fields,
 )
 from n3tx_core.utils.populate import PopulateSpec
+from n3tx_core.utils.where import query_field
 from n3tx_core.models.ref import Ref, is_ref_url, local_ref_id, public_id_url
 from .abstract_storage import AbstractStorage
 from .sqlite_migration import SQLiteMigration
@@ -79,6 +85,7 @@ def _is_bool_field(field_info) -> bool:
 
 def _is_nullable_numeric_field(field_info) -> bool:
     """Return True when a model field accepts None plus numeric values."""
+    # 0. Distinguish nullable numeric unions from scalar annotations.
     annotation = field_info.annotation
     if annotation in (int, float):
         return False
@@ -100,6 +107,7 @@ def _normalize_storage_value(field_info, value):
 
 def _deserialize_bool_fields(model_class, record):
     """Normalize legacy empty-string bool values before model validation."""
+    # 0. Normalize only fields explicitly accepting boolean values.
     for field_name, field_info in model_class.model_fields.items():
         if not _is_bool_field(field_info):
             continue
@@ -109,6 +117,7 @@ def _deserialize_bool_fields(model_class, record):
 
 def _deserialize_nullable_numeric_fields(model_class, record):
     """Normalize legacy empty-string nullable numerics before validation."""
+    # 0. Normalize present fields without introducing omitted values.
     for field_name, field_info in model_class.model_fields.items():
         if field_name not in record:
             continue
@@ -205,6 +214,7 @@ def _public_storage_ref(value, target_cls):
 
 def _public_ref_list(value, target_cls):
     """Return API-facing refs for a JSON-backed list[Ref[T]] field."""
+    # 0. Preserve non-lists and convert stored references in list order.
     if not isinstance(value, list):
         return value
     refs = []
@@ -460,10 +470,29 @@ class SQLiteStorage(AbstractStorage):
     def list(
         self, model_class: Type[Any], sql_filter: tuple = None,
         limit: int = None, offset: int = None, populate: PopulateSpec = None,
-        ids: list = None,
+        ids: list = None, *, order_asc: str | None = None,
+        order_desc: str | None = None,
     ) -> List[Any]:
-        """Select native rows with optional filtering, paging and population."""
+        """Select rows with filtering, single-column ordering and pagination.
+
+        Ordering accepts one declared, physically stored field. Invalid names
+        or simultaneous directions raise ValueError. SQLite owns NULL and tie
+        ordering; counts and hydration are independent of ordering. Pagination
+        requires nonnegative signed-64-bit integers (or None); zero limits
+        remain valid for trusted count-only probes."""
         # 0. Compose the trusted filter and optional selected-ID constraint.
+        for name, value in (('limit', limit), ('offset', offset)):
+            if value is not None and (
+                type(value) is not int or not 0 <= value < 2**63
+            ):
+                raise ValueError(
+                    f'{name} must be a nonnegative signed-64-bit integer',
+                )
+        if order_asc is not None and order_desc is not None:
+            raise ValueError("order_asc and order_desc are mutually exclusive")
+        order_field = order_asc if order_asc is not None else order_desc
+        if order_field is not None:
+            query_field(model_class, order_field)
         table_name = _validate_identifier(model_class.__tablename__)
         ref_fields = get_ref_fields(model_class)
 
@@ -489,6 +518,11 @@ class SQLiteStorage(AbstractStorage):
         # 1. Count and select using one leased connection.
         with self._connection() as conn:
             cursor = conn.cursor()
+            if order_field is not None:
+                cursor.execute(f'PRAGMA table_info("{table_name}")')
+                stored_columns = {column[1] for column in cursor.fetchall()}
+                if order_field not in stored_columns:
+                    raise ValueError("Ordering requires a stored model field")
 
             # Count total matching rows (before pagination)
             total = None
@@ -496,6 +530,11 @@ class SQLiteStorage(AbstractStorage):
                 count_sql = select_sql.replace("SELECT *", "SELECT COUNT(*)", 1)
                 cursor.execute(count_sql, filter_params[:])
                 total = cursor.fetchone()[0]
+
+            # Apply native ordering only to rows, before pagination.
+            if order_field is not None:
+                direction = 'ASC' if order_asc is not None else 'DESC'
+                select_sql += f' ORDER BY "{order_field}" {direction}'
 
             # Apply pagination
             paginated_params = filter_params[:]
@@ -821,8 +860,13 @@ class SQLiteStorage(AbstractStorage):
 
 
 # Changelog
+# - 2026-11-02: Reject invalid pagination values before leasing a connection.
 # - 2026-10-31: Factor transaction-owned insertion and roll back failed leases;
 #   reject generic TXRecord writes and document native storage operations.
 #   Share native get row decoding with transaction-owned record readers.
 # - 2026-10-31: Restore ordinary inline persistence and pool return behavior;
 #   remove task-specific insertion/decoding helpers and table-name guards.
+# - 2026-11-02: Validate single-field list ordering against declared and stored
+#   columns; apply native ORDER BY before paging without changing counts.
+# - 2026-11-02: Reject private, hidden and excluded ordering-field probes.
+# - 2026-11-10: Restore native ordering and pagination guards from 123d825.
