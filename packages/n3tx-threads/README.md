@@ -1,5 +1,101 @@
 # n3tx-threads
 
+## Current working contract — 2026-11-09
+
+This package is being developed alongside the existing `n3tx_agents.Thread`
+and `TXRecord`. It does not replace their bootstrap, consumers, or stored data.
+The November 4 integration description retained below is historical.
+The current scaffold declares Pydantic 2.11 or newer (below 3).
+
+```python
+from n3tx_threads import TTX, Note, Thread, NoteMixin
+
+# After explicitly registering only TTX against chosen native storage:
+saved = Note.create(Note(
+    source="users/1", target="emails/42", desc="Hello",
+))
+loaded = Note.get(saved.id)
+loaded.desc = "Updated"
+loaded = loaded.save()
+```
+
+Only `TTX` owns the `ttx` table. Note and Thread are typed projections of the
+same canonical resource; never register their storage separately. Concrete
+class names identify kinds. An empty stored `kind` means base TTX.
+
+| API | Responsibility |
+|---|---|
+| `tx()` | Transport projection; discriminator goes in `meta.kind` |
+| `ttx()` | Canonical projection; discriminator is the stored `kind` field |
+| `value` | Decode known content; preserve unknown kinds as detached JSON |
+| `create/get/list/update/delete/save` | Canonical or exact-kind typed storage |
+| `threads()` | Direct outgoing rows: `source == "ttx/<id>"` |
+| `history()` | Direct incoming rows: `target == "ttx/<id>"` |
+
+Typed content uses declared fields, not independently mutable packed `data`.
+Strings remain text. Reconstruction uses canonical field names and ordinary
+model validation. **Field aliases are an unsupported gap**: aliased content can
+fail reconstruction or follow Pydantic alias precedence instead of preserving
+the snapshot. No alias translation or alias-specific rejection is installed.
+Transaction content does not use transaction-level relationship hydration.
+Custom non-TTX nested constructors retain their own hydration/I/O behavior.
+Excluded fields are intentionally omitted during packing: required excluded
+fields can prevent reconstruction, and defaulted ones can reconstruct defaults.
+
+### Explicit Notes capability
+
+Compose `NoteMixin` before the host ActorModel base. It adds no fields, pointer,
+container, global `__notes__` registration, or custom actor handler:
+
+```python
+from n3tx_actors.models.actor_model import ActorModel
+
+class Email(NoteMixin, ActorModel):
+    __tablename__ = "emails"
+    __storable__ = True
+    subject: str
+
+# Saved host, registered host/TTX storage, and trusted caller context:
+note = email.NOTE("Hello", user=caller)
+notes = email.NOTES(user=caller)  # list[Note]
+```
+
+Authorization belongs to the configured ingress. Direct HTTP uses native action
+policy resolution; raw ActorModel dispatch lacks the same default-policy fallback.
+The mixin adds no authorization checks, host CRUD guard or fresh reload. Direct Python
+calls are trusted and do not require a saved host. Both actions use `self.addr`
+as the note target. Caller injection comes from native HTTP or ActorModel's
+named-user bridge, not the body. NOTE uses it for attribution; NOTES retains its
+`user` parameter for injection compatibility. Envelopes are fresh: original
+incoming TX source/UUID/time are not captured. Reads are unordered and unbounded.
+
+### Native schema extension
+
+Package import loads `schema_ext.py`, registering the `ttx` stage after native
+`metadata` in the default schema pipeline. It creates no tables or actor targets.
+It adds descriptive metadata to TTX schemas and matching existing named host
+`$defs`. Native stages own fields, methods, schema IDs and definitions.
+
+Schema `ttx` metadata describes canonical TTX identity, typed versus canonical
+representation, stored `kind`, and transport `meta.kind`. Canonical `data` has
+no kind-specific schema validation; runtime `.value` validation and persistence
+remain separate and unchanged. Typed schemas describe their class-name kind
+and empty backing data. No payload definitions, conditional payload constraints,
+reference rewriting or schema bundling are added. Native complex/recursive
+schema and reference-closure gaps remain unsupported by this extension.
+Named schema IDs are not new storage resources or implemented HTTP aliases.
+Browser NTT projection/dispatch is not installed by this metadata.
+
+Native CRUD and directional queries are trusted Python, not policy boundaries.
+Kind checks and writes are not atomic. No migration, deployment, automatic
+execution capture, recursive permission engine, or application acceptance follows
+from this package. See [the current contract](docs/thread.md).
+
+## Historical TTX integration — November 4
+
+The remaining sections describe the discarded implementation, not the current
+working contract above. They are retained for provenance.
+
 Low-level TTX storage and optional model-owned notes. Requires Python 3.10+,
 `n3tx-core` and `n3tx-actors`; no agent package or LLM SDK is required.
 
@@ -134,6 +230,18 @@ graph traversal or graph ACLs.
 See [TTX storage and model notes](docs/thread.md) for the current contract.
 
 ## Changelog
+
+- 2026-11-09: Limit the current schema stage to descriptive metadata and typed
+  kind/data invariants; document the absence of canonical kind-specific payload
+  validation and native complex/recursive schema and reference-closure gaps.
+
+- 2026-11-09: Remove the current NoteMixin host helper; use native action
+  authorization and trusted direct Python calls without extra CRUD checks or
+  fresh host reloads. Both actions target `self.addr`.
+
+- 2026-11-09: Document the coexisting typed scaffold, explicit NoteMixin,
+  documented exclusions and native schema-stage registration; mark the prior
+  integration contract as historical.
 
 - 2026-11-04: Document TTX-only streams and thin parent-authorized Notes actions;
   retire container and automatic manifest-capture contracts. Document direct

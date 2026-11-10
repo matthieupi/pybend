@@ -1,0 +1,26 @@
+# Typed transaction storage and schema integration package metadata.
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "n3tx-threads"
+version = "0.12.0"
+description = "Typed TTX storage, explicit notes, and native schema metadata."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]
+dependencies = [
+    "pydantic>=2.11,<3.0",
+    "n3tx-core>=0.12.0",
+    "n3tx-actors>=0.12.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Changelog (TOML has no block-comment syntax).
+# - 2026-11-09: Describe typed storage/schema capabilities and declare the
+#   Pydantic floor required by per-call canonical-name content validation.
+# - 2026-11-02: Add the standalone core/actors-only threads distribution.

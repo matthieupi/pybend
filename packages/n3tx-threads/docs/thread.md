@@ -1,5 +1,97 @@
 # TTX storage and model notes
 
+## Current contract — 2026-11-09
+
+The package exports `TTX` from `ttx.py`, `Note` and `NoteMixin` from `note.py`,
+and `Thread` from `thread.py`; package-level imports remain unchanged.
+Only TTX is registered with storage, in table `ttx`. Legacy
+`n3tx_agents.Thread`/`TXRecord` remain independent and unchanged. The contract
+below the historical heading describes the discarded November 4 integration.
+
+### Representation and persistence
+
+The canonical row stores envelope fields, `kind`, `data`, and `meta` alongside
+native identity and caller attribution. `kind=""` denotes base TTX. Subclasses
+derive their kind from their class name; renaming a class changes its stored
+and wire contract. Ordinary TX transport carries the kind in `meta["kind"]`;
+canonical metadata excludes that reserved key. Conflicting values are rejected.
+
+Subclasses declare content fields. `tx()` packs them for transport; `ttx()`
+projects them to a canonical row without writing or cloning its identity.
+`value` validates known content and returns a typed view; unknown kinds return
+detached raw JSON. There is no automatic JSON-text parsing or reference I/O.
+Transaction-owned relationship hydration is disabled for embedded content;
+ordinary application-model hydration is not changed.
+
+Canonical payloads use field names and ordinary model construction, retaining
+strictness and before-validators. **Field aliases are an unsupported gap**:
+aliased content can fail reconstruction or be reinterpreted through Pydantic
+alias precedence. There is no translation layer or alias-specific rejection.
+Custom non-TTX nested constructors retain their own hydration/I/O behavior.
+Standard Pydantic exclusions remain in effect: an excluded field is not packed
+into content, even for persistence. A required excluded field may make a
+typed roundtrip impossible; a defaulted excluded field can reconstruct its
+default instead of the original value. This limitation is intentionally retained.
+
+Typed create/get/list/update/delete/save project through canonical native storage.
+Get returns None for missing/wrong kinds. Lists bind the exact kind before
+pagination and counting. Updates reload current state, validate merged fields,
+and replace supplied values rather than deep-merging. Save preserves ID and
+rejects deleted-row resurrection or kind changes. Exact-kind read/write checks
+are not atomic; callers must not infer concurrency or authorization guarantees.
+
+`threads()` reads direct outgoing source matches; `history()` reads direct
+incoming target matches. Both use canonical local `ttx/<id>` identity and return
+unordered, unbounded canonical rows without recursion or implicit permissions.
+
+### Notes and caller propagation
+
+Explicit `NoteMixin` inheritance adds exposed NOTE(message, user) -> Note and
+NOTES(user) -> list[Note]. Authorization belongs to the configured ingress.
+Direct HTTP uses native action-policy resolution; raw ActorModel dispatch lacks
+the same default-policy fallback. The mixin adds no authorization checks.
+No extra host CRUD guard, saved-host check or fresh
+host reload occurs in the mixin; direct Python calls are trusted. NOTE targets
+`self.addr`; NOTES filters that address and Note kind in storage. No notes pointer
+or Thread is allocated.
+
+Named caller injection is native: direct HTTP uses authenticated request state;
+ActorModel uses trusted `tx.meta.user` and ignores body identity. The mixin does
+not install a handler or register a global flag. Notes create fresh envelopes
+with caller-derived source, so incoming TX UUID/source/time are not retained.
+NOTE uses `user` for attribution, with anonymous source when no caller ID exists.
+NOTES retains `user` for native injection compatibility, not an extra access check.
+
+### Schema registration
+
+The package initializer side-effect imports `schema_ext.py`, like other optional
+N3TX packages. Native `@schema_extension(after="metadata")` registers its `ttx`
+stage. TTX.schema() describes canonical projection without kind-specific `data`
+validation. Known and unknown canonical kinds retain native object schemas.
+Typed schemas describe their kind constant, empty backing data and canonical
+projection. Runtime `.value` validation and persistence remain unchanged.
+
+The stage adds `ttx` metadata (`canonical_model`, `canonical_schema`,
+`kind_field`, `transport_kind`, and `representation`). Matching existing named
+native host definitions receive the same metadata and typed kind/data
+invariants. Native stages own fields, methods, schema IDs and definitions.
+The stage adds no payload definitions, conditional payload constraints, recursive
+reference repair or schema bundling. New kinds invalidate cached canonical
+schemas and hosts containing a TTX definition.
+
+This is schema registration, not storage/actor/HTTP route registration or browser
+NTT implementation. Native complex/recursive schema and reference-closure gaps
+remain unsupported by this extension. Core's earlier native defs stage can reject
+plain BaseModel references in complex direct subtype schemas before this stage
+executes; embedded named resources can lack closure for their local references.
+Verification results must identify their source snapshot; this guide does not
+certify deployment.
+
+## Historical contract — November 4
+
+The following describes the discarded implementation and is retained only as
+historical evidence. Use the current contract above for this working package.
+
 `n3tx-threads` stores interactions without a separate Thread container. A TTX
 targets the canonical reference of its owning entity. Host capabilities supply
 authorization and domain validation; TTX supplies serialization and native storage.
@@ -172,6 +264,19 @@ Implementation: [TTX](../src/n3tx_threads/ttx.py),
 [NotesMixin](../src/n3tx_threads/notes_mixin.py).
 
 ## Changelog
+
+- 2026-11-10: Relocate Note/NoteMixin and Thread to their own modules without
+  changing behavior or package-level imports.
+- 2026-11-09: Limit the current schema stage to descriptive metadata and typed
+  kind/data invariants; retain native ownership of definitions and document
+  canonical payload-validation and complex/recursive reference-closure limits.
+
+- 2026-11-09: Remove the current NoteMixin host helper; rely on native action
+  authorization and trusted Python calls, target `self.addr`, and omit extra
+  CRUD checks, saved-host checks and fresh host reloads.
+
+- 2026-11-09: Document canonical typed projection and explicit Notes alongside
+  legacy storage; explain exclusions and native schema-stage registration.
 
 - 2026-11-04: Replace the container/codec/manifest documentation with TTX-backed
   host streams, raw Notes wrappers and parent read/update permission mapping.
