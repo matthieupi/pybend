@@ -13,7 +13,7 @@ TX -> handler_crud
         | schema/create/get/list/update/delete -> model storage/schema
         | otherwise
         v
-exposed method? -> resolve instance from data.id -> access/materialize -> kwargs
+exposed method? -> resolve instance -> access/materialize -> inject caller
         | no
         v
 ordinary named handler(data, tx)
@@ -50,8 +50,10 @@ ordering returns a 422 error TX, translated to HTTP 422 by NetworkAPI. Ordering
 does not change list authorization filters, counts or response hydration.
 
 Exposed methods use descriptor-aware scope. Instance methods load `data.id`;
-class/static/actor methods do not. Arguments other than `id` are passed as
-kwargs after registered materializers run. Plain named handlers retain
+class/static/actor methods do not. Arguments other than reserved `id` and `user`
+are passed as kwargs after registered materializers run. An explicitly named
+`user` parameter is supplied from trusted metadata as described below.
+Plain named handlers retain
 `(data, tx)`. Async generators emit `tx.chunk(...)` followed by `tx.end()`;
 mid-stream exceptions emit an error instead.
 
@@ -76,11 +78,27 @@ row-filtered. Schema or UI visibility is not server enforcement.
 
 ### Caller arguments and protected fields
 
-Generated NetworkAPI HTTP parsing ignores body `user` and injects the verified
-caller only when the method explicitly declares `user`. ActorModel itself
-does **not** copy `meta.user` into method kwargs; it forwards the data dictionary.
-Agent-generated tools remove `user` from their parameter schema, so method-level
-caller injection is not equivalent on that path.
+ActorModel exposed-action dispatch ignores body `user` before materialization.
+Only a named `user` parameter receives the caller resolved from `tx.meta.user`:
+
+| Method declaration | Injected value |
+|---|---|
+| `user: dict = None` or another non-storable annotation | Detached authenticated identity dictionary |
+| `user: User = None`, where User is a concrete storable class | `User.get(authenticated_user_id)` |
+| No named `user` parameter, including `**kwargs` only | No injected caller argument |
+| Missing authenticated identity | `None`, regardless of body identity |
+
+A concrete caller lookup returning no stored User produces a 403 before method
+invocation. Optional/union model annotations are not resolved as concrete model
+types by this branch. The identity dictionary requires a `user_id`; it is not
+inferred from `source`, action data or a target entity.
+
+Generated NetworkAPI HTTP parsing already reserves the named caller argument.
+Agent-generated tools omit `user` from their parameter schema and supply trusted
+identity in metadata; ActorModel now bridges that metadata into named action
+arguments. This does not authenticate arbitrary metadata or replace action
+authorization. Existing access checks still precede injection. Ordinary named
+handlers retain their `(data, tx)` contract without this adaptation.
 
 HTTP create/update also performs owner injection/protected-field handling that
 raw CRUD TXs do not reproduce. Treat raw TX/data/meta as trusted process inputs;
@@ -105,3 +123,8 @@ mutable state. Do not use these notifications as a reliable audit log or job que
 Evidence: [actor_model.py](../src/n3tx_actors/models/actor_model.py),
 [auth tests](../src/n3tx_actors/tests/test_actormodel_auth.py),
 [lifecycle tests](../src/n3tx_actors/tests/unit/test_actor_model_lifecycle.py).
+
+## Changelog
+
+- 2026-11-09: Document metadata-only exposed-action caller injection, ignored
+  body identity, concrete stored callers and the unchanged authorization limits.
