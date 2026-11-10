@@ -12,6 +12,7 @@ API Surface:
     TTX.history()       — Direct incoming records for a saved canonical row
     TTX.create/get/save  — Raw native or exact-kind projected persistence
     TTX.list/update/delete — Native-shaped, exact-kind typed projections
+    TTX.ATTACH/MESSAGE/MARK_READ — Contract-only messaging action stubs
     .tx() / .ttx()       — Convert a typed object to transport or storage
 
 Note and NoteMixin live in note.py; Thread lives in thread.py. Import public
@@ -32,7 +33,9 @@ NoteMixin relies on native transport action authorization; direct Python calls
 are trusted, with no extra host CRUD guard, saved-host check or fresh reload.
 Legacy Thread/TXRecord, package wiring and archived files remain unchanged.
 Actor.children remains a routing dictionary. Queries are trusted, unbounded
-and unordered; no recursive traversal or implicit authorization is supplied.
+unless paged, and unordered unless requested; no recursive traversal or
+implicit authorization is supplied. Native LIST predicates and ordering target
+canonical envelope fields, not packed typed content.
 
 Usage:
     from n3tx_threads import TTX, Note
@@ -50,7 +53,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import asdict
 from time import time
-from typing import ClassVar, Optional
+from typing import ClassVar, Literal, Optional
 from uuid import uuid4
 
 from pydantic import (
@@ -64,6 +67,7 @@ from n3tx_core.authorize import NEVER
 from n3tx_core.models.storable_mixin import StorableMixin
 from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.utils.descriptors import fullmethod
+from n3tx_core.utils.decorators import expose_route
 
 
 _KNOWN_KINDS: dict[str, type[TTX]] = {}
@@ -88,7 +92,8 @@ def _canonical_only(native):
 class TTX(ActorModel, auto_register=False):
     """TTX — the only registered storage model; table ttx, not tx_records.
 
-    Stores TX fields, kind and nullable user_owner plus inherited id/image.
+    Stores TX fields, kind, archive/read state and nullable user_owner plus
+    inherited id/image. Reads hide archived rows; mutations include them.
     Only kind selects a content type; name remains the operation. Metadata
     excludes the reserved kind key, which exists only in TX transport.
 
@@ -107,7 +112,7 @@ class TTX(ActorModel, auto_register=False):
     CRUD does not enforce __access__; deny-all is a transport declaration.
     Missing/unknown kinds stay opaque. Invalid known content raises rather
     than silently downgrading to raw. Conversion preserves UUID and TX time.
-    Subclass fields are authoritative; nonempty packed data is rejected.
+    Subclass fields override raw data keys; other raw keys remain detached.
     Field aliases are unsupported; ordinary Pydantic rules apply on decoding.
     Typed save replaces only a live same-kind row and returns a persisted view.
     Writes are trusted, last-write-wins, not authorization or compare-and-swap.
@@ -138,6 +143,8 @@ class TTX(ActorModel, auto_register=False):
     )
     timestamp: float = Field(allow_inf_nan=False)
     user_owner: Optional[int] = Field(default=None, ge=1, strict=True)
+    archived: bool = False
+    status: Literal["READ", "UNREAD", "ASK"] = "READ"
 
     @classmethod
     def hydrate_fk(cls, data):
@@ -160,6 +167,8 @@ class TTX(ActorModel, auto_register=False):
     def from_tx(
         cls, tx: TX, *,
         user_owner: Optional[int] = None,
+        archived: bool = False,
+        status: Literal["READ", "UNREAD", "ASK"] = "READ",
     ) -> TTX:
         """Copy a JSON-object TX, preserving its self-describing metadata."""
         # 0. Detach the envelope; do not infer authority or parse text as JSON.
@@ -167,7 +176,10 @@ class TTX(ActorModel, auto_register=False):
             raise TypeError("Expected a TX envelope")
         if not isinstance(tx.data, dict):
             raise TypeError("TX data must be a JSON object")
-        return cls(user_owner=user_owner, **asdict(tx))
+        return cls(
+            user_owner=user_owner, archived=archived, status=status,
+            **asdict(tx),
+        )
 
     def tx(self) -> TX:
         """Copy seven native TX fields, including the metadata discriminator."""
@@ -193,18 +205,18 @@ class TTX(ActorModel, auto_register=False):
         return meta
 
     def _payload(self) -> dict[str, JsonValue]:
-        """Pack content using ordinary Pydantic exclusion semantics.
+        """Merge detached raw data with authoritative declared content.
 
         Excluded fields are omitted, including from persistence. A required
         excluded field can prevent decoding; a defaulted one can reconstruct
-        its default instead of the original value. Preservation is deferred."""
+        its default instead of the original value. Raw extras remain raw."""
         if type(self) is TTX:
             return deepcopy(self.data)
-        # 0. Detect in-place packed-data edits before projecting typed fields.
-        self._empty_data(self.data)
-        return deepcopy(self.model_dump(
+        # 0. Declared content wins; unknown raw keys never become attributes.
+        declared = self.model_dump(
             mode="json", include=set(self._content_fields),
-        ))
+        )
+        return {**deepcopy(self.data), **deepcopy(declared)}
 
     @property
     def value(self) -> TTX | dict[str, JsonValue]:
@@ -216,14 +228,44 @@ class TTX(ActorModel, auto_register=False):
         # 1. Payload fields cannot replace routing or transport identity.
         envelope = asdict(self.tx())
         payload = envelope.pop("data")
-        if payload.keys() & TTX.model_fields.keys():
-            raise ValueError("Payload cannot override TTX envelope fields")
-        if payload.keys() - set(typed._content_fields):
-            raise ValueError("Payload contains undeclared typed content fields")
+        declared = {
+            key: value for key, value in payload.items()
+            if key in typed._content_fields
+        }
+        raw = {
+            key: value for key, value in payload.items()
+            if key not in typed._content_fields
+        }
         return typed(**{
-            **envelope, **payload, "id": self.id,
+            **envelope, **declared, "data": raw, "id": self.id,
             "image": self.image, "user_owner": self.user_owner,
+            "archived": self.archived, "status": self.status,
         })
+
+    def ATTACH(self, entry: TTX) -> TTX:
+        """Attach an entry to this root; contract only until the next slice.
+
+        Trusted Python only; the caller owns authorization. The implementation
+        will persist the outgoing record and refresh a Thread latest snapshot.
+        Raises NotImplementedError until messaging behavior is implemented."""
+        raise NotImplementedError("TTX.ATTACH behavior is not implemented")
+
+    @expose_route("/message", methods=["POST"])
+    async def MESSAGE(self, desc: str, user: dict | None = None) -> dict:
+        """Send from an owned root and return its canonical response dict.
+
+        Native ingress injects user. This sender action is inherited by Thread;
+        it is distinct from the receiver-only ThreadedMixin.MESSAGE action.
+        Raises NotImplementedError until messaging behavior is implemented."""
+        raise NotImplementedError("TTX.MESSAGE behavior is not implemented")
+
+    @expose_route("/mark_read", methods=["POST"])
+    def MARK_READ(self, user: dict | None = None) -> dict:
+        """Mark this root READ and return an explicit canonical response dict.
+
+        Native ingress injects user; root authorization belongs to the next
+        implementation slice. Raises NotImplementedError until implemented."""
+        raise NotImplementedError("TTX.MARK_READ behavior is not implemented")
 
     def _saved_addr(self) -> str:
         """Require an existing row and use its canonical local identity."""
@@ -291,14 +333,6 @@ class TTX(ActorModel, auto_register=False):
             if owner is TTX or "TTX" in schema.get("$defs", {}):
                 owner.invalidate_schema_cache()
 
-    @field_validator("data")
-    @classmethod
-    def _empty_data(cls, value: dict) -> dict:
-        """Reject packed input; supply declared typed fields instead."""
-        if cls is not TTX and value:
-            raise ValueError("Typed TTX data must be empty; use content fields")
-        return value
-
     @field_validator("kind")
     @classmethod
     def _valid_kind(cls, value: str) -> str:
@@ -325,30 +359,62 @@ class TTX(ActorModel, auto_register=False):
         return TTX.create(record).value
 
     @classmethod
-    def get(cls, id: int, as_dict: bool = False, populate=None):
-        """Load raw canonical data or an exact-kind typed persisted view."""
+    def get(
+        cls, id: int, as_dict: bool = False, populate=None,
+        *, archived: bool = False,
+    ) -> TTX | dict | None:
+        """Load a visible row; archived=True includes both archive states.
+
+        as_dict preserves native canonical storage dictionaries, even for an
+        exact-kind typed lookup. Typed population remains unsupported."""
         if cls is TTX:
-            return super(TTX, TTX).get(
+            record = super(TTX, TTX).get(
                 id, as_dict=as_dict, populate=populate,
             )
-        if as_dict or populate is not None:
-            raise TypeError("Use canonical TTX.get for native read options")
+            hidden = (
+                record.get("archived", False) if isinstance(record, dict)
+                else getattr(record, "archived", False)
+            )
+            return None if hidden and not archived else record
+        if populate is not None:
+            raise TypeError("Use canonical TTX.get for native population")
         # 0. Decode only after checking the canonical discriminator.
-        record = TTX.get(id)
-        if record is None or record.kind != cls.__name__:
+        record = TTX.get(id, as_dict=as_dict, archived=archived)
+        kind = (
+            record.get("kind") if isinstance(record, dict)
+            else getattr(record, "kind", None)
+        )
+        if record is None or kind != cls.__name__:
             return None
+        if as_dict:
+            return record
         return record.value
 
     @classmethod
     def list(
         cls, sql_filter: tuple = None, limit: int = None,
         offset: int = None, populate=None, ids: list = None,
+        *, order_asc: str | None = None, order_desc: str | None = None,
+        where: dict | None = None,
+        archived: bool = False,
     ):
-        """List exact typed kinds, retaining native pagination and counts."""
+        """List exact kinds with native envelope filters, ordering and pages.
+
+        Typed content fields are not queryable. Canonical TTX compiles where
+        within trusted SQL, archive and exact-kind restrictions before counts.
+        archived=False hides archived rows; True includes both states."""
+        # 0. Archive visibility is a SQL restriction before native counts.
+        if not archived:
+            clause, params = "archived = ?", [False]
+            if sql_filter is not None and sql_filter[0]:
+                clause = f"({sql_filter[0]}) AND {clause}"
+                params = list(sql_filter[1] or []) + params
+            sql_filter = (clause, params)
         if cls is TTX:
             return super(TTX, TTX).list(
                 sql_filter=sql_filter, limit=limit, offset=offset,
                 populate=populate, ids=ids,
+                order_asc=order_asc, order_desc=order_desc, where=where,
             )
         if populate is not None:
             raise TypeError("Use canonical TTX.list for native population")
@@ -359,6 +425,8 @@ class TTX(ActorModel, auto_register=False):
             params = list(sql_filter[1] or []) + params
         records = TTX.list(
             sql_filter=(clause, params), limit=limit, offset=offset, ids=ids,
+            order_asc=order_asc, order_desc=order_desc, where=where,
+            archived=True,
         )
         # 1. Preserve native metadata; only data rows become typed views.
         if isinstance(records, dict):
@@ -375,9 +443,26 @@ class TTX(ActorModel, auto_register=False):
         """Update a fresh exact-kind row with native class/instance shapes."""
         cls = target if isinstance(target, type) else type(target)
         if cls is TTX:
-            instance = None if isinstance(target, type) else target
-            native = StorableMixin.__dict__["update"].__get__(instance, TTX)
-            return native(id_or_data, data)
+            # 0. Bind a fresh row so native update can see archived state.
+            if isinstance(target, type):
+                if data is None:
+                    raise ValueError("[UPDATING TTX] Missing update data")
+                id, supplied = id_or_data, data
+            else:
+                id = target.id if data is None else id_or_data
+                supplied = id_or_data if data is None else data
+                if not id:
+                    raise ValueError("Cannot update unsaved TTX without an id")
+            current = TTX.get(id, archived=True)
+            if current is None:
+                return None
+            native = StorableMixin.__dict__["update"].__get__(current, TTX)
+            result = native(supplied)
+            # 1. Native's final get hides archived rows; return the actual row.
+            saved = TTX.get(id, archived=True)
+            if result is None and saved is not None:
+                TTX._publish_lifecycle("after_update", saved.model_response())
+            return saved
         # 0. Resolve native call shapes without trusting a stale instance view.
         if isinstance(target, type):
             if data is None:
@@ -396,7 +481,7 @@ class TTX(ActorModel, auto_register=False):
             supplied = dict(supplied)
         else:
             raise ValueError("Update data must be a model or dictionary")
-        current = cls.get(id)
+        current = cls.get(id, archived=True)
         if current is None:
             return None
         # 1. Canonicalize aliases; identity input never changes the target row.
@@ -419,7 +504,7 @@ class TTX(ActorModel, auto_register=False):
         if cls is TTX:
             return super(TTX, TTX).delete(id)
         # 0. This read-before-delete is a type check, not an atomic predicate.
-        record = TTX.get(id)
+        record = TTX.get(id, archived=True)
         if record is None or record.kind != cls.__name__:
             return None
         return TTX.delete(id)
@@ -435,7 +520,7 @@ class TTX(ActorModel, auto_register=False):
         # 0. Validate both snapshots before any write; no type promotion occurs.
         record = self.ttx()
         record.value
-        current = TTX.get(self.id)
+        current = TTX.get(self.id, archived=True)
         if current is None:
             raise ValueError("Canonical TTX no longer exists")
         if current.kind != type(self).__name__:
@@ -461,6 +546,7 @@ class TTX(ActorModel, auto_register=False):
         record = TTX.from_tx(
             self.tx(),
             user_owner=self.user_owner if user_owner is None else user_owner,
+            archived=self.archived, status=self.status,
         )
         # 1. Projection preserves identity; it is not an insert/clone request.
         record.id, record.image = self.id, self.image
@@ -480,8 +566,14 @@ class TTX(ActorModel, auto_register=False):
 
 
 # Changelog
-# - 2026-11-10: Move Note/NoteMixin to note.py and Thread to thread.py;
-#   retain canonical TTX operations and the shared kind registry here.
+# - 2026-11-10:
+#   - Add archive/read state, detached raw extras and declared-field precedence.
+#   - Filter archived reads before list counts; include archived mutation rows.
+#   - Declare internal attach and lowercase messaging/read action stubs.
+#   - Move Note/NoteMixin to note.py and Thread to thread.py;
+#     retain canonical TTX operations and the shared kind registry here.
+#   - Forward native LIST envelope predicates and ordering through canonical
+#     storage while retaining typed kind-before-count restrictions.
 # - 2026-11-09: Scaffold one canonical TTX table and non-storable Note/Thread
 #   representations with explicit TX conversion and versioned content kinds.
 #   Materialize storage defaults for native create/get/list consistency.

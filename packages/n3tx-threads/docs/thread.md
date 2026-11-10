@@ -1,9 +1,10 @@
 # TTX storage and model notes
 
-## Current contract — 2026-11-09
+## Current contract — 2026-11-10
 
 The package exports `TTX` from `ttx.py`, `Note` and `NoteMixin` from `note.py`,
-and `Thread` from `thread.py`; package-level imports remain unchanged.
+`Thread` from `thread.py`, `Message` from `message.py`, and `ThreadedMixin` from
+`mixin.py`; existing package-level imports remain available.
 Only TTX is registered with storage, in table `ttx`. Legacy
 `n3tx_agents.Thread`/`TXRecord` remain independent and unchanged. The contract
 below the historical heading describes the discarded November 4 integration.
@@ -23,6 +24,17 @@ detached raw JSON. There is no automatic JSON-text parsing or reference I/O.
 Transaction-owned relationship hydration is disabled for embedded content;
 ordinary application-model hydration is not changed.
 
+Raw data is allowed on typed objects. Packing merges detached raw data first,
+then serialized declared content, so declared fields win. Decoding splits only
+the selected kind's declared content into attributes; remaining keys stay raw.
+An unknown raw key such as `source`, `id` or `status` cannot override envelope
+fields. No flatten-all-unknown-keys construction or compatibility branch exists.
+
+Local canonical fields are `archived: bool = False` and
+`status: Literal["READ", "UNREAD", "ASK"] = "READ"`. Conversion through `.ttx()`
+and `.value` retains both; `from_tx` accepts them as explicit keyword arguments.
+They are not added to the native seven-field TX envelope or `meta` implicitly.
+
 Canonical payloads use field names and ordinary model construction, retaining
 strictness and before-validators. **Field aliases are an unsupported gap**:
 aliased content can fail reconstruction or be reinterpreted through Pydantic
@@ -39,6 +51,54 @@ pagination and counting. Updates reload current state, validate merged fields,
 and replace supplied values rather than deep-merging. Save preserves ID and
 rejects deleted-row resurrection or kind changes. Exact-kind read/write checks
 are not atomic; callers must not infer concurrency or authorization guarantees.
+
+`get(..., archived=False)` and `list(..., archived=False)` hide archived rows;
+True includes both states. Archive predicates are ANDed with trusted filters
+and kind restrictions in SQL before counting or pagination. Typed get supports
+`as_dict=True`, returning the native canonical storage dictionary after kind
+selection, not a typed dictionary or public response. Internal update/save/
+delete reads include archived rows. Mutation return values include the written
+row even after it becomes archived; native update's final default get cannot
+be used as the sole mutation result. Typed population remains unsupported.
+
+### Messaging action contracts (behavior pending)
+
+Message has `name="MESSAGE"`, `kind="Message"` and strict nonblank `desc`.
+Thread has `name="THREAD"`, `kind="Thread"` and `latest: TTX | None = None`.
+latest is a canonical embedded snapshot packed into Thread data, not a Ref or
+implicit foreign key. Only TTX is registered; `/Message` and `/Thread` are not
+new persistent resources.
+
+```python
+# TTX: inherited unchanged by Thread
+def ATTACH(self, entry: TTX) -> TTX
+async def MESSAGE(self, desc: str, user: dict | None = None) -> dict
+def MARK_READ(self, user: dict | None = None) -> dict
+
+# ThreadedMixin: compose explicitly on public User
+def MESSAGE(
+    self, desc: str, uuid: str = "", timestamp: float = 0,
+    user: dict | None = None,
+) -> dict
+def THREADS(self, user: dict | None = None) -> list[dict]
+```
+
+All five bodies currently raise `NotImplementedError`; no fake success values
+are returned. ATTACH is internal, not exposed. Exposed suffixes are lowercase
+`/message`, `/mark_read` and `/threads`, matching native browser transport.
+Public methods deliberately advertise `dict` or `list[dict]` and must explicitly
+serialize canonical `model_response()` results when implemented. A typed return
+annotation does not automatically run the response pipeline and can lose or
+misrepresent canonical identity under native response-model handling.
+
+Owned-root MESSAGE sends; User.MESSAGE receives only and must not forward again.
+The sender forwards `desc`, `uuid` and `timestamp` in wire data and trusted user
+through native transport context. Receiver attribution requires injected
+`user_id`, never body identity. Native `Actor.send` stays unchanged. There is no
+REPLY action, `_receive_message`, dispatch override or automatic capture.
+Bootstrap is native create of an owned root followed by its MESSAGE action,
+not a second receiver-as-sender API. Runtime behavior and application default
+permissions are separate subsequent slices; existing Note access is not widened.
 
 `threads()` reads direct outgoing source matches; `history()` reads direct
 incoming target matches. Both use canonical local `ttx/<id>` identity and return
@@ -68,13 +128,13 @@ The package initializer side-effect imports `schema_ext.py`, like other optional
 N3TX packages. Native `@schema_extension(after="metadata")` registers its `ttx`
 stage. TTX.schema() describes canonical projection without kind-specific `data`
 validation. Known and unknown canonical kinds retain native object schemas.
-Typed schemas describe their kind constant, empty backing data and canonical
+Typed schemas describe their kind constant, raw backing data and canonical
 projection. Runtime `.value` validation and persistence remain unchanged.
 
 The stage adds `ttx` metadata (`canonical_model`, `canonical_schema`,
 `kind_field`, `transport_kind`, and `representation`). Matching existing named
-native host definitions receive the same metadata and typed kind/data
-invariants. Native stages own fields, methods, schema IDs and definitions.
+native host definitions receive the same metadata and typed kind constants.
+Native stages own fields, methods, schema IDs and definitions.
 The stage adds no payload definitions, conditional payload constraints, recursive
 reference repair or schema bundling. New kinds invalidate cached canonical
 schemas and hosts containing a TTX definition.
@@ -264,6 +324,11 @@ Implementation: [TTX](../src/n3tx_threads/ttx.py),
 [NotesMixin](../src/n3tx_threads/notes_mixin.py).
 
 ## Changelog
+
+- 2026-11-10: Declare contract-only messaging actions and embedded latest;
+  merge raw extras with authoritative declared content, add archive/read state,
+  and filter archive reads before counts while preserving mutation results.
+  Note adaptation is deferred; its API/schema compatibility is not a gate.
 
 - 2026-11-10: Relocate Note/NoteMixin and Thread to their own modules without
   changing behavior or package-level imports.

@@ -1,6 +1,6 @@
 # n3tx-threads
 
-## Current working contract — 2026-11-09
+## Current working contract — 2026-11-10
 
 This package is being developed alongside the existing `n3tx_agents.Thread`
 and `TXRecord`. It does not replace their bootstrap, consumers, or stored data.
@@ -32,7 +32,22 @@ class names identify kinds. An empty stored `kind` means base TTX.
 | `threads()` | Direct outgoing rows: `source == "ttx/<id>"` |
 | `history()` | Direct incoming rows: `target == "ttx/<id>"` |
 
-Typed content uses declared fields, not independently mutable packed `data`.
+Typed content merges raw `data` with declared fields; declared fields win on
+collisions. `.value` extracts only declared content keys into attributes and
+keeps all other keys in raw `data`, including envelope-looking keys. Raw extras
+cannot override envelope identity, routing or local state. Nonempty typed data
+is supported. `archived: bool = False` and
+`status: Literal["READ", "UNREAD", "ASK"] = "READ"` are local canonical fields:
+`.ttx()` and `.value` preserve them; native TX transport remains unchanged.
+
+`get(..., archived=False)` and `list(..., archived=False)` hide archived rows.
+`archived=True` includes all rows, not only archived ones. Lists apply archive
+and exact-kind restrictions in SQL before counts/pages. Internal update/save/
+delete reads include archived rows, and updates return the written row even
+when archived. Typed `get(as_dict=True)` returns the canonical native storage
+dictionary after exact-kind selection. These are trusted Python read controls,
+not a new HTTP query parameter or authorization policy.
+
 Strings remain text. Reconstruction uses canonical field names and ordinary
 model validation. **Field aliases are an unsupported gap**: aliased content can
 fail reconstruction or follow Pydantic alias precedence instead of preserving
@@ -41,6 +56,30 @@ Transaction content does not use transaction-level relationship hydration.
 Custom non-TTX nested constructors retain their own hydration/I/O behavior.
 Excluded fields are intentionally omitted during packing: required excluded
 fields can prevent reconstruction, and defaulted ones can reconstruct defaults.
+
+### Messaging contract-first slice
+
+The package now exports `Message` and `ThreadedMixin`. Message defaults to
+`name="MESSAGE"` and validates strict nonblank `desc`. Thread adds
+`latest: TTX | None = None`, a cached embedded canonical snapshot, not a Ref,
+foreign key, separate resource or implicit lookup.
+
+New actions are **stubs that raise `NotImplementedError`**. They do not yet send,
+receive, attach, mark read or list conversations:
+
+| Owner | Callable | HTTP suffix | Result contract |
+|---|---|---|---|
+| TTX, inherited by Thread | `ATTACH(entry: TTX)` | None; internal only | TTX |
+| TTX, inherited by Thread | `async MESSAGE(desc, user=None)` | `/message` | dict |
+| TTX, inherited by Thread | `MARK_READ(user=None)` | `/mark_read` | dict |
+| ThreadedMixin on User | `MESSAGE(desc, uuid='', timestamp=0, user=None)` | `/message` | dict |
+| ThreadedMixin on User | `THREADS(user=None)` | `/threads` | list[dict] |
+
+Public actions will explicitly return canonical `model_response()` dictionaries,
+not typed response models. The User action is receiver-only; owned-root MESSAGE
+is the sender. Native `Actor.send` is unchanged; there is no REPLY action,
+receive helper, inbox interception or loop-back sending. The implementation and
+application policy slices remain pending; this source does not enable chat.
 
 ### Explicit Notes capability
 
@@ -80,7 +119,7 @@ Schema `ttx` metadata describes canonical TTX identity, typed versus canonical
 representation, stored `kind`, and transport `meta.kind`. Canonical `data` has
 no kind-specific schema validation; runtime `.value` validation and persistence
 remain separate and unchanged. Typed schemas describe their class-name kind
-and empty backing data. No payload definitions, conditional payload constraints,
+and unrestricted raw backing data. No payload definitions or payload constraints,
 reference rewriting or schema bundling are added. Native complex/recursive
 schema and reference-closure gaps remain unsupported by this extension.
 Named schema IDs are not new storage resources or implemented HTTP aliases.
@@ -230,6 +269,11 @@ graph traversal or graph ACLs.
 See [TTX storage and model notes](docs/thread.md) for the current contract.
 
 ## Changelog
+
+- 2026-11-10: Add Message/ThreadedMixin contract-only actions, Thread latest,
+  archive/read state and raw-plus-declared content conversion. Archive reads
+  filter before counts; mutations retain archived rows. Preserve Note source;
+  adaptation to the new architecture is deferred, not a compatibility gate.
 
 - 2026-11-09: Limit the current schema stage to descriptive metadata and typed
   kind/data invariants; document the absence of canonical kind-specific payload

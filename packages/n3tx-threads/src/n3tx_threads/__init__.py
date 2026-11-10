@@ -1,21 +1,25 @@
 """Canonical TTX storage and explicit typed transaction capabilities.
 
-Exports: TTX owns storage; Note and Thread are typed views; NoteMixin supplies
-explicit host NOTE/NOTES methods. Import registers only the default schema
+Exports: TTX owns storage; Note, Message and Thread are typed views; NoteMixin
+supplies NOTE/NOTES; ThreadedMixin declares receiver/list action stubs.
+Import registers only the default schema
 pipeline's ttx stage. Applications register storage and compose hosts directly.
 no mixin flags, actors, tables or HTTP aliases are registered here."""
 
 from .ttx import TTX
 from .note import Note, NoteMixin
 from .thread import Thread
+from .message import Message
+from .mixin import ThreadedMixin
 
 # 0. Register the schema stage without installing runtime capabilities.
 from . import schema_ext as _schema_ext  # noqa: F401
 
-__all__ = ["TTX", "Note", "Thread", "NoteMixin"]
+__all__ = ["TTX", "Note", "Message", "Thread", "NoteMixin", "ThreadedMixin"]
 
 
 # Changelog (Python has no block-comment syntax).
+# - 2026-11-10: Export Message and contract-only ThreadedMixin explicitly.
 # - 2026-11-10: Import relocated types before registering the schema stage.
 # - 2026-11-09: Export explicit typed capabilities and register only the schema
 #   extension; remove obsolete module imports and global notes injection.
