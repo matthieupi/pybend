@@ -30,6 +30,16 @@ the selected kind's declared content into attributes; remaining keys stay raw.
 An unknown raw key such as `source`, `id` or `status` cannot override envelope
 fields. No flatten-all-unknown-keys construction or compatibility branch exists.
 
+Top-level `$id` and `$schema` string extras are accepted so native FastAPI CRUD
+response-model validation can retain public identity metadata. Every other
+undeclared top-level key is rejected, including on assignment. The same two
+reserved keys are accepted on input: native response validation uses the model
+without a separate response-only context. They remain nonauthoritative and are
+excluded from `_storage_dict()`, declared model fields and database columns.
+`model_response()` canonicalizes the object before native identity synthesis
+when response extras are present, so supplied metadata cannot override `$id` or
+`$schema`. Plain `model_dump()` can retain those validated response strings.
+
 Local canonical fields are `archived: bool = False` and
 `status: Literal["READ", "UNREAD", "ASK"] = "READ"`. Conversion through `.ttx()`
 and `.value` retains both; `from_tx` accepts them as explicit keyword arguments.
@@ -61,7 +71,12 @@ delete reads include archived rows. Mutation return values include the written
 row even after it becomes archived; native update's final default get cannot
 be used as the sole mutation result. Typed population remains unsupported.
 
-### Messaging action contracts (behavior pending)
+Raw dictionary reads decode `archived` with Pydantic boolean validation before
+testing visibility. Native new-table creation currently declares booleans as
+TEXT, so dictionary reads can contain `"0"`/`"1"`; Python string truthiness is
+not an archive predicate. Returned dictionaries retain the decoded boolean.
+
+### Explicit local messaging actions
 
 Message has `name="MESSAGE"`, `kind="Message"` and strict nonblank `desc`.
 Thread has `name="THREAD"`, `kind="Thread"` and `latest: TTX | None = None`.
@@ -71,34 +86,84 @@ new persistent resources.
 
 ```python
 # TTX: inherited unchanged by Thread
+@classmethod
+def OPEN_THREAD(
+    cls, peer: str, user: dict | None = None,
+) -> dict[str, object]
 def ATTACH(self, entry: TTX) -> TTX
-async def MESSAGE(self, desc: str, user: dict | None = None) -> dict
-def MARK_READ(self, user: dict | None = None) -> dict
+async def MESSAGE(
+    self, desc: str, user: dict | None = None,
+) -> dict[str, object]
+def MARK_READ(self, user: dict | None = None) -> dict[str, object]
 
 # ThreadedMixin: compose explicitly on public User
 def MESSAGE(
     self, desc: str, uuid: str = "", timestamp: float = 0,
     user: dict | None = None,
-) -> dict
-def THREADS(self, user: dict | None = None) -> list[dict]
+) -> dict[str, object]
+def THREADS(self, user: dict | None = None) -> list[dict[str, object]]
 ```
 
-All five bodies currently raise `NotImplementedError`; no fake success values
-are returned. ATTACH is internal, not exposed. Exposed suffixes are lowercase
+These actions are implemented in source; runtime acceptance is separate.
+ATTACH is internal, not exposed. Exposed suffixes are lowercase `/open_thread`,
 `/message`, `/mark_read` and `/threads`, matching native browser transport.
-Public methods deliberately advertise `dict` or `list[dict]` and must explicitly
-serialize canonical `model_response()` results when implemented. A typed return
+Public methods advertise `dict[str, object]` or `list[dict[str, object]]` and
+explicitly serialize canonical `model_response()` results. A typed return
 annotation does not automatically run the response pipeline and can lose or
 misrepresent canonical identity under native response-model handling.
+Native type inference recognizes parameterized dictionaries as objects; bare
+`dict` currently falls through to its string schema fallback. This is not a
+postponed-annotation resolution issue, and no global schema repair is installed.
 
 Owned-root MESSAGE sends; User.MESSAGE receives only and must not forward again.
-The sender forwards `desc`, `uuid` and `timestamp` in wire data and trusted user
+The sender forwards `id`, `desc`, `uuid` and `timestamp` in wire data and user
 through native transport context. Receiver attribution requires injected
 `user_id`, never body identity. Native `Actor.send` stays unchanged. There is no
 REPLY action, `_receive_message`, dispatch override or automatic capture.
-Bootstrap is native create of an owned root followed by its MESSAGE action,
-not a second receiver-as-sender API. Runtime behavior and application default
-permissions are separate subsequent slices; existing Note access is not widened.
+Bootstrap is `TTX.OPEN_THREAD(peer, user)` followed by the root's MESSAGE action,
+not generic public CREATE or a second receiver-as-sender API. It validates an
+existing local `users/<id>` peer, rejects self and finds/creates the caller's
+owner-local root. Archived matches reopen without clearing existing read state.
+No global create authorization or another model's caller context is changed.
+Application permissions/activation remain separate; Note access is not widened.
+
+Roots are peer-to-owner local views: `source` is the peer, `target` is the owner,
+and `user_owner` is the owner ID. For owner 1/peer 2, use source `users/2`, target
+`users/1`, user_owner 1. The opposite full view uses source `users/1`, target
+`users/2`, user_owner 2. Each view contains the full bidirectional conversation;
+send uses the saved root's peer source. Message transport and directional graph
+query filters retain their own source/target semantics.
+
+Sender and read actions reload exact Thread roots, verify existing caller,
+`user_owner` and owner target, and reject remote/self peers. Send constructs
+Message(source=owner, target=peer), attaches an owner-local clone, then uses
+native `Actor.root().send` targeting the registered `users` actor with recipient
+`id` in data. This avoids instance/class bubbling prefixes on the logical
+source. Caller metadata is deep-copied for transport and never persisted.
+The canonical local-root return is not a delivery receipt or delivered flag.
+
+Receiver MESSAGE validates the saved registered User host and injected author,
+then performs an inline pair lookup including archives and attaches locally.
+An empty UUID generates a fresh identity; nonempty UUID and finite nonnegative
+time are retained. Invalid UUID/time are rejected before roots are created.
+Direct native parsing still requires explicit UUID/time despite defaults.
+Receiver identity comes from the host, never a replacement caller dictionary.
+
+ATTACH is trusted Python: it requires a saved Thread, rejects nested Thread
+entries, clones with a fresh local row ID, target `ttx/<root-id>`, root-owner
+attribution and no `meta.user`. UUID/time survive; archived state resets false.
+It reopens the root, caches the canonical saved snapshot and marks inbound
+author addresses UNREAD. Outgoing attach preserves existing UNREAD/ASK state.
+MARK_READ changes only the authorized root status; THREADS checks host/caller
+ownership and selects exact visible Thread roots by target and owner in SQL.
+
+Child update/archive/delete refreshes only directly targeted Thread caches from
+visible non-Thread children, ordered by descending event timestamp. No visible
+child yields latest=None; equal timestamps have no defined relative order.
+Root-cache updates do not recursively propagate to another root. Deleting a
+root does not cascade children. Pair create, append/cache and send/receive are
+separate writes, not atomic or concurrency-safe operations. Partial history,
+uncertain delivery and duplicate roots/retries remain possible.
 
 `threads()` reads direct outgoing source matches; `history()` reads direct
 incoming target matches. Both use canonical local `ttx/<id>` identity and return
@@ -135,6 +200,9 @@ The stage adds `ttx` metadata (`canonical_model`, `canonical_schema`,
 `kind_field`, `transport_kind`, and `representation`). Matching existing named
 native host definitions receive the same metadata and typed kind constants.
 Native stages own fields, methods, schema IDs and definitions.
+Top-level `additionalProperties` remains false with a `patternProperties`
+exception for string `$id`/`$schema`. This describes the same runtime metadata
+boundary without declaring new persisted fields or allowing arbitrary extras.
 The stage adds no payload definitions, conditional payload constraints, recursive
 reference repair or schema bundling. New kinds invalidate cached canonical
 schemas and hosts containing a TTX definition.
@@ -325,10 +393,20 @@ Implementation: [TTX](../src/n3tx_threads/ttx.py),
 
 ## Changelog
 
+- 2026-11-10: Allow only string public identity extras for native CRUD response
+  validation, exclude metadata from storage and rederive canonical identities;
+  describe the same narrow top-level schema exceptions.
+
+- 2026-11-10: Implement local OPEN_THREAD bootstrap and explicit sender/receiver,
+  attach/cache, read and owner-list behavior without generic CREATE changes;
+  document direct child cache maintenance and non-atomic delivery limitations.
+
 - 2026-11-10: Declare contract-only messaging actions and embedded latest;
   merge raw extras with authoritative declared content, add archive/read state,
   and filter archive reads before counts while preserving mutation results.
   Note adaptation is deferred; its API/schema compatibility is not a gate.
+  Parameterize public dictionary returns for native object discovery, decode
+  raw archive booleans, and clarify peer-source/owner-target root direction.
 
 - 2026-11-10: Relocate Note/NoteMixin and Thread to their own modules without
   changing behavior or package-level imports.

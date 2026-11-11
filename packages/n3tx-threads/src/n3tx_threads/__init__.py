@@ -1,7 +1,7 @@
 """Canonical TTX storage and explicit typed transaction capabilities.
 
 Exports: TTX owns storage; Note, Message and Thread are typed views; NoteMixin
-supplies NOTE/NOTES; ThreadedMixin declares receiver/list action stubs.
+supplies NOTE/NOTES; ThreadedMixin supplies receiver/list actions.
 Import registers only the default schema
 pipeline's ttx stage. Applications register storage and compose hosts directly.
 no mixin flags, actors, tables or HTTP aliases are registered here."""
@@ -19,6 +19,7 @@ __all__ = ["TTX", "Note", "Message", "Thread", "NoteMixin", "ThreadedMixin"]
 
 
 # Changelog (Python has no block-comment syntax).
+# - 2026-11-10: Describe implemented explicit receiver/list capabilities.
 # - 2026-11-10: Export Message and contract-only ThreadedMixin explicitly.
 # - 2026-11-10: Import relocated types before registering the schema stage.
 # - 2026-11-09: Export explicit typed capabilities and register only the schema

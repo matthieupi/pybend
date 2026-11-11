@@ -40,6 +40,15 @@ is supported. `archived: bool = False` and
 `status: Literal["READ", "UNREAD", "ASK"] = "READ"` are local canonical fields:
 `.ttx()` and `.value` preserve them; native TX transport remains unchanged.
 
+Native CRUD response validation accepts only string `$id`/`$schema` top-level
+extras alongside declared fields. All other undeclared top-level keys remain
+invalid on construction/validation and assignment. These two reserved keys are
+also accepted on input because native response validation uses the same model;
+they are nonauthoritative, never storage fields, and never database columns.
+`model_response()` rederives canonical identity rather than trusting supplied
+metadata. Raw content extras still belong inside `data`. Schema describes the
+two reserved string exceptions while rejecting other top-level extras.
+
 `get(..., archived=False)` and `list(..., archived=False)` hide archived rows.
 `archived=True` includes all rows, not only archived ones. Lists apply archive
 and exact-kind restrictions in SQL before counts/pages. Internal update/save/
@@ -57,29 +66,77 @@ Custom non-TTX nested constructors retain their own hydration/I/O behavior.
 Excluded fields are intentionally omitted during packing: required excluded
 fields can prevent reconstruction, and defaulted ones can reconstruct defaults.
 
-### Messaging contract-first slice
+### Explicit local messaging
 
 The package now exports `Message` and `ThreadedMixin`. Message defaults to
 `name="MESSAGE"` and validates strict nonblank `desc`. Thread adds
 `latest: TTX | None = None`, a cached embedded canonical snapshot, not a Ref,
 foreign key, separate resource or implicit lookup.
 
-New actions are **stubs that raise `NotImplementedError`**. They do not yet send,
-receive, attach, mark read or list conversations:
+Messaging actions are implemented in source. Only TTX owns storage; compose
+ThreadedMixin on the registered local User model and register its native actor.
+Runtime/transport verification and application activation are separate work:
 
 | Owner | Callable | HTTP suffix | Result contract |
 |---|---|---|---|
+| TTX class | `OPEN_THREAD(peer, user=None)` | `/open_thread` | dict |
 | TTX, inherited by Thread | `ATTACH(entry: TTX)` | None; internal only | TTX |
 | TTX, inherited by Thread | `async MESSAGE(desc, user=None)` | `/message` | dict |
 | TTX, inherited by Thread | `MARK_READ(user=None)` | `/mark_read` | dict |
 | ThreadedMixin on User | `MESSAGE(desc, uuid='', timestamp=0, user=None)` | `/message` | dict |
 | ThreadedMixin on User | `THREADS(user=None)` | `/threads` | list[dict] |
 
-Public actions will explicitly return canonical `model_response()` dictionaries,
-not typed response models. The User action is receiver-only; owned-root MESSAGE
+Public actions explicitly return canonical `model_response()` dictionaries,
+not typed response models. Return annotations use `dict[str, object]` and
+`list[dict[str, object]]`: native schema inference recognizes parameterized
+dictionaries as objects but currently describes bare `dict` as a string.
+Raw `get(as_dict=True)` normalizes the archive boolean before visibility checks;
+native new-table boolean columns use TEXT, so raw `"0"` must not hide a row.
+The User action is receiver-only; owned-root MESSAGE
 is the sender. Native `Actor.send` is unchanged; there is no REPLY action,
-receive helper, inbox interception or loop-back sending. The implementation and
-application policy slices remain pending; this source does not enable chat.
+receive helper, inbox interception or loop-back sending. Application policy and
+activation remain separately owned; this package does not widen Note access or
+certify enabled chat.
+
+Conversation root direction is peer-to-owner: `source` identifies the peer,
+`target` identifies the owner, and `user_owner` is the owner ID. For owner 1 and
+peer 2: `source="users/2"`, `target="users/1"`, `user_owner=1`. The other full
+view has `source="users/1"`, `target="users/2"`, `user_owner=2`. Sending uses the
+saved root's peer **source**, not its owner target. This root convention does
+not reverse Message transport or the existing directional graph-query filters.
+
+Bootstrap uses `POST /TTX/open_thread {"peer":"users/2"}` with trusted caller 1,
+then `POST /TTX/<returned-id>/message {"desc":"Hello"}`. OPEN_THREAD validates
+local `users/<id>` peers, rejects self, and finds or creates the caller-owned
+view, including archived matches which it reopens without clearing read state.
+It does not grant generic TTX CREATE or alter another model's auth context.
+
+Sender actions reload a saved Thread and check both `user_owner` and owner
+target against an existing injected caller. They build Message(source=owner,
+target=peer), save an owner-local clone, then call native Matrix.send with
+target `users`, explicit recipient `id`, `desc`, `uuid`, `timestamp`, and detached
+caller metadata. Transport caller metadata is never packed into local history.
+The result is the canonical sender root, not a delivered flag or receipt proof.
+
+Receiver MESSAGE validates the saved local User host and existing caller,
+finds/creates the opposite owner-local view and attaches without sending onward.
+Empty UUID generates a fresh Message identity; nonempty UUID and finite
+nonnegative event time are preserved. Native direct callers must still supply
+both arguments because the direct parser does not honor signature defaults.
+
+Internal ATTACH clones, resets row ID, sets target to `ttx/<root-id>`, copies
+root ownership and drops `meta.user`. It rejects nested Thread containers,
+updates latest with the canonical saved snapshot, and reopens archived roots.
+Inbound author addresses mark UNREAD; outbound append does not clear existing
+UNREAD or ASK. MARK_READ changes only the authorized root to READ. THREADS
+requires caller/host identity and filters Thread kind, target and owner in SQL.
+
+Child update/archive/delete refreshes only its directly targeted root's latest
+from visible non-Thread children by descending timestamp; ties have no defined
+order. It does not recursively propagate cache changes or remove child history
+when deleting a root. Pair creation, append/cache writes and send/receive writes
+are not atomic. Duplicate concurrent roots, partial history, uncertain delivery
+and duplicate retries remain possible; no deduplication or durability is claimed.
 
 ### Explicit Notes capability
 
@@ -270,10 +327,20 @@ See [TTX storage and model notes](docs/thread.md) for the current contract.
 
 ## Changelog
 
+- 2026-11-10: Retain reserved string response identities through native CRUD
+  response validation while rejecting other top-level extras; keep metadata
+  nonpersisted and rederive canonical identity for public responses.
+
+- 2026-11-10: Implement explicit OPEN_THREAD bootstrap, owned send/read actions,
+  receiver-only local receipt and owner-scoped roots; clone/cache entries and
+  refresh direct latest snapshots after child mutations without recursive flow.
+
 - 2026-11-10: Add Message/ThreadedMixin contract-only actions, Thread latest,
   archive/read state and raw-plus-declared content conversion. Archive reads
   filter before counts; mutations retain archived rows. Preserve Note source;
   adaptation to the new architecture is deferred, not a compatibility gate.
+  Parameterize dictionary returns for native object schemas, decode raw archive
+  booleans for dictionary reads, and clarify peer-source/owner-target roots.
 
 - 2026-11-09: Limit the current schema stage to descriptive metadata and typed
   kind/data invariants; document the absence of canonical kind-specific payload

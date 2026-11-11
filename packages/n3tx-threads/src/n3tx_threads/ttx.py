@@ -12,7 +12,8 @@ API Surface:
     TTX.history()       — Direct incoming records for a saved canonical row
     TTX.create/get/save  — Raw native or exact-kind projected persistence
     TTX.list/update/delete — Native-shaped, exact-kind typed projections
-    TTX.ATTACH/MESSAGE/MARK_READ — Contract-only messaging action stubs
+    TTX.OPEN_THREAD    — Find/create a local owner-specific conversation root
+    TTX.ATTACH/MESSAGE/MARK_READ — Explicit local append, send and read actions
     .tx() / .ttx()       — Convert a typed object to transport or storage
 
 Note and NoteMixin live in note.py; Thread lives in thread.py. Import public
@@ -23,8 +24,11 @@ The kind field identifies content by class name independently of operation name.
 An empty kind denotes base TTX; unknown text remains opaque. Canonical metadata
 excludes kind; ordinary TX transport packs it into meta['kind'] only.
 Class names are stable storage/wire contracts; renaming needs migration review.
-No JSON-text parsing, reference hydration, dispatch or implicit writes occur.
+Conversion does not parse JSON text, hydrate references, dispatch or write.
+Messaging actions explicitly persist history and route through native Matrix.
 Content uses canonical field names; field aliases are an unsupported gap.
+Only string $id/$schema response extras are accepted at the top level; they
+are nonauthoritative and excluded from canonical storage writes.
 
 Register only TTX against explicitly selected storage. Native CRUD is trusted
 Python, not caller authorization; actions must authorize and remove secrets
@@ -52,15 +56,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict
+import re
 from time import time
 from typing import ClassVar, Literal, Optional
 from uuid import uuid4
 
 from pydantic import (
-    BaseModel, ConfigDict, Field, JsonValue, field_validator,
+    BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, field_validator,
     model_validator,
 )
 
+from n3tx_actors.actor import Actor
 from n3tx_actors.models.actor_model import ActorModel
 from n3tx_actors.tx import TX
 from n3tx_core.authorize import NEVER
@@ -68,9 +74,63 @@ from n3tx_core.models.storable_mixin import StorableMixin
 from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.utils.descriptors import fullmethod
 from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.erroring import MethodError
+from n3tx_core.utils.registrar import registered_models
 
 
 _KNOWN_KINDS: dict[str, type[TTX]] = {}
+
+
+def _caller(user: dict | None) -> tuple[type[ActorModel], int, str]:
+    """Resolve a positive injected caller against the registered local User."""
+    # 0. Body identities are not authority; ingress supplies the named user.
+    user_id = user.get("user_id") if isinstance(user, dict) else None
+    if type(user_id) is not int or not 0 < user_id <= 2**63 - 1:
+        raise MethodError("An authenticated caller is required", 401)
+    users = registered_models.get("users")
+    if users is None or not issubclass(users, ActorModel):
+        raise MethodError("Local User storage is unavailable", 503)
+    if users.get(user_id) is None:
+        raise MethodError("Caller is unavailable", 403)
+    return users, user_id, f"users/{user_id}"
+
+
+def _local_user(address: str, users: type[ActorModel]) -> int:
+    """Validate an existing local users/id address without reference I/O."""
+    # 0. Reject remote, aliased, noncanonical and oversized peer identities.
+    if not isinstance(address, str) or not re.fullmatch(
+        r"users/[1-9][0-9]{0,18}", address,
+    ):
+        raise MethodError("Peer must be a local users/id address", 400)
+    user_id = int(address.split("/")[1])
+    if user_id > 2**63 - 1:
+        raise MethodError("Peer ID is out of range", 400)
+    if users.get(user_id) is None:
+        raise MethodError("Peer is unavailable", 404)
+    return user_id
+
+
+def _refresh_latest(target: str) -> None:
+    """Refresh one direct Thread cache after a child mutation or deletion."""
+    # 0. Only canonical immediate root links participate; never traverse graphs.
+    if not re.fullmatch(r"ttx/[1-9][0-9]{0,18}", target):
+        return
+    root_id = int(target.split("/")[1])
+    if root_id > 2**63 - 1:
+        return
+    root = TTX.get(root_id, archived=True)
+    if root is None or root.kind != "Thread":
+        return
+    # 1. Keep one visible direct snapshot, excluding nested Thread containers.
+    page = TTX.list(
+        sql_filter=("target = ? AND kind != ?", [target, "Thread"]),
+        order_desc="timestamp", limit=1,
+    )
+    latest = page["data"][0] if page["data"] else None
+    data = deepcopy(root.data)
+    data["latest"] = None if latest is None else latest.model_dump(mode="json")
+    # 2. Root updates do not refresh another root or propagate recursively.
+    TTX.update(root.id, {"data": data})
 
 
 def _canonical_only(native):
@@ -107,6 +167,9 @@ class TTX(ActorModel, auto_register=False):
         model_response()      — Canonical identity/schema for typed objects
         _storage_dict()       — Include defaults in native row writes
         threads() / history() — Query direct outgoing/incoming records
+        OPEN_THREAD()         — Bootstrap an owner-local peer conversation
+        ATTACH()              — Trusted clone/cache append, without dispatch
+        MESSAGE() / MARK_READ() — Owned-root sending and shared read state
 
     The split: register this model, never the typed representations. Native
     CRUD does not enforce __access__; deny-all is a transport declaration.
@@ -117,7 +180,8 @@ class TTX(ActorModel, auto_register=False):
     Typed save replaces only a live same-kind row and returns a persisted view.
     Writes are trusted, last-write-wins, not authorization or compare-and-swap.
     Typed lists bind kind before pagination/counting. Update/delete kind checks
-    are read-then-write, not atomic guards; no HTTP registration is implied.
+    are read-then-write, not atomic guards. Exposed messaging actions also
+    enforce saved local owner identity; ingress still owns role policy.
 
     Usage:
         draft = TTX.from_tx(TX("EVENT", "worker", "sink", data={"n": 1}))
@@ -128,7 +192,7 @@ class TTX(ActorModel, auto_register=False):
     __access__: ClassVar[dict] = {"*": NEVER}
     _content_fields: ClassVar[tuple[str, ...]] = ()
     model_config = ConfigDict(
-        extra="forbid", validate_assignment=True, allow_inf_nan=False,
+        extra="allow", validate_assignment=True, allow_inf_nan=False,
         populate_by_name=True, validate_by_name=True,
     )
 
@@ -155,11 +219,17 @@ class TTX(ActorModel, auto_register=False):
         return data
 
     def _storage_dict(self, exclude_unset: bool = True) -> dict:
-        """Materialize defaults so native create never writes missing JSON."""
+        """Materialize defaults without persisting response identity extras."""
         if type(self) is not TTX:
             raise TypeError("Use canonical TTX storage after typed.ttx()")
         # 0. SQLite inserts all columns, even when native create omits defaults.
-        values = super()._storage_dict(exclude_unset=False)
+        values = {
+            name: value
+            for name, value in super()._storage_dict(
+                exclude_unset=False,
+            ).items()
+            if name in TTX.model_fields
+        }
         values["meta"] = self._projection_meta()
         return values
 
@@ -243,29 +313,123 @@ class TTX(ActorModel, auto_register=False):
         })
 
     def ATTACH(self, entry: TTX) -> TTX:
-        """Attach an entry to this root; contract only until the next slice.
+        """Clone an entry into this saved Thread and update its local cache.
 
-        Trusted Python only; the caller owns authorization. The implementation
-        will persist the outgoing record and refresh a Thread latest snapshot.
-        Raises NotImplementedError until messaging behavior is implemented."""
-        raise NotImplementedError("TTX.ATTACH behavior is not implemented")
+        Trusted Python only; caller owns authorization. Attribution belongs to
+        the root owner, not the author. Inbound content marks the root UNREAD;
+        outbound content preserves existing state. Writes are not atomic."""
+        # 0. Reload even archived roots; no nested Thread caches are permitted.
+        root = TTX.get(self.id, archived=True) if self.id > 0 else None
+        if root is None or root.kind != "Thread":
+            raise MethodError("ATTACH requires a saved Thread root", 400)
+        if not isinstance(entry, TTX) or entry.kind == "Thread":
+            raise MethodError("Attach a TTX entry, not a Thread root", 400)
+        # 1. Clone identity locally, retaining UUID/time and detached content.
+        clone = entry.ttx()
+        clone.id = 0
+        clone.target = f"ttx/{root.id}"
+        clone.user_owner = root.user_owner
+        clone.archived = False
+        clone.meta.pop("user", None)
+        inbound = clone.source != root.target
+        clone.status = "UNREAD" if inbound else "READ"
+        saved = TTX.create(clone)
+        # 2. Reopen on append; sending must not clear an unread incoming turn.
+        data = deepcopy(root.data)
+        data["latest"] = saved.model_dump(mode="json")
+        TTX.update(root.id, {
+            "data": data, "archived": False,
+            "status": "UNREAD" if inbound else root.status,
+        })
+        return saved
+
+    @classmethod
+    @expose_route("/open_thread", methods=["POST"])
+    def OPEN_THREAD(
+        cls, peer: str, user: dict | None = None,
+    ) -> dict[str, object]:
+        """Find/create an owner-local peer Thread without granting generic CRUD.
+
+        Peer must be an existing different local User. Archived matches reopen
+        without clearing read state. Pair lookup/create is not a unique or
+        concurrent transaction guarantee. Return a canonical root dictionary."""
+        from .thread import Thread
+
+        # 0. Native named caller injection defines the owner, never the body.
+        users, owner_id, owner = _caller(user)
+        peer_id = _local_user(peer, users)
+        if peer_id == owner_id:
+            raise MethodError("A conversation requires a different peer", 400)
+        # 1. Reuse both archive states; pair predicates run before selection.
+        roots = Thread.list(
+            where={"source": peer, "target": owner, "user_owner": owner_id},
+            archived=True, limit=1,
+        )["data"]
+        if roots:
+            root = roots[0].ttx()
+            if root.archived:
+                root = TTX.update(root.id, {"archived": False})
+        else:
+            root = Thread.create(Thread(
+                source=peer, target=owner, user_owner=owner_id,
+            )).ttx()
+        return root.model_response()
+
+    def _owned_root(self, user: dict | None) -> TTX:
+        """Reload a saved Thread and enforce ownership on every transport."""
+        # 0. Raw Matrix may omit HTTP policy fallback; enforce domain ownership.
+        users, owner_id, owner = _caller(user)
+        root = TTX.get(self.id, archived=True) if self.id > 0 else None
+        if root is None or root.kind != "Thread":
+            raise MethodError("A saved Thread root is required", 404)
+        if root.user_owner != owner_id or root.target != owner:
+            raise MethodError("Thread ownership is required", 403)
+        if _local_user(root.source, users) == owner_id:
+            raise MethodError("A conversation requires a different peer", 400)
+        return root
 
     @expose_route("/message", methods=["POST"])
-    async def MESSAGE(self, desc: str, user: dict | None = None) -> dict:
+    async def MESSAGE(
+        self, desc: str, user: dict | None = None,
+    ) -> dict[str, object]:
         """Send from an owned root and return its canonical response dict.
 
-        Native ingress injects user. This sender action is inherited by Thread;
-        it is distinct from the receiver-only ThreadedMixin.MESSAGE action.
-        Raises NotImplementedError until messaging behavior is implemented."""
-        raise NotImplementedError("TTX.MESSAGE behavior is not implemented")
+        Native ingress injects user. Local history is saved before native send;
+        the returned root is not evidence of durable delivery. Failure or
+        response loss can leave partial history; never retry automatically."""
+        from .message import Message
+
+        # 0. Validate ownership, content and the existing native User actor.
+        root = self._owned_root(user)
+        router = Actor.root()
+        users = registered_models["users"]
+        if router is None or router.children.get("users") is not users:
+            raise MethodError("Local User actor is unavailable", 503)
+        message = Message(source=root.target, target=root.source, desc=desc)
+        # 1. Persist a local copy; transport keeps the logical peer addressing.
+        root.ATTACH(message)
+        wire = TX(
+            "MESSAGE", source=message.source, target="users",
+            data={
+                "id": int(root.source.split("/")[1]), "desc": message.desc,
+                "uuid": message.uuid, "timestamp": message.timestamp,
+            },
+            uuid=message.uuid, timestamp=message.timestamp,
+            meta={"user": deepcopy(user)},
+        )
+        # 2. Route through Matrix directly to avoid TTX actor source prefixes.
+        await router.send(wire)
+        return TTX.get(root.id, archived=True).model_response()
 
     @expose_route("/mark_read", methods=["POST"])
-    def MARK_READ(self, user: dict | None = None) -> dict:
+    def MARK_READ(self, user: dict | None = None) -> dict[str, object]:
         """Mark this root READ and return an explicit canonical response dict.
 
-        Native ingress injects user; root authorization belongs to the next
-        implementation slice. Raises NotImplementedError until implemented."""
-        raise NotImplementedError("TTX.MARK_READ behavior is not implemented")
+        Native ingress injects user; raw Matrix and Python receive the same
+        owner check. Only root state changes; no per-user receipt is added."""
+        # 0. Reload and authorize the saved root before its state transition.
+        root = self._owned_root(user)
+        return TTX.update(root.id, {"status": "READ"}).model_response()
 
     def _saved_addr(self) -> str:
         """Require an existing row and use its canonical local identity."""
@@ -289,10 +453,17 @@ class TTX(ActorModel, auto_register=False):
     @model_validator(mode="before")
     @classmethod
     def _typed_defaults(cls, value):
-        """Normalize kind once; generate identity/time only for typed input."""
+        """Check top-level input and normalize typed envelope defaults."""
         if not isinstance(value, dict):
             return value
-        # 0. Keep canonical UUID/time required; never mutate caller input.
+        # 0. Native response validation needs only two reserved string extras.
+        extra = value.keys() - cls.model_fields.keys()
+        if extra - {"$id", "$schema"}:
+            raise ValueError("Undeclared TTX top-level fields are not allowed")
+        for name in extra:
+            if not isinstance(value[name], str):
+                raise ValueError(f"{name} response metadata must be text")
+        # 1. Keep canonical UUID/time required; never mutate caller input.
         values = dict(value)
         meta = values.get("meta", {})
         if isinstance(meta, dict):
@@ -305,7 +476,7 @@ class TTX(ActorModel, auto_register=False):
                     raise ValueError("kind and meta.kind must agree")
                 values["kind"] = reserved
             values["meta"] = meta
-        # 1. Missing raw kinds stay empty; typed defaults use the concrete name.
+        # 2. Missing raw kinds stay empty; typed defaults use the concrete name.
         if "kind" not in values:
             values["kind"] = "" if cls is TTX else cls.__name__
         if cls is not TTX:
@@ -365,16 +536,20 @@ class TTX(ActorModel, auto_register=False):
     ) -> TTX | dict | None:
         """Load a visible row; archived=True includes both archive states.
 
-        as_dict preserves native canonical storage dictionaries, even for an
-        exact-kind typed lookup. Typed population remains unsupported."""
+        as_dict preserves canonical storage dictionaries with a decoded archive
+        boolean, even for typed lookup. Typed population remains unsupported."""
         if cls is TTX:
             record = super(TTX, TTX).get(
                 id, as_dict=as_dict, populate=populate,
             )
-            hidden = (
-                record.get("archived", False) if isinstance(record, dict)
-                else getattr(record, "archived", False)
-            )
+            # 0. New native tables use TEXT for bool; decode raw "0" first.
+            if isinstance(record, dict):
+                record["archived"] = TypeAdapter(bool).validate_python(
+                    record.get("archived", False),
+                )
+                hidden = record["archived"]
+            else:
+                hidden = getattr(record, "archived", False)
             return None if hidden and not archived else record
         if populate is not None:
             raise TypeError("Use canonical TTX.get for native population")
@@ -462,6 +637,11 @@ class TTX(ActorModel, auto_register=False):
             saved = TTX.get(id, archived=True)
             if result is None and saved is not None:
                 TTX._publish_lifecycle("after_update", saved.model_response())
+            # 2. Child edits refresh only direct caches, never root ancestors.
+            if current.kind != "Thread":
+                _refresh_latest(current.target)
+                if saved is not None and saved.target != current.target:
+                    _refresh_latest(saved.target)
             return saved
         # 0. Resolve native call shapes without trusting a stale instance view.
         if isinstance(target, type):
@@ -502,7 +682,12 @@ class TTX(ActorModel, auto_register=False):
     def delete(cls, id: int):
         """Delete only an exact-kind row; native deletion returns None."""
         if cls is TTX:
-            return super(TTX, TTX).delete(id)
+            # 0. Retain one old link for direct cache repair after deletion.
+            current = TTX.get(id, archived=True)
+            result = super(TTX, TTX).delete(id)
+            if current is not None and current.kind != "Thread":
+                _refresh_latest(current.target)
+            return result
         # 0. This read-before-delete is a type check, not an atomic predicate.
         record = TTX.get(id, archived=True)
         if record is None or record.kind != cls.__name__:
@@ -556,17 +741,25 @@ class TTX(ActorModel, auto_register=False):
         """Serialize a canonical public identity, never a separate typed row."""
         # 0. Mutable metadata must obey the same rule on every projection.
         self._projection_meta()
-        if type(self) is TTX:
+        if type(self) is TTX and not self.model_extra:
             response = super().model_response(**kwargs)
             selected = response.get("meta")
             if isinstance(selected, dict):
                 selected.pop("kind", None)
             return response
+        # 1. Reproject response extras before native stages synthesize identity.
         return self.ttx().model_response(**kwargs)
 
 
 # Changelog
 # - 2026-11-10:
+#   - Accept only string response identity extras for native CRUD validation;
+#     omit them from storage and rederive canonical response identity.
+#   - Implement local OPEN_THREAD, attach/latest, owned send and read actions.
+#   - Refresh direct root caches on child mutations without graph propagation.
+#   - Keep caller metadata transient and use native Matrix send unchanged.
+#   - Parameterize public dict returns for native object schema discovery.
+#   - Decode raw stored archive booleans before dictionary-read visibility.
 #   - Add archive/read state, detached raw extras and declared-field precedence.
 #   - Filter archived reads before list counts; include archived mutation rows.
 #   - Declare internal attach and lowercase messaging/read action stubs.

@@ -4,6 +4,8 @@ API: ttx(cls, schema) enriches canonical TTX, typed views and matching host
 definitions after metadata. Native stages own fields, methods, access, IDs and
 definitions. Typed views describe their kind and permit raw backing data;
 canonical data has no kind-specific validation. Runtime decoding is separate.
+Top-level extras are forbidden except string $id/$schema response metadata;
+these schema exceptions do not declare persisted model fields.
 
 Importing n3tx_threads registers this stage in the default pipeline only. The
 ttx metadata describes projection; it does not redirect routes or browser NTT
@@ -26,8 +28,13 @@ def _decorate(cls: type[TTX], schema: dict) -> None:
         "transport_kind": "meta.kind",
         "representation": "canonical" if cls is TTX else "typed",
     }
+    # 1. Response validation retains reserved metadata, not arbitrary extras.
+    schema["additionalProperties"] = False
+    schema.setdefault("patternProperties", {})[r"^\$(id|schema)$"] = {
+        "type": "string",
+    }
     if cls is not TTX:
-        # 1. Typed views declare content and retain additional raw data keys.
+        # 2. Typed views declare content and retain additional raw data keys.
         properties = schema.setdefault("properties", {})
         properties.setdefault("kind", {}).update(
             const=cls.__name__, default=cls.__name__,
@@ -53,6 +60,8 @@ def ttx(cls, schema: dict) -> dict:
 
 
 # Changelog (Python has no block-comment syntax).
+# - 2026-11-10: Describe only string identity metadata as top-level exceptions;
+#   keep undeclared inputs forbidden without adding model fields or columns.
 # - 2026-11-10: Permit nonempty typed data; retain descriptive kind metadata.
 # - 2026-11-09: Register native ttx projection metadata and conditional known
 #   payload schemas, with namespaced nested definitions and typed kind/data
