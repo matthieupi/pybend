@@ -186,6 +186,14 @@ then core assets. All share one URL namespace; first file match wins. API routes
 precede the final catch-all static mount. App assets can override framework files,
 so audit collisions and never include secrets or uploaded user content there.
 
+The framework cascade selects regular files using each mount's native Starlette
+path normalization and containment checks, with blocking lookups offloaded to a
+threadpool. A symlink escaping one mount is skipped so a valid file in a later
+mount can serve the same URL; symlinks contained within a mount remain supported.
+Starlette retains configuration checks, GET/HEAD, MIME and conditional-response
+handling, missing-file responses and non-missing errors. The cascade maps its
+normalized root path to `index.html`; it does not enable directory indexes.
+
 Import `n3tx_ui` before declaring __ui__ models and `n3tx_agents` before declaring
 __agent__ models. Static discovery can import packages too late for mixin injection
 into models already defined. Missing optional packages mean missing capabilities,
@@ -212,5 +220,7 @@ single reviewed migration procedure. Read [Operations](../../../docs/OPERATIONS.
 
 ## Changelog
 
+- 2026-11-10: Document containment-aware framework static cascading and native
+  response handling.
 - 2026-11-04: Document capability-selected TTX-only registration, semantic Thread
   restrictions, mixin ownership and removal of the direct capture bridge.

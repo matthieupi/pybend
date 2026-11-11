@@ -1,10 +1,17 @@
+"""Backend adapters and framework static-asset resolution.
+
+API: BaseBackend defines registration; FastAPIBackend composes middleware,
+routes, static assets and optional SSR. FlaskBackend provides a WSGI adapter.
+Boundary: framework assets cascade through contained Starlette lookups;
+application asset routes and authentication remain owned by FastAPIBackend.
+Integration: app bootstrap registers models, then calls get_app().
+"""
+
 import logging
 import os
 from typing import Any, ClassVar
 
 from n3tx_core.utils.registrar import registered_models
-
-# app/adapters/base_adapter.py
 
 from abc import ABC, abstractmethod
 
@@ -12,9 +19,11 @@ from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger('n3tx.api')
 
+
 class BaseBackend(ABC, BaseModel):
-    """
-    Base model for backend adapters.
+    """Shared adapter configuration and abstract route-registration contract.
+
+    Concrete adapters own their application; the registrar owns model identity.
     """
     name: str
     description: str
@@ -27,6 +36,7 @@ class BaseBackend(ABC, BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     def __init__(self, **data: Any):
+        """Initialize adapter metadata and bind the shared model registry."""
         super().__init__(**data)
         self.registered_models = registered_models
         self.name = self.__class__.__name__.lower()
@@ -35,24 +45,28 @@ class BaseBackend(ABC, BaseModel):
         self.port = 8000
 
     def __init_subclass__(cls, **kwargs):
+        """Forward subclass configuration to the Pydantic base."""
         super().__init_subclass__(**kwargs)
-
 
     @abstractmethod
     def register_routes(self, registered_models: dict[str, type]):
+        """Register HTTP routes for the supplied model registry."""
         pass
 
 
 class _CascadingStaticFiles:
     """ASGI handler that searches multiple directories for static files.
 
-    Looks up the requested path across all directories; the first match
-    wins.  This allows split packages (n3tx-agents, n3tx-ui, n3tx-core)
-    to each contribute static assets under the same URL namespace.
+    API: __call__ selects the first contained regular file in mount order.
+    Starlette owns path containment, response headers and HTTP errors; an
+    escaping symlink is a miss, not a reason to stop searching other packages.
+    Integration: FastAPIBackend mounts this at the framework static namespace.
     """
 
     def __init__(self, directories):
+        """Create one native static application per prioritized directory."""
         from pathlib import Path
+
         self._directories = [Path(d) for d in directories]
         # Keep a single StaticFiles per directory for proper MIME handling
         from fastapi.staticfiles import StaticFiles
@@ -62,33 +76,60 @@ class _CascadingStaticFiles:
         }
 
     async def __call__(self, scope, receive, send):
+        """Resolve a contained asset and retain native static HTTP behavior."""
+        import stat
+        from starlette.concurrency import run_in_threadpool
+
         if scope["type"] != "http":
             return
 
-        path = scope.get("path", "/").lstrip("/")
-        if not path:
-            path = "index.html"
+        # 0. Select using the same normalization and containment as serving.
+        selected = None
+        for app in self._apps.values():
+            path = app.get_path(scope)
+            if path == ".":
+                path = "index.html"
+            selected = app
+            try:
+                _, result = await run_in_threadpool(app.lookup_path, path)
+            except (OSError, ValueError):
+                # Native response handling maps invalid paths and permissions;
+                # other errors propagate rather than falling through mounts.
+                break
+            if result is not None and stat.S_ISREG(result.st_mode):
+                break
 
-        # Find which directory contains this file
-        for d in self._directories:
-            candidate = d / path
-            if candidate.is_file():
-                await self._apps[str(d)](scope, receive, send)
-                return
-
-        # Not found in any directory — let last dir's StaticFiles handle 404
-        if self._apps:
-            last = list(self._apps.values())[-1]
-            await last(scope, receive, send)
+        if selected is None:
+            return
+        # 1. Retain StaticFiles' configuration guard and response policy.
+        if not selected.config_checked:
+            await selected.check_config()
+            selected.config_checked = True
+        response = await selected.get_response(path, scope)
+        await response(scope, receive, send)
 
 
-# app/backends/fastapi_backend.py
 class FastAPIBackend(BaseBackend):
-    # Paths that do not require authentication
-    AUTH_EXEMPT_PATHS: ClassVar[tuple] = ("/login", "/register", "/docs", "/openapi.json", "/redoc")
-    AUTH_EXEMPT_EXTENSIONS: ClassVar[tuple] = (".html", ".js", ".css", ".png", ".ico", ".svg", ".woff", ".woff2", ".ttf")
+    """Compose FastAPI routes, identity middleware and static/SSR delivery.
 
-    def __init__(self, cors_origins: list = None, ssr_mode: str = 'off', **data):
+    API: register_routes() attaches generated APIs; get_app() mounts assets.
+    Bootstrap supplies models and configuration; middleware supplies identity,
+    while generated routes retain responsibility for model authorization.
+    """
+
+    # Paths that do not require authentication
+    AUTH_EXEMPT_PATHS: ClassVar[tuple] = (
+        "/login", "/register", "/docs", "/openapi.json", "/redoc",
+    )
+    AUTH_EXEMPT_EXTENSIONS: ClassVar[tuple] = (
+        ".html", ".js", ".css", ".png", ".ico", ".svg", ".woff", ".woff2",
+        ".ttf",
+    )
+
+    def __init__(
+        self, cors_origins: list = None, ssr_mode: str = 'off', **data
+    ):
+        """Configure FastAPI, CORS and optional diagnostic middleware."""
         super().__init__(**data)
         self._ssr_mode = ssr_mode
         from fastapi import FastAPI
@@ -98,7 +139,10 @@ class FastAPIBackend(BaseBackend):
             cors_origins = ["*"]
 
         if "*" in cors_origins:
-            logger.warning("CORS allows all origins ('*'). Set explicit origins for production.")
+            logger.warning(
+                "CORS allows all origins ('*'). "
+                "Set explicit origins for production."
+            )
 
         from n3tx_core.config import DEBUG
         self.app = FastAPI(
@@ -125,6 +169,7 @@ class FastAPIBackend(BaseBackend):
             self._add_debug_logging_middleware()
 
     def _add_auth_middleware(self):
+        """Attach JWT and trusted-service identity processing middleware."""
         import json
         from starlette.responses import JSONResponse
         from starlette.types import ASGIApp, Receive, Scope, Send
@@ -142,9 +187,13 @@ class FastAPIBackend(BaseBackend):
             """
 
             def __init__(self, app: ASGIApp):
+                """Retain the downstream ASGI application."""
                 self.app = app
 
-            async def __call__(self, scope: Scope, receive: Receive, send: Send):
+            async def __call__(
+                self, scope: Scope, receive: Receive, send: Send
+            ):
+                """Validate supplied identity without buffering responses."""
                 if scope["type"] != "http":
                     await self.app(scope, receive, send)
                     return
@@ -193,12 +242,16 @@ class FastAPIBackend(BaseBackend):
                         try:
                             user = json.loads(forwarded_user)
                             if not isinstance(user, dict):
-                                raise ValueError("Forwarded user context must be an object")
+                                raise ValueError(
+                                    "Forwarded user context must be an object"
+                                )
                             state["user"] = user
                         except (json.JSONDecodeError, ValueError):
                             response = JSONResponse(
                                 status_code=400,
-                                content={"detail": "Invalid forwarded user context"},
+                                content={
+                                    "detail": "Invalid forwarded user context"
+                                },
                             )
                             await response(scope, receive, send)
                             return
@@ -213,6 +266,7 @@ class FastAPIBackend(BaseBackend):
         self.app.add_middleware(JWTAuthMiddleware)
 
     def _add_debug_logging_middleware(self):
+        """Attach optional non-static request timing and identity logging."""
         import time
         from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -222,9 +276,13 @@ class FastAPIBackend(BaseBackend):
             """Pure ASGI debug logger — no BaseHTTPMiddleware buffering."""
 
             def __init__(self, app: ASGIApp):
+                """Retain the downstream ASGI application."""
                 self.app = app
 
-            async def __call__(self, scope: Scope, receive: Receive, send: Send):
+            async def __call__(
+                self, scope: Scope, receive: Receive, send: Send
+            ):
+                """Log response status and elapsed time without buffering."""
                 if scope["type"] != "http":
                     await self.app(scope, receive, send)
                     return
@@ -238,6 +296,7 @@ class FastAPIBackend(BaseBackend):
                 status_code = None
 
                 async def send_wrapper(message):
+                    """Capture status while forwarding ASGI messages."""
                     nonlocal status_code
                     if message["type"] == "http.response.start":
                         status_code = message.get("status", 0)
@@ -259,6 +318,7 @@ class FastAPIBackend(BaseBackend):
         self.app.add_middleware(DebugLoggingMiddleware)
 
     def register_routes(self, registered_models: dict[str, type]):
+        """Attach generated routes from the shared model registrar."""
         from n3tx_core.api.routes_fastapi import register_routes, register_route
         from n3tx_core.api.routes_fastapi import router
         register_routes()
@@ -293,6 +353,7 @@ class FastAPIBackend(BaseBackend):
         return dirs
 
     def _mount_static(self, app_static_dirs=None):
+        """Mount app routes before prioritized framework static assets."""
         from pathlib import Path
         from fastapi.staticfiles import StaticFiles
         from fastapi.responses import FileResponse
@@ -334,7 +395,10 @@ class FastAPIBackend(BaseBackend):
             return
 
         # Serve framework HTML pages at the root (search all package dirs)
-        for html_file in ("schema.html", "example.html", "index.html", "login.html", "register.html"):
+        for html_file in (
+            "schema.html", "example.html", "index.html", "login.html",
+            "register.html",
+        ):
             for static_dir in framework_dirs:
                 html_path = static_dir / html_file
                 if html_path.exists():
@@ -361,9 +425,15 @@ class FastAPIBackend(BaseBackend):
         # Mount framework static directories so JS/CSS imports resolve.
         # Use a cascading handler that searches all package dirs.
         if len(framework_dirs) == 1:
-            self.app.mount("/", StaticFiles(directory=str(framework_dirs[0])), name="static")
+            self.app.mount(
+                "/", StaticFiles(directory=str(framework_dirs[0])),
+                name="static",
+            )
         else:
-            self.app.mount("/", _CascadingStaticFiles(directories=framework_dirs), name="static")
+            self.app.mount(
+                "/", _CascadingStaticFiles(directories=framework_dirs),
+                name="static",
+            )
 
     def _mount_ssr_route(self, html_path, app_static_dirs=None):
         """Mount a dynamic route for index.html with SSR content injection.
@@ -375,7 +445,9 @@ class FastAPIBackend(BaseBackend):
         """
         from pathlib import Path
         from fastapi.responses import HTMLResponse
-        from n3tx_core.ssr import inject_schemas, inject_bundle, inject_full, inject_css_preloads
+        from n3tx_core.ssr import (
+            inject_schemas, inject_bundle, inject_full, inject_css_preloads,
+        )
         from n3tx_core.ssr.bundler import build_bundle, discover_css_deps
 
         # Read HTML once at startup
@@ -392,6 +464,7 @@ class FastAPIBackend(BaseBackend):
             static_dirs.append(str(fdir))
 
         def _build_ssr_html():
+            """Build the selected SSR representation once and cache it."""
             if 'html' not in cache:
                 html = html_template
 
@@ -414,32 +487,50 @@ class FastAPIBackend(BaseBackend):
             return cache['html']
 
         async def ssr_handler():
+            """Return the cached SSR shell as HTML."""
             return HTMLResponse(_build_ssr_html())
 
         self.app.get("/", include_in_schema=False)(ssr_handler)
         self.app.get("/index.html", include_in_schema=False)(ssr_handler)
 
     def get_app(self, app_static_dirs=None):
-        # Mount static last so HTML routes take precedence over the catch-all mount
+        """Finalize static mounting and return the FastAPI application."""
+        # Mount static last so HTML routes precede the catch-all mount.
         self._mount_static(app_static_dirs=app_static_dirs)
         return self.app
 
 
-# app/backends/flask_backend.py
 class FlaskBackend(BaseBackend):
+    """Expose Flask model routes through an ASGI-compatible WSGI wrapper.
+
+    API: register_routes() attaches a blueprint; get_app() returns the wrapper.
+    Integration: raw backend callers supply the registered model mapping.
+    """
+
     def __init__(self, **data):
+        """Create the Flask application and Swagger integration."""
         super().__init__(**data)
         from flask import Flask
         from flasgger import Swagger
-        self.app = Flask(__name__, static_url_path='/static', static_folder='static', template_folder='templates')
+        self.app = Flask(
+            __name__, static_url_path='/static', static_folder='static',
+            template_folder='templates',
+        )
         self.app.config['SWAGGER'] = {'title': 'N3TX Flask API', 'uiversion': 3}
         Swagger(self.app)
 
     def register_routes(self, registered_models: dict[str, type]):
+        """Attach the model API blueprint to Flask."""
         from n3tx_core.api.routes_flask import create_api_blueprint
         blueprint = create_api_blueprint(registered_models)
         self.app.register_blueprint(blueprint)
 
     def get_app(self):
+        """Wrap the Flask WSGI application for ASGI consumers."""
         from asgiref.wsgi import WsgiToAsgi
         return WsgiToAsgi(self.app)
+
+
+# Changelog
+# - 2026-11-10: Use contained native lookups for framework static cascading;
+#   retain native response policy and document/wrap backend adapter source.
