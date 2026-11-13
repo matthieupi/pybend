@@ -95,6 +95,11 @@ When unset, each SVG keeps its resolved registry `strokeWidth`, falling back to
 for the paths that declare it, so the token does not override explicit
 per-path stroke widths.
 
+The native icon registry includes `search` and `download` SVG icons, alongside
+`dashboard`, `heart`, `star`, `reply`, `upload` and `user`. Use these shared names
+with `<ntx-icon value="search" decorative>` instead of relying on optional emoji
+fonts. This is registry data, not a separate renderer or application icon layer.
+
 Use canonical tokens, not old aliases such as `--surface-*`, `--text-*`, or
 `--accent`. Keep app-only styling out of shared `ntx-item.css`.
 
@@ -139,3 +144,8 @@ narrow viewport. Do not infer mobile/accessibility correctness from token tests.
 Sources: [theme runtime](../../n3tx-core/src/n3tx_core/static/utils/theme.js),
 [base CSS](../src/n3tx_ui/static/theme-base.css),
 [theme button](../src/n3tx_ui/static/components/ntx-theme-button.js).
+
+## Changelog
+
+- 2026-11-12: Document generic Search/Download vectors in the native registry;
+  no new renderer or application icon mechanism.
