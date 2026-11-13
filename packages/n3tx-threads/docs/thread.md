@@ -1,13 +1,18 @@
 # TTX storage and model notes
 
-## Current contract — 2026-11-10
+## Current contract — 2026-11-11
 
 The package exports `TTX` from `ttx.py`, `Note` and `NoteMixin` from `note.py`,
 `Thread` from `thread.py`, `Message` from `message.py`, and `ThreadedMixin` from
 `mixin.py`; existing package-level imports remain available.
 Only TTX is registered with storage, in table `ttx`. Legacy
-`n3tx_agents.Thread`/`TXRecord` remain independent and unchanged. The contract
-below the historical heading describes the discarded November 4 integration.
+`n3tx_agents.Thread`/`TXRecord` are retired without aliases or runtime fallback.
+The separate Thread and Message exports here are typed User-DM content, not agent
+history containers. Agent-root owner/admin policy, SDK decoding and execution
+capture are owned by the [agent history guide](../../n3tx-agents/docs/ttx-history.md),
+and never grant admins generic access to User DMs. The contract below the
+historical heading describes the discarded November 4 integration.
+`ttx-pre.py` and `ttx-draft.py` are historical/concept source, not public APIs.
 
 ### Representation and persistence
 
@@ -75,6 +80,35 @@ Raw dictionary reads decode `archived` with Pydantic boolean validation before
 testing visibility. Native new-table creation currently declares booleans as
 TEXT, so dictionary reads can contain `"0"`/`"1"`; Python string truthiness is
 not an archive predicate. Returned dictionaries retain the decoded boolean.
+
+### Native TX sending
+
+TTX overrides the inherited fullmethod without changing its callable surface:
+
+```python
+async def send(target, tx: TX) -> None
+```
+
+Callers use `await record.send(tx)`; target is the bound receiver, not a second
+destination argument. The outgoing TX already contains its destination.
+For a saved instance, native storage reloads the canonical row including archives,
+the envelope is deep-copied, and native class bubbling qualifies the source as
+`ttx/<id>`. Data, metadata, UUID and time survive; the input remains unchanged.
+An overridden actor address does not replace canonical identity. Unsaved or
+deleted instances fail before routing. This remains trusted Python, not access
+control, an atomic existence check or a delivery acknowledgement.
+
+The supported instance route is concrete model class to native Matrix, with
+canonical class address `ttx`, no class routing children and canonical TTX
+registered on that same Matrix. Other parent/binding topologies fail before
+sending. This avoids prefix stripping, alternate dispatchers or global Actor
+changes. Native send/inbox interceptors still run; trusted source rewrites remain
+possible. Noncopyable Python payloads may fail copying without a fallback.
+
+Class-bound sends delegate unchanged to the inherited Actor implementation, so
+native responses do not require an instance or storage lookup. The override adds
+no HTTP action, request method, persisted outgoing record, agent history capture
+or caller injection. Convert typed content with `.tx()` before sending it.
 
 ### Explicit local messaging actions
 
@@ -149,11 +183,16 @@ time are retained. Invalid UUID/time are rejected before roots are created.
 Direct native parsing still requires explicit UUID/time despite defaults.
 Receiver identity comes from the host, never a replacement caller dictionary.
 
-ATTACH is trusted Python: it requires a saved Thread, rejects nested Thread
-entries, clones with a fresh local row ID, target `ttx/<root-id>`, root-owner
-attribution and no `meta.user`. UUID/time survive; archived state resets false.
-It reopens the root, caches the canonical saved snapshot and marks inbound
-author addresses UNREAD. Outgoing attach preserves existing UNREAD/ASK state.
+ATTACH is trusted Python: it accepts any saved TTX parent and any TTX entry,
+including Thread containers. The detached copy has a fresh local row ID,
+target `ttx/<parent-id>`, parent-owner attribution and no `meta.user`.
+UUID/time survive; the copy's archived state resets false. The input and its
+stored row remain unchanged; descendant rows are not cloned. Non-Thread parents
+remain unchanged and their copies retain entry status. Thread parents reopen,
+mark incoming entries UNREAD and preserve existing UNREAD/ASK on outgoing attach.
+Only non-Thread entries replace latest with the canonical saved snapshot. Thread
+entries appear in direct history but leave the existing preview unchanged,
+consistent with nonrecursive mutation cache maintenance.
 MARK_READ changes only the authorized root status; THREADS checks host/caller
 ownership and selects exact visible Thread roots by target and owner in SQL.
 
@@ -386,12 +425,22 @@ note projection or `read_notes` compatibility endpoint.
 - Focused test results must be reported separately; historical acceptance
   does not establish readiness of the new contract or deployed applications.
 
-Implementation: [TTX](../src/n3tx_threads/ttx.py),
-[semantic Thread](../src/n3tx_threads/thread.py),
-[entry helpers](../src/n3tx_threads/mixin.py),
-[NotesMixin](../src/n3tx_threads/notes_mixin.py).
+Historical implementation paths: `src/n3tx_threads/ttx.py`, `thread.py`,
+`mixin.py` and the removed `notes_mixin.py`. Present files at reused paths no
+longer establish this historical API; an archived copy has not been verified.
+Use the module map at the top for the current implementation, not a restored
+legacy file.
 
 ## Changelog
+
+- 2026-11-12: Align the current introduction with TTX-only agent history and
+  separate User-DM kinds; mark obsolete historical implementation links explicitly.
+
+- 2026-11-11: Document same-signature native send with detached canonical
+  instance sources, unchanged class replies and explicit topology limits.
+
+- 2026-11-11: Accept any TTX parent/entry in ATTACH, retaining detached-copy
+  semantics, unchanged non-Thread parents and non-Thread latest previews.
 
 - 2026-11-10: Allow only string public identity extras for native CRUD response
   validation, exclude metadata from storage and rederive canonical identities;

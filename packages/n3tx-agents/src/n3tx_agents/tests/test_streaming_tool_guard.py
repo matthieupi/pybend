@@ -1,71 +1,60 @@
+"""Keep native streaming tools discoverable and free of Matrix self-routing."""
+
 import logging
 
 import pytest
-from pydantic import Field
+from pydantic_ai.models.test import TestModel as SDKTestModel
 
 from n3tx_actors.models.actor_model import ActorModel
-from n3tx_core.utils.decorators import expose_route
-from n3tx_core.utils.registrar import register_model
-from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_agents.threaded_mixin import current_execution
 from n3tx_agents.tools import discover_tools
+from n3tx_core.utils.decorators import expose_route
 
 
-pytestmark = pytest.mark.unit
+@pytest.mark.asyncio
+async def test_stream_tool_discovery_and_native_causal_route(
+    fresh_matrix, caplog,
+):
+    """Execute a discovered stream tool without Matrix self-routing."""
+    # 0. A real class action emits native text and explicit completion.
+    class Analyzer(ActorModel):
+        """Supply a harmless streaming tool for native discovery."""
+
+        __tablename__ = "stream_guard_analyzers"
+        __storable__ = False
+
+        @classmethod
+        @expose_route("/analyze", methods=["POST"], stream=True)
+        async def analyze(cls, query: str):
+            """Emit synthetic text and a terminal application result."""
+            yield {"name": "text", "data": {"text": "partial"}}
+            yield {"name": "done", "data": {"answer": "done"}}
+
+    class Scanner(ActorModel, auto_register=False):
+        """Use the trusted streaming engine with a saved canonical owner."""
+
+        __tablename__ = "stream_guard_scanners"
+        __storable__ = False
+        __agent__ = True
+
+    specs = discover_tools([Analyzer.addr], fresh_matrix)
+    assert [spec.tool_name for spec in specs] == [
+        "stream_guard_analyzers_analyze",
+    ]
+    assert specs[0].stream is True
+    # 1. Retain actual Matrix/SDK dispatch and require successful completion.
+    with caplog.at_level(logging.ERROR):
+        chunks = [chunk async for chunk in Scanner.run_stream(
+            task="Analyze synthetic text", prompt="Use the analyzer",
+            tools=[Analyzer.addr],
+            llm=SDKTestModel(call_tools=[specs[0].tool_name]),
+            ttx=current_execution.get(),
+        )]
+    assert "Cannot route to self" not in caplog.text
+    assert chunks[-1]["name"] == "done"
+    assert not any(chunk["name"] == "error" for chunk in chunks)
 
 
-class TestStreamingToolGuard:
-    def test_discover_tools_includes_streaming_methods(self, fresh_matrix, tmp_path):
-        storage = SQLiteStorage(str(tmp_path / 'test.db'))
-
-        class Analyzer(ActorModel):
-            __tablename__ = 'analyzers'
-            __storable__ = False
-
-            @expose_route('/analyze', methods=['POST'], stream=True)
-            async def analyze(self, query: str):
-                yield {'name': 'text', 'data': {'text': 'partial'}}
-
-        register_model(Analyzer, storage=storage)
-
-        specs = discover_tools(['analyzers'], fresh_matrix, caller_addr='scanner/1')
-        names = [spec.tool_name for spec in specs]
-        assert 'analyzers_analyze' in names
-
-    @pytest.mark.asyncio
-    async def test_run_stream_does_not_log_matrix_self_route_for_streaming_tool(self, fresh_matrix, tmp_path, caplog):
-        from pydantic_ai.models.test import TestModel
-
-        storage = SQLiteStorage(str(tmp_path / 'test.db'))
-
-        class Analyzer(ActorModel):
-            __tablename__ = 'analyzers'
-            __storable__ = False
-
-            @expose_route('/analyze', methods=['POST'], stream=True)
-            async def analyze(self, query: str):
-                yield {'name': 'text', 'data': {'text': 'partial'}}
-                yield {'name': 'done', 'data': {'answer': 'done'}}
-
-        class Scanner(ActorModel):
-            __tablename__ = 'scanners'
-            __storable__ = False
-            __agent__ = True
-            prompt: str = Field(default='Use the analyzer tool.')
-
-        register_model(Analyzer, storage=storage)
-        register_model(Scanner, storage=storage)
-
-        scanner = Scanner(addr='scanners/1')
-
-        with caplog.at_level(logging.ERROR):
-            chunks = []
-            async for chunk in scanner.run_stream(
-                task='Analyze this text',
-                prompt='Analyze this text',
-                tools=['analyzers'],
-                llm=TestModel(call_tools=['analyzers_analyze']),
-            ):
-                chunks.append(chunk)
-
-        assert "Cannot route to self at matrix" not in caplog.text
-        assert chunks
+# Changelog (Python has no native block-comment syntax).
+# - 2026-11-12: Combine native stream discovery/routing regression coverage and
+#   require canonical execution instead of implicit legacy history allocation.

@@ -1,6 +1,10 @@
 """
 N3TX application builder and factory.
 
+API: create_app assembles a builder; N3TXApp selects models, storage, routes and
+optional capabilities. Selected agents, capture or explicit NoteMixin hosts
+activate only canonical TTX infrastructure. Optional imports alone do not.
+
 Provides three levels of bootstrapping:
 
     Level 1 -- One-liner via create_app():
@@ -33,19 +37,21 @@ _SSR_MODES = ('off', 'schema', 'bundle', 'full')
 def _uses_agents(model_classes: List[Type]) -> bool:
     """Return True when selected models require native history infrastructure.
 
-    Agent execution and opt-in notes both persist through Thread/TXRecord.
+    Agents, execution capture and explicit notes all persist through TTX.
     Core detects selected capabilities structurally, never from optional-package
     import state. Unrelated models do not activate history storage."""
-    # 0. Detect selected agent/notes capabilities or explicit history models.
+    # 0. Detect selected capabilities, not optional package import state.
     for model_class in model_classes:
         if (
             getattr(model_class, '__agent__', False)
-            or getattr(model_class, '__notes__', False)
+            or getattr(model_class, '__thread_roots__', False)
         ):
             return True
         if any(
-            getattr(base, '__module__', '').startswith('n3tx_agents.')
-            and base.__name__ in {'AgentActor', 'Thread', 'TXRecord'}
+            (
+                getattr(base, '__module__', '') == 'n3tx_threads.note'
+                and base.__name__ == 'NoteMixin'
+            )
             for base in model_class.__mro__
         ):
             return True
@@ -63,13 +69,10 @@ def _agent_infrastructure_models(
     if not (_uses_agents(model_classes) or app_agent):
         return []
 
-    try:
-        from n3tx_agents import Thread, TXRecord
-    except ImportError:
-        return []
+    from n3tx_threads import TTX
     # 1. Add only infrastructure not already explicitly registered.
     return [
-        model for model in (Thread, TXRecord)
+        model for model in (TTX,)
         if not any(
             selected is model
             or getattr(selected, '__tablename__', None) == model.__tablename__
@@ -148,6 +151,10 @@ class N3TXApp:
 
     Collects model registrations and configuration, then produces a
     fully configured ASGI application via :meth:`build`.
+
+    API: model/static collect declarations; build prepares native storage and
+    selected capability infrastructure, then installs routes and discovery.
+    Construction does not authorize callers or migrate existing databases.
 
     Supports two routing modes:
         - ``'direct'`` (default): routes_fastapi.py route factories (Level 1/2)
@@ -488,6 +495,8 @@ def create_app(
 
 
 # Changelog
+# - 2026-11-11: Bootstrap canonical TTX only for selected native agents,
+#   execution capture and explicit NoteMixin hosts; retire legacy history types.
 # - 2026-10-31: Refuse legacy Thread column removal before registration;
 #   validate exact target tables before registration or refuse the cutover.
 #   Declare Thread/TXRecord infrastructure without storage import effects.

@@ -68,25 +68,32 @@ stream=False, events=None)`. [Scope, parsing, caller and errors](API_CUSTOM_ENDP
 Schema and dump extension decorators live in `models.proto_schema` and
 `models.proto_dump`, respectively. [Extension reference](../packages/n3tx-core/docs/schema-pipeline.md).
 
-## Thread/TXRecord history and Notes
+## Canonical TTX history and Notes
 
-The restored current contract is maintained in the
-[Thread/TXRecord guide](../packages/n3tx-agents/docs/thread.md). Thread and
-TXRecord are separate registered models; retained TTX API pages are historical,
-not current authority.
+Only `n3tx_threads.TTX` owns history storage. Agent execution uses one TTX journal
+and canonical `ttx_ref`, without Thread/TXRecord models, numeric aliases or fallback.
+User-DM `Thread`/`Message` kinds remain separate from agent history. Explicit Notes
+compose `n3tx_threads.NoteMixin`; see the [TTX package](../packages/n3tx-threads/README.md).
+
+The removed `packages/n3tx-agents/docs/thread.md` described a historical API;
+its archived location is unverified. Current agent mechanisms belong to the
+[package README](../packages/n3tx-agents/README.md) and
+[TTX history guide](../packages/n3tx-agents/docs/ttx-history.md).
 
 ## Agents
 
 ### AgentMixin
 
-`n3tx_agents.AgentMixin`: policy-level `agentic`/`agentic_stream` and lower-level
-runtime `run`/`run_stream`, plus context/tool discovery. Import agents before
+`n3tx_agents.AgentMixin`: policy-level `agentic`/`agentic_stream` route through
+Matrix AGENTIC to guarded `run`/`run_stream` with mandatory TTX state. Explicit
+callee policy and fresh application guards remain required. Import agents before
 declaring `__agent__`. [Mixin API](../packages/n3tx-agents/docs/mixin.md).
 
 ### AgentActor
 
-`n3tx_agents.AgentActor`: data-backed agent configuration. Its exposed execution
-method is `/agentic`, not historical `/run`. [AgentActor reference](../packages/n3tx-agents/docs/agent-actor.md).
+`n3tx_agents.AgentActor`: data-backed configuration, not an unrestricted HTTP
+execution endpoint. Applications own deliberate bounded actions and execution
+admission. [AgentActor reference](../packages/n3tx-agents/docs/agent-actor.md).
 
 ### AgentDeps and ToolSpec
 
@@ -94,11 +101,14 @@ Use the [tool-discovery reference](../packages/n3tx-agents/docs/tool-discovery.m
 for current dependency context, explicit addresses and generated tool behavior;
 do not copy the obsolete adapter-bearing AgentDeps shape from older snapshots.
 
-### Thread.history
+### Agent history and invocation
 
-`Thread.history(user=...)` returns codec-selected SDK messages from its TXRecord
-rows. Notes models expose `NOTE` and `read_notes`; see the current
-[Thread/TXRecord guide](../packages/n3tx-agents/docs/thread.md).
+`n3tx_agents.Agent` owns `create_history`, `get_history`, `authorize_history`,
+`invoke`/`invoke_stream` and trusted `chat_history` decoding. Declared agent roots
+use fresh owner/admin policy with immutable nullable scope metadata; this grants
+neither business access nor admin access to User DMs. Full finalized SDK records
+persist through `ATTACH`; decoding is not an authorization entrypoint. Exact
+contracts remain in the [TTX history guide](../packages/n3tx-agents/docs/ttx-history.md).
 
 ## Files (optional n3tx-files)
 

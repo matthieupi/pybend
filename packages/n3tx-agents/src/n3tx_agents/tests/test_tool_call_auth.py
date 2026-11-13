@@ -1,149 +1,83 @@
-"""
-Tests for agent tool calls to @expose_route methods with access control.
+"""Protect tool caller propagation with mandatory active canonical execution.
 
-Bug: When the agent makes tool calls via _route_tool_call with no user context
-(deps.user=None), custom @expose_route methods with access=AUTHENTICATED
-return "Access denied" via ModelRetry.
-
-Fix: Two changes needed:
-1. _route_tool_call should always set meta={'user': ctx.deps.user} so
-   internal TX has user=None (not missing key), enabling consistent handling.
-2. handler() Tier 2 auth should treat user=None as internal (matching _authorize()).
-"""
+Trusted None remains distinct from an empty anonymous mapping. Native Matrix
+and ActorModel own authorization/injection; no app guards or providers load."""
 
 import json
+from types import SimpleNamespace
+
 import pytest
-from typing import ClassVar
+from pydantic_ai import ModelRetry
 
-from pydantic import Field
-
-from n3tx_actors.actor import Actor
-from n3tx_actors.matrix import Matrix
 from n3tx_actors.models.actor_model import ActorModel
-from n3tx_core.utils.decorators import expose_route
-from n3tx_core.authorize import AUTHENTICATED
-from n3tx_core.utils.registrar import register_model
-from n3tx_agents.tools import _route_tool_call
 from n3tx_agents.agent import AgentDeps
-
-pytestmark = pytest.mark.unit
-
-
-class MockCtx:
-    """Minimal RunContext mock for _route_tool_call."""
-    def __init__(self, user=None):
-        self.deps = AgentDeps(user=user, agent_addr='test_agent')
+from n3tx_agents.threaded_mixin import current_execution
+from n3tx_agents.tools import _route_tool_call
+from n3tx_core.authorize import AUTHENTICATED
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.registrar import register_model
 
 
-class TestToolCallToAuthenticatedMethod:
-    """_route_tool_call to @expose_route(access=AUTHENTICATED) with and without user."""
+@pytest.mark.asyncio
+async def test_tool_caller_and_causal_source_reach_native_policy(fresh_matrix):
+    """Propagate None/authenticated callers while denying anonymous mappings."""
+    # 0. Use a real class action and observe actual Matrix inbox arrivals.
+    class ToolActor(ActorModel):
+        """Expose one synthetic caller-aware native action."""
 
-    @pytest.mark.asyncio
-    async def test_tool_call_no_user_to_authenticated_method_succeeds(self, fresh_matrix):
-        """Agent tool call (no user) to an AUTHENTICATED method should succeed.
+        __tablename__ = "authenticated_tool"
+        __storable__ = False
 
-        This is the core bug: the agent's scrape tool call gets 'Access denied'
-        because the handler treats empty/missing user as external unauthenticated.
-        """
+        @classmethod
+        @expose_route("/fetch", methods=["POST"], access=AUTHENTICATED)
+        def fetch(cls, value: str, user: dict = None) -> dict[str, object]:
+            """Return the native injected caller for a harmless local value."""
+            return {"value": value, "user": user}
 
-        class ToolActor(ActorModel):
-            __tablename__ = 'tool_actor'
-            __storable__ = False
+    seen = []
+    ToolActor.use(lambda tx: seen.append(tx) or tx, on="inbox")
+    owner = current_execution.get()
+    # 1. Both trusted internal and authenticated execution preserve metadata.
+    for user in (None, {"user_id": 1, "role": "user"}):
+        ctx = SimpleNamespace(deps=AgentDeps(user, "synthetic-agent", owner))
+        result = await _route_tool_call(
+            ctx, ToolActor.addr, "fetch", {"value": "synthetic"},
+        )
+        assert json.loads(result) == {"value": "synthetic", "user": user}
+        assert "user" in seen[-1].meta and seen[-1].meta["user"] == user
+        assert seen[-1].source == f"ttx/{owner.id}"
+    # 2. An empty external identity is not the trusted None execution case.
+    ctx = SimpleNamespace(deps=AgentDeps({}, "synthetic-agent", owner))
+    with pytest.raises(ModelRetry, match="Access denied"):
+        await _route_tool_call(ctx, ToolActor.addr, "fetch", {"value": "deny"})
 
-            @expose_route('/fetch', methods=['POST'], access=AUTHENTICATED)
-            def fetch(url: str) -> dict:
-                """Class-level method with AUTHENTICATED access."""
-                return {'url': url, 'content': 'fetched'}
 
-        ctx = MockCtx(user=None)
-        result = await _route_tool_call(ctx, 'tool_actor', 'fetch', {'url': 'https://example.com'})
+@pytest.mark.asyncio
+async def test_internal_tool_crud_retains_native_none_semantics(
+    fresh_matrix, memory_storage,
+):
+    """Keep trusted internal CRUD and its explicit None caller metadata."""
+    # 0. Register disposable storage under the actual target actor.
+    class Record(ActorModel):
+        """Provide a harmless storable native CRUD target."""
 
-        data = json.loads(result)
-        assert 'url' in data
-        assert data['url'] == 'https://example.com'
+        __tablename__ = "internal_tool_records"
+        __storable__ = True
+        __access__ = {"read": AUTHENTICATED, "create": AUTHENTICATED}
+        name: str = "synthetic"
 
-    @pytest.mark.asyncio
-    async def test_tool_call_with_user_to_authenticated_method_succeeds(self, fresh_matrix):
-        """Agent tool call WITH user to an AUTHENTICATED method should succeed."""
+    register_model(Record, storage=memory_storage)
+    saved = Record.create(Record())
+    ctx = SimpleNamespace(deps=AgentDeps(
+        None, "synthetic-agent", current_execution.get(),
+    ))
+    # 1. The native policy keeps internal None separate from ingress identity.
+    result = json.loads(await _route_tool_call(
+        ctx, Record.addr, "get", {"id": saved.id},
+    ))
+    assert result["id"] == saved.id and result["name"] == "synthetic"
 
-        class ToolActor(ActorModel):
-            __tablename__ = 'tool_actor'
-            __storable__ = False
 
-            @expose_route('/fetch', methods=['POST'], access=AUTHENTICATED)
-            def fetch(url: str) -> dict:
-                return {'url': url, 'content': 'fetched'}
-
-        ctx = MockCtx(user={'user_id': 1, 'role': 'user'})
-        result = await _route_tool_call(ctx, 'tool_actor', 'fetch', {'url': 'https://example.com'})
-
-        data = json.loads(result)
-        assert data['url'] == 'https://example.com'
-
-    @pytest.mark.asyncio
-    async def test_tool_call_no_user_to_crud_succeeds(self, fresh_matrix, tmp_path):
-        """Agent tool call (no user) to CRUD operations should succeed.
-
-        CRUD uses _authorize() which correctly handles internal messages.
-        """
-        from n3tx_core.storage.sqlite_storage import SQLiteStorage
-        storage = SQLiteStorage(str(tmp_path / 'test.db'))
-
-        class CrudActor(ActorModel):
-            __tablename__ = 'crud_actor'
-            __storable__ = True
-            __access__: ClassVar[dict] = {
-                'read': AUTHENTICATED,
-                'create': AUTHENTICATED,
-            }
-            name: str = Field(default='test')
-
-        register_model(CrudActor, storage=storage)
-
-        ctx = MockCtx(user=None)
-        result = await _route_tool_call(ctx, 'crud_actor', 'list', {})
-
-        data = json.loads(result)
-        assert isinstance(data, (list, dict))
-        if isinstance(data, dict):
-            assert 'data' in data
-
-    @pytest.mark.asyncio
-    async def test_tool_call_always_includes_user_in_meta(self, fresh_matrix):
-        """_route_tool_call should always include 'user' key in TX meta,
-        even when user is None. This makes internal vs external distinction
-        explicit and enables future per-user tracking."""
-        from n3tx_actors.tx import TX
-        from unittest.mock import AsyncMock, patch
-
-        class ToolActor(ActorModel):
-            __tablename__ = 'tool_actor'
-            __storable__ = False
-
-            @expose_route('/fetch', methods=['POST'], access=AUTHENTICATED)
-            def fetch(url: str) -> dict:
-                return {'url': url}
-
-        ctx = MockCtx(user=None)
-
-        # Capture the TX sent through root.request
-        captured_tx = []
-        original_request = Actor.root().request
-
-        async def spy_request(tx, **kwargs):
-            captured_tx.append(tx)
-            return await original_request(tx, **kwargs)
-
-        root = Actor.root()
-        object.__setattr__(root, 'request', spy_request)
-        try:
-            await _route_tool_call(ctx, 'tool_actor', 'fetch', {'url': 'https://example.com'})
-        except Exception:
-            pass  # May fail due to auth — that's OK, we just want to inspect the TX
-        finally:
-            object.__delattr__(root, 'request')
-
-        assert len(captured_tx) == 1
-        # 'user' key should always be present in meta
-        assert 'user' in captured_tx[0].meta, \
-            f"Expected 'user' key in meta but got: {captured_tx[0].meta}"
+# Changelog (Python has no native block-comment syntax).
+# - 2026-11-12: Use mandatory TTX dependencies/context and retain native caller,
+#   anonymous-denial and internal CRUD boundaries without swallowing failures.

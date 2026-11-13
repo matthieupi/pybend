@@ -1,185 +1,106 @@
-"""AgentActor — A model whose instances ARE agents.
+"""AgentActor — stored configuration for native TTX-only reasoning.
 
-Configuration lives in fields (DB-storable). Agents are data, not code.
+API: tool_addrs resolves stored AgentTool records; run_config supplies trusted
+CallConfig to inherited Matrix agentic/agentic_stream and guarded run methods.
+Stream DTOs describe native text, thinking, tool and completion events.
 
-    # In code
-    scanner = AgentActor(
-        name="Grant Scanner",
-        prompt="You find government grants...",
-        tools=[AgentTool(target="grants"), AgentTool(target="sources")],
-        llm="anthropic:claude-sonnet-4-5-20250929",
-    )
-
-    # Via API (tools via local relationship field)
-    # POST /agents {"name": "Grant Scanner", "prompt": "...", "llm": "..."}
-    # POST /agents/1/agent_tools {"addr": "grants"}
-
-    # From DB
-    scanner = AgentActor.get(1)
-
-    # Trigger
-    result = await scanner.agentic(task="Scan all sources for new grants")
-    # or POST /agents/1/agentic {"task": "Scan all sources"}
-"""
-
-import json
-import logging
+Boundary: configuration storage does not enable execution. Applications must
+explicitly declare AGENTIC access; stock unrestricted HTTP execution endpoints
+are not published. Register AgentActor/AgentTool normally and TTX only for
+history. Results remain native dictionaries with canonical ttx_ref."""
 
 from pydantic import Field
 
 from n3tx_actors.models.actor_model import ActorModel
 from n3tx_core.models.proto_model import ProtoModel
-from n3tx_core.utils.decorators import expose_route
-from n3tx_agents.agent import Agent, CallConfig
-from n3tx_agents.tool_model import AgentTool
 
-logger = logging.getLogger('n3tx.agents')
+from .agent import CallConfig
+from .mixin import _validate_options
+from .tool_model import AgentTool
 
-
-# -- Stream event models (non-storable -- pure schema) ----------------------
 
 class TextChunk(ProtoModel):
-    """Progressive text output from the LLM."""
-    text: str = Field(default='')
+    """Progressive native text output."""
+
+    text: str = ""
+
 
 class ToolCallEvent(ProtoModel):
-    """Agent is calling a tool."""
-    tool: str = Field(default='')
-    args: dict = Field(default={})
-    call_id: str = Field(default='')
+    """A native SDK tool call and its complete arguments."""
+
+    tool: str = ""
+    args: dict = Field(default_factory=dict)
+    call_id: str = ""
+
 
 class ToolResultEvent(ProtoModel):
-    """Result returned from a tool call."""
-    tool: str = Field(default='')
-    result: str = Field(default='')
-    call_id: str = Field(default='')
+    """The native SDK tool result."""
+
+    tool: str = ""
+    result: str = ""
+    call_id: str = ""
+
 
 class ThinkingChunk(ProtoModel):
-    """Agent is in a thinking/reasoning phase."""
-    text: str = Field(default='')
+    """Progressive native reasoning output."""
+
+    text: str = ""
+
 
 class DoneChunk(ProtoModel):
-    """Terminal event -- agent completed the task."""
-    answer: str = Field(default='')
-    usage: dict = Field(default={})
-    tool_calls: int = Field(default=0)
+    """Terminal native completion with canonical history identity."""
+
+    answer: str = ""
+    usage: dict = Field(default_factory=dict)
+    tool_calls: int = 0
+    ttx_ref: str = ""
 
 
 class AgentActor(ActorModel):
-    """A model whose instances ARE agents. Configuration is data, not code.
+    """Stored native agent policy, not an independently enabled execution API.
 
-    Fields:
-        name: Human-readable agent name.
-        prompt: System prompt for the LLM.
-        tools: Collection of AgentTool records.
-        llm: Pydantic AI provider:model string (e.g., 'ollama:llama3.1').
-        constraints: Budget/safety limits dict.
+    API: tool_addrs selects stored tools; run_config resolves fields into the
+    inherited Matrix execution seam. Prompt, LLM and constraints remain data.
+    Applications own explicit action policy, caller ingress and fresh guards.
+    Normal storage owns agent/tool configuration; TTX owns all history."""
 
-    Storage: constraints is serialized to JSON TEXT for SQLite.
-             tools uses the standard local model-list relationship pattern.
-    """
-
-    __tablename__ = 'agents'
+    __tablename__ = "agents"
     __storable__ = True
-    __agent__ = True  # injects AgentMixin → provides agentic()
+    __agent__ = True
     __ui__ = {
-        'renderer': {'item': 'ntx-agent', 'detail': 'ntx-agent'},
+        "renderer": {"item": "ntx-agent", "detail": "ntx-agent"},
     }
 
     system_key: str = Field(
-        default='',
-        description='Stable machine identity for framework-provisioned app agents',
+        default="", description="Stable framework-provisioned agent identity",
     )
     name: str = Field(min_length=1, max_length=200)
-    prompt: str = Field(default='')
-    tools: list[AgentTool] = Field(default=[])
-    llm: str = Field(default='ollama:llama3.1')
-    constraints: dict = Field(default={})
+    prompt: str = ""
+    tools: list[AgentTool] = Field(default_factory=list)
+    llm: str = "ollama:llama3.1"
+    constraints: dict = Field(default_factory=dict)
 
     def tool_addrs(self) -> list:
-        """Resolve tool addresses from AgentTool records or plain addr strings.
+        """Resolve the configured AgentTool records into ordered addresses."""
+        return list(dict.fromkeys(tool.target for tool in self.tools))
 
-        When loaded from DB, ``self.tools`` is a shallow-hydrated
-        ``list[AgentTool]``. Plain strings are accepted for in-memory
-        construction and tests.
-
-        Returns:
-            List of actor address strings (e.g., ['grants', 'sources']).
-        """
-        tool_addrs = []
-        if not self.tools:
-            return tool_addrs
-        for item in self.tools:
-            if isinstance(item, AgentTool):
-                tool_addrs.append(item.target)
-            elif isinstance(item, dict) and item.get('target'):
-                tool_addrs.append(item['target'])
-            elif isinstance(item, str):
-                tool_addrs.append(item)
-
-        return list(dict.fromkeys(tool_addrs))
-
-    def _resolve_tool_addrs(self) -> list:
-        """Compatibility alias for the agent runtime seam."""
-        return self.tool_addrs()
-
-    def call_config(self, task: str, thread_id: int = 0, **kwargs) -> CallConfig:
-        """Build a DB-backed resolved call for the shared runtime seam."""
+    def run_config(self, task: str, **kwargs) -> CallConfig:
+        """Resolve stored fields plus trusted Python runtime overrides."""
+        # 0. Preserve all backend-selected bounded runtime controls.
+        _validate_options(kwargs)
         return CallConfig(
-            task=task,
-            prompt=self.prompt,
-            tools=self._resolve_tool_addrs(),
-            user=kwargs.get('user'),
-            constraints={**self.constraints, **kwargs.get('constraints', {})},
-            thread_id=thread_id or None,
-            result_type=kwargs.get('result_type'),
-            llm=kwargs.get('llm', self.llm),
-            has_llm_override=True,
+            task=task, prompt=kwargs.get("prompt", self.prompt),
+            tools=kwargs.get("tools", self.tool_addrs()),
+            user=kwargs.get("user"),
+            constraints={**self.constraints, **kwargs.get("constraints", {})},
+            result_type=kwargs.get("result_type"),
+            llm=kwargs.get("llm", self.llm), has_llm_override=True,
+            scope=kwargs.get("scope"),
         )
 
-    @expose_route('/agentic', methods=['POST'])
-    async def agentic(self, task: str, thread_id: int = 0, **kwargs) -> str:
-        """Execute the agent's reasoning loop.
 
-        Override — resolves DB-backed config, then delegates to the shared
-        runtime seam used by mixin-based agents.
-
-        Args:
-            task: The user task / query to execute.
-            thread_id: Existing conversation thread to continue. If omitted,
-                a new thread is created automatically.
-            **kwargs: Override llm, constraints, user, result_type.
-
-        Returns:
-            JSON string with {answer, usage, messages, message_count}.
-        """
-        call = self.call_config(task, thread_id=thread_id, **kwargs)
-        prepared = await Agent.prepare(self, call)
-        result = await Agent.run(prepared, call.task)
-        return json.dumps(result, default=str)
-
-    @expose_route('/agentic_stream', methods=['POST'], stream=True,
-                  events={
-                      'text': TextChunk, 'tool_call': ToolCallEvent,
-                      'tool_result': ToolResultEvent, 'thinking': ThinkingChunk,
-                      'done': DoneChunk,
-                  })
-    async def agentic_stream(self, task: str, thread_id: int = 0, **kwargs):
-        """Streaming agent execution — resolves tools from DB.
-
-        Override — same as agentic() but yields TX-aligned stream chunks via
-        the shared runtime seam.
-
-        Args:
-            task: The user task / query to execute.
-            thread_id: Existing conversation thread to continue. If omitted,
-                a new thread is created automatically.
-            **kwargs: Override llm, constraints, user, result_type.
-
-        Yields:
-            TX-aligned dicts: text, tool_call, tool_result, thinking, done, error.
-        """
-        call = self.call_config(task, thread_id=thread_id, **kwargs)
-        prepared = await Agent.prepare(self, call)
-        async for chunk in Agent.run_stream(prepared, call.task):
-            yield chunk
+# Changelog (Python has no block-comment syntax).
+# - 2026-11-11: Replace numeric/JSON-text execution adapters with inherited
+#   canonical TTX Matrix execution; remove unrestricted HTTP execution routes.
+# - 2026-11-11: Carry explicit TTX history through stored-agent adapters while
+#   preserving HTTP signatures, legacy IDs and scoped execution lifetime.

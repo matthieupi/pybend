@@ -1,7 +1,15 @@
 # N3TX Contributor Guide
 
-> **Recovery checkpoint — 2026-11-06:** executable source is October 31
-> `d75bee4` plus archived dirty changes; newer commits are preserved on `threads`,
+> **Current agent/history contract — 2026-11-11:** TTX is the sole registered
+> history model. Native Matrix invocation, private owner/admin agent roots and
+> canonical `ttx_ref` replace the retired Thread/TXRecord APIs without aliases or
+> fallback. Start with the [agent package](packages/n3tx-agents/README.md) and
+> [TTX history guide](packages/n3tx-agents/docs/ttx-history.md). User-DM kinds remain
+> separate and receive no agent-admin grant. The recovery checkpoint below is
+> historical, not the current checkout/API contract.
+
+> **Historical recovery checkpoint — 2026-11-06 (superseded):** executable source
+> is October 31 `d75bee4` plus archived dirty changes; newer commits are preserved on `threads`,
 > `master` is at `d75bee4`, and current work is on `reconciliation`.
 > Thread/TXRecord are in `n3tx_agents`, not a
 > separate TTX package. Later documentation is preserved, not evidence of the
@@ -43,6 +51,7 @@ the verification gap. Explain architectural concerns separately from the fix.
 | Models, storage, API, auth | [Backend navigation](BACKEND.md), [models](docs/MODELS.md), [authorization](docs/AUTHORIZATION.md) |
 | Actor messaging and transports | [Actors](docs/ACTORS.md), [actor package](packages/n3tx-actors/README.md) |
 | Reasoning and tools | [Agents](docs/AGENTS.md), [agent package](packages/n3tx-agents/README.md) |
+| Agent history and execution capture | [TTX history](packages/n3tx-agents/docs/ttx-history.md), [TTX storage](packages/n3tx-threads/README.md) |
 | Files and byte storage | [File guide](packages/n3tx-files/docs/file.md) |
 | UI, forms, widgets, themes | [Frontend navigation](FRONTEND.md), [UI package](packages/n3tx-ui/README.md) |
 | Deployment and defaults | [Operations](docs/OPERATIONS.md) |
@@ -66,6 +75,10 @@ are not substitutes for current guides or live schema.
   duplicating schemas in clients. UI hiding and tool discovery are not access gates.
 - Verify caller propagation and permission enforcement on the enabled transport.
   Do not trust a body-supplied identity or assume raw Python/TX has HTTP guards.
+- Keep agent history policy separate from execution admission: nullable scope is
+  metadata, not a business ACL. Require explicit callee AGENTIC policy and fresh
+  application guards; do not restore legacy models, numeric handles or startup
+  conversion. Draft source files and historical examples are not current APIs.
 - Keep secrets and runtime data out of Git. Use isolated test storage. Debug
   registration grants admin in this checkout; production needs explicit security
   configuration. Paid calls, live imports and deployment need authorization.

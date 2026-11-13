@@ -17,7 +17,9 @@ signatures, route tables or examples.
 | Authentication and authorization | [Enforcement](docs/AUTHORIZATION.md), [rule API](packages/n3tx-core/docs/authorization.md) | Core `authorize/`, `models/base_user.py`, `api/backend.py` |
 | Actor dispatch and lifecycle | [Actor model](packages/n3tx-actors/docs/actor-model.md), [messaging](packages/n3tx-actors/docs/actor-messaging.md) | `packages/n3tx-actors/src/n3tx_actors/` |
 | Adapters, remote refs and stream correlation | [Network adapters](packages/n3tx-actors/docs/network-adapters.md), [interceptors](packages/n3tx-actors/docs/interceptors.md) | Actor package `api/`, `remote_proxy.py` |
-| Thread/TXRecord history and Notes | [Current Thread guide](packages/n3tx-agents/docs/thread.md) | `packages/n3tx-agents/src/n3tx_agents/{thread,tx_record,notes_mixin}.py` |
+| Canonical TTX storage and User messaging | [TTX package](packages/n3tx-threads/README.md) | `packages/n3tx-threads/src/n3tx_threads/{ttx,thread,message,mixin}.py` |
+| Agent history and execution capture | [TTX history guide](packages/n3tx-agents/docs/ttx-history.md) | Agent `history.py`, `agent.py`, `mixin.py`, `threaded_mixin.py` |
+| Explicit Notes | [TTX package](packages/n3tx-threads/README.md) | `packages/n3tx-threads/src/n3tx_threads/note.py` |
 | Model reasoning and stored agents | [Agents](docs/AGENTS.md), [mixin](packages/n3tx-agents/docs/mixin.md), [tools](packages/n3tx-agents/docs/tool-discovery.md) | `packages/n3tx-agents/src/n3tx_agents/{mixin,actor,agent,tools}.py` |
 | File metadata, bytes and materialization | [Files](packages/n3tx-files/docs/file.md) | `packages/n3tx-files/src/n3tx_files/` |
 | View hooks and widget hints | [ViewableMixin](packages/n3tx-ui/docs/viewable-mixin.md), [widgets](packages/n3tx-ui/docs/widgets.md) | UI `mixin.py`, core `widgets/` |
@@ -39,10 +41,15 @@ For cross-stack changes also read [FRONTEND.md](FRONTEND.md).
   checks, reserved caller injection and tool execution separately.
 - Agent policy and runtime belong to `mixin.py`, `actor.py` and `agent.py`;
   `AgentDeps` is in `agent.py`, not a separate `deps.py` module.
-- Thread and TXRecord are separate registered models in `n3tx_agents`; history
-  and Notes use those models. Reads/decoding do not establish exhaustive replay
-  or repair stored evidence. See the current Thread guide; retained TTX pages are
-  historical, not the restored API.
+- Agent history and explicit Notes use canonical TTX storage. Do not register
+  retired Thread/TXRecord models or add old-ID lookup fallbacks. Conversion is
+  an offline application operation, not startup reconciliation. Reads/decoding
+  do not repair stored evidence or establish durable execution.
+- History owner/admin policy applies only to declared agent roots, not User DMs.
+  Nullable `data.scope` is immutable metadata, never a business-access grant.
+  Trace `Agent.invoke` -> Matrix AGENTIC -> guarded target `run` separately from
+  root authorization and `Agent.chat_history` decoding. Package guides own the
+  exact signatures and capture rules; draft source snapshots are not APIs.
 - File privacy is not established by a descriptive `public` field. Typed argument
   materialization, download policy and byte-store lifecycle have separate limits.
 - Stream event vocabulary differs from transport completion. Cancellation and

@@ -132,38 +132,36 @@ is not authorization. Discovery uses `config.API_URL` for its public base URL,
 model links and login URL, preserving the configured HTTP or HTTPS origin rather
 than deriving it from the listener's HOST/PORT.
 
-### Historical TTX Infrastructure and App Assistant Provisioning
+### TTX Infrastructure and App Assistant Provisioning
 
-The TTX registration behavior described in this historical section is not the
-restored Thread/TXRecord API. See the current
-[Thread guide](../../n3tx-agents/docs/thread.md); apps using the restored models
-register Thread and TXRecord as ordinary storables.
+Canonical history uses only `n3tx_threads.TTX`. See the
+[TTX package](../../n3tx-threads/README.md) and
+[agent history guide](../../n3tx-agents/docs/ttx-history.md). Retired
+Thread/TXRecord storage and old-identifier aliases are not current APIs.
 
-Bootstrap registers only canonical `n3tx_threads.TTX` when selected models use
-`__agent__`, `__notes__`, agent ancestry, or the threads package's `TTX`,
-`Thread`, `NotesMixin` or `ThreadedMixin` ancestry. Explicit `app_agent`
-configuration also selects TTX. Selection depends on the app's capabilities,
-not whether an optional package was imported elsewhere. Plain core/actor apps
-do not activate history storage. Notes/entry capabilities do not require core
-to import `n3tx_agents` or Pydantic AI.
+Bootstrap selects canonical `n3tx_threads.TTX` when a selected model declares
+`__agent__` or `__thread_roots__`, or its ancestry contains
+`n3tx_threads.note.NoteMixin`. Explicit `app_agent` configuration also selects
+TTX. Selection depends on those model capabilities, not whether an optional
+package was imported elsewhere. Ordinary unrelated core/actor applications do
+not activate history storage.
 
-Import `n3tx_threads` before declaring `__notes__` models. `NotesMixin` owns
-`NOTE`/`NOTES`; shared entry helpers belong to `ThreadedMixin` in
-`n3tx_threads.mixin`. Selecting these capabilities without the installed threads
-package raises an explicit dependency error before storage registration.
+Import capability packages before declaring models that require their mixins.
+The selected history capability requires the installed threads package; core
+does not need to import Pydantic AI just to register explicit notes. The threads
+package guide owns the exact notes and semantic-view API.
 
-`Thread(TTX, auto_register=False)` is an empty semantic Python subclass, not a
-second container or registered model. **Register TTX only; Thread is semantic.**
-It inherits TTX's storage, whose table is `tx_records` and canonical record
-identity is `/TTX/<id>`. Explicit Thread/subclass registration and competing
-`tx_records` models are rejected before applying registrations in a TTX-enabled
-app. An explicit TTX registration retains its storage override; bootstrap does
-not add another. Repeated explicit TTX entries use the first registration.
+**Register TTX only for canonical history storage.** Its table is `ttx` and record
+identity is `/TTX/<id>`; typed Thread/Message/Note views do not own separate
+history tables. An explicit TTX registration retains its storage override.
+Automatic infrastructure selection does not add TTX when an explicit model
+already owns its table; that selection rule is not permission to substitute a
+competing model or an authorization guarantee.
 
-The retired `__thread_roots__` declaration no longer selects infrastructure or
-bridges direct HTTP actions through `invoke_threaded`. Generated actions retain
-normal native authorization, parsing and direct method invocation. No automatic
-capture replacement is installed; future execution history is separate work.
+`__thread_roots__` selects infrastructure, but selecting history alone does not
+grant execution or install application-specific admission policy. Generated
+direct actions retain native authorization, parsing and method invocation.
+Agent execution capture and bound entrypoints belong to the agents package.
 
 `app_agent` delegates to the agents package's provisioner, which reconciles the
 system-key/name-backed assistant and tool links. This is startup database work,
@@ -220,6 +218,8 @@ single reviewed migration procedure. Read [Operations](../../../docs/OPERATIONS.
 
 ## Changelog
 
+- 2026-11-12: Correct canonical TTX table/guide navigation and separate native
+  infrastructure selection from agent execution capture and admission.
 - 2026-11-10: Document containment-aware framework static cascading and native
   response handling.
 - 2026-11-04: Document capability-selected TTX-only registration, semantic Thread

@@ -1,3 +1,4 @@
+# Native agent execution and canonical TTX protocol-history dependencies.
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -5,7 +6,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "n3tx-agents"
 version = "0.12.0"
-description = "N3TX agents: AgentMixin, AgentActor, tool discovery, LLM integration."
+description = "N3TX agents: model reasoning, tools and conversation history."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -13,6 +14,7 @@ authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]
 dependencies = [
     "n3tx-core>=0.12.0",
     "n3tx-actors>=0.12.0",
+    "n3tx-threads>=0.12.0",
     "pydantic-ai>=1.0",
 ]
 
@@ -24,3 +26,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "n3tx_agents" = ["static/**/*"]
+
+# Changelog (TOML has no block-comment syntax).
+# - 2026-11-11: Make canonical TTX the only agent history storage contract.
+# - 2026-11-11: Declare typed TTX storage for explicit SDK-history decoding.

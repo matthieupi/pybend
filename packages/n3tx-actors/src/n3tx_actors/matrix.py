@@ -1,14 +1,14 @@
-"""Matrix -- Root actor and message router.
+"""Matrix — native actor routing and request/stream correlation.
 
-One Matrix per actor tree. Multiple matrices are supported for isolation
-(e.g., separate trees for tests, microservice extraction).
-Routes TX messages to local children or network adapters.
-Mirrors Matrix.js from the frontend.
+API: send/inbox route TXs; request/stream own correlated replies; aliases map
+explicit HTTP origins to registered local actors. Each Matrix owns one tree.
+The first instance supplies the root; module-level matrix supports ordinary
+actor auto-registration during import.
 
-The first Matrix created auto-registers as root (like JS: new Matrix("matrix://root")).
-A module-level default `matrix` instance is created at import time so that
-__init_subclass__ auto-registration always has a root available.
-"""
+Boundary: correlation precedes inbox middleware. Logical sources may be saved
+TTX addresses; router-owned failures must resolve pending requests before
+sender delivery. State is process-local, not durable or universal access policy.
+Usage: await Actor.root().request(TX("get", "", "items", {"id": 1}))."""
 
 import asyncio
 import logging
@@ -24,21 +24,21 @@ logger = logging.getLogger('n3tx.actors')
 
 
 class Matrix(Actor):
-    """Root actor and message router.
+    """Own an actor tree, adapter routing and pending request/stream replies.
 
-    Provides request() for internal request-response over fire-and-forget
-    messaging. Any actor can call Actor.root().request(tx) to send a TX
-    and await the correlated reply — no NetworkAdapter needed.
-    """
+    API: send/inbox deliver envelopes; request/stream correlate replies;
+    add_alias translates explicit origins. Caller policy remains at configured
+    ingress and destination boundaries. Correlation is not a durable receipt."""
 
     _adapters: list = PrivateAttr(default_factory=list)
     _aliases: set[str] = PrivateAttr(default_factory=set)
     _pending: dict = PrivateAttr(default_factory=dict)
 
     def __init__(self, **kwargs):
+        """Construct an isolated router, supplying the root only when absent."""
         kwargs.setdefault('addr', 'matrix')
         super().__init__(**kwargs)
-        # Auto-register as root if no root exists (mirrors JS Matrix constructor)
+        # Auto-register as root only when absent, matching the JS constructor.
         if not Actor.root():
             Actor.root(self)
 
@@ -52,15 +52,20 @@ class Matrix(Actor):
         if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
             raise ValueError("Matrix aliases must be absolute HTTP(S) origins")
         if parsed.path not in {'', '/'} or parsed.query or parsed.fragment:
-            raise ValueError("Matrix aliases cannot include a path, query, or fragment")
+            raise ValueError(
+                "Matrix aliases cannot include a path, query, or fragment"
+            )
         self._aliases.add(f'{parsed.scheme.lower()}://{parsed.netloc.lower()}')
         return self
 
     def _local_target(self, target: str) -> str:
-        """Translate an aliased HTTP target into its registered actor address."""
+        """Translate an explicit HTTP alias into its local actor address."""
         parsed = urlsplit(target)
         origin = f'{parsed.scheme.lower()}://{parsed.netloc.lower()}'
-        if parsed.scheme not in {'http', 'https'} or origin not in self._aliases:
+        if (
+            parsed.scheme not in {'http', 'https'}
+            or origin not in self._aliases
+        ):
             return target
 
         parts = [part for part in parsed.path.split('/') if part]
@@ -79,8 +84,7 @@ class Matrix(Actor):
 
         Checks pending request() correlations first — a reply TX with
         meta['req'] matching a pending future resolves it directly,
-        bypassing normal routing (including self-send prevention).
-        """
+        bypassing normal routing, including self-send prevention."""
         # ── Correlation: resolve pending request() futures ──
         reply_to = tx.meta.get('req')
         if reply_to and reply_to in self._pending:
@@ -130,11 +134,15 @@ class Matrix(Actor):
         await self.inbox(tx)
 
     async def _route_error(self, tx: TX) -> None:
-        """Route error TX back to sender when no route is found."""
+        """Resolve owned failures before routing errors to logical senders."""
         # Don't bounce error TXs — prevents infinite loops
         if tx.is_error:
             return
         error_tx = tx.error(f"No route to '{tx.target}'", code=404)
+        # 0. Pending correlation belongs to Matrix, not the logical sender.
+        if tx.uuid in self._pending:
+            await self.inbox(error_tx)
+            return
         source_root = tx.source.split('/')[0] if tx.source else ''
         if source_root == self.addr:
             # Source is matrix itself — route through inbox for correlation
@@ -149,19 +157,21 @@ class Matrix(Actor):
         message and wait for a reply. No adapter registration needed.
 
             response = await Actor.root().request(
-                TX(name='get', source='matrix', target='products', data={'id': 1})
+                TX(
+                    name='get', source='matrix', target='products',
+                    data={'id': 1},
+                )
             )
 
         The reply TX arrives at inbox() with meta['req'] == tx.uuid,
         resolving the future before normal routing runs.
 
         Args:
-            tx: The message to send. source is set to self.addr automatically.
+            tx: Envelope; an empty source defaults to this router's address.
             timeout: Seconds to wait before returning a timeout error TX.
 
         Returns:
-            The response TX (reply or error).
-        """
+            The correlated reply or error TX."""
         tx.source = tx.source or self.addr
         loop = asyncio.get_running_loop()
         future = loop.create_future()
@@ -178,10 +188,8 @@ class Matrix(Actor):
     async def stream(self, tx: TX, timeout: float = 120.0):
         """Send TX and yield correlated stream chunks.
 
-        Internal streaming twin of request(). Uses an asyncio.Queue keyed by
-        the outbound TX uuid and yields correlated replies until stream_end or
-        error.
-        """
+        Uses a queue keyed by outbound UUID; yields replies until completion
+        or error. Generator cleanup releases pending state and its send task."""
         tx.source = tx.source or self.addr
         queue = asyncio.Queue()
         self._pending[tx.uuid] = queue
@@ -194,7 +202,8 @@ class Matrix(Actor):
                     chunk = await asyncio.wait_for(queue.get(), timeout=timeout)
                 except asyncio.TimeoutError:
                     yield tx.error(
-                        f"Stream to {tx.target} timed out after {timeout}s", code=504
+                        f"Stream to {tx.target} timed out after {timeout}s",
+                        code=504,
                     )
                     return
                 yield chunk
@@ -210,5 +219,12 @@ class Matrix(Actor):
         self._adapters.append(adapter)
 
 
-# Default root Matrix instance (mirrors JS: export const matrix = new Matrix("matrix://root"))
+# Default root for native actor auto-registration during import.
 matrix = Matrix()
+
+
+# Changelog (Python has no native block-comment syntax).
+# - 2026-11-12:
+#   - Resolve pending routing errors for canonical logical sources; preserve
+#     native sender fallback and request/stream correlation behavior.
+#   - Wrap routing conditions and examples without changing execution.

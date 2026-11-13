@@ -23,7 +23,7 @@ Pydantic AI -> function(ctx, args) -> TX -> Matrix.request/stream
 | `ToolSpec` | `actor_addr`, `method_name`, `tool_name`, `description`, `parameters`, `stream=False` |
 | `create_tool_function(spec)` | Generates an async callable using trusted schema metadata |
 | `make_tool(spec)` | Wraps it as a Pydantic AI Tool with `takes_ctx=True` |
-| `AgentDeps` | `user`, `agent_addr`; no adapter field |
+| `AgentDeps` | `user`, `agent_addr`, mandatory canonical `ttx` |
 
 Missing children and classes without `schema()` are warned about and skipped.
 StorableMixin subclasses contribute `list/get/create/update/delete`; exposed
@@ -31,9 +31,9 @@ schema methods contribute method tools, including streaming methods. Names use
 `{tablename}_{method}`.
 
 The caller is excluded only when its address exactly matches a supplied address.
-An instance address such as `agents/1` does not exclude `agents`. AgentActor
-subclasses exclude the historical names `run` and `stream_run`, **not** the
-current exposed `agentic` and `agentic_stream`. This is not a recursion guard.
+An instance address such as `agents/1` does not exclude `agents`. Reasoning
+methods agentic/agentic_stream/run/run_stream are excluded on agent-enabled
+models. Discovery is not a general recursion or permission guard.
 
 | Input generation | Behavior |
 |---|---|
@@ -51,8 +51,8 @@ schemas are trusted code inputs, not user-supplied tool definitions.
 
 ## Execution and security limits
 
-`_route_tool_call` obtains `Actor.root()`, sets TX source to the root address,
-and carries `meta={'user': ctx.deps.user}`. `agent_addr` is not the TX source.
+`_route_tool_call` obtains `Actor.root()`, requires the active canonical TTX as
+TX source, and carries `meta={'user': ctx.deps.user}`.
 It calls Matrix directly, not NetworkAPI. Error TXs become `ModelRetry`; a retry
 does not make a denied operation authorized or undo an earlier side effect.
 
@@ -61,7 +61,7 @@ does not make a denied operation authorized or undo an earlier side effect.
 | CRUD get/create/update/delete | ActorModel checks declared model policy when `meta.user` is not `None`; absent model policy passes |
 | List | ActorModel consumes `meta.sql_filter`; tool routing does not compute it and list does not call `_authorize` |
 | Exposed action | ActorModel evaluates explicit decorator `access=` when caller is not `None`; no HTTP default-auth gate here |
-| Method argument `user` | Removed from discovery; raw ActorModel dispatch does not inject it from metadata |
+| Method argument `user` | Removed from discovery; named exposed parameters receive trusted native metadata |
 | Explicit raw `user=None` | Native trusted-internal bypass; the restored runtime preserves `None`, so authenticated entrypoints must supply their caller |
 | Protected fields | Discovery filtering is not equivalent to HTTP protected-field stripping/injection |
 
@@ -72,21 +72,12 @@ propagation on each real entrypoint. The existing
 [tool auth tests](../src/n3tx_agents/tests/test_tool_call_auth.py) explicitly
 exercise the internal bypass; they are not proof of external-user isolation.
 
-Conversation history currently uses separate Thread and TXRecord models. See
-the [Thread guide](thread.md). Thread enforces its own native owner/admin policy;
-`scope` metadata does not grant Thread access. Application parent/action checks
-are separate from native Thread authorization. Notes applies its host/action
-checks independently before using Thread. Thread.user_owner governs owner
-access; TXRecord.user_owner identifies the appender and grants no independent
-access. TXRecord declares deny-all access for configured HTTP boundaries,
-but raw Matrix LIST does not derive the corresponding filter. Do not offer raw
-record collection tools to untrusted callers; use authorized history actions.
-
-Notes uses trusted Matrix `tx.meta.user` or named HTTP `user` injection. Its
-`NOTE` and `read_notes` actions perform the host/action checks for write/read.
-These
-specific capability guards do not establish caller injection for every exposed
-actor method. Never trust body-supplied identity or presentation filtering.
+Conversation history uses canonical TTX and private agent-root owner/admin
+policy. Nullable scope does not grant business access. The same table also holds
+User DMs, which never enter agent-admin policy. Do not expose raw collection
+tools; use authorized history actions. Notes compose explicit
+`n3tx_threads.NoteMixin`, whose host/ingress owns action authorization. Never
+trust body identity or presentation filtering. See [history](ttx-history.md).
 
 ## Streaming tools
 
@@ -99,11 +90,16 @@ events in memory; it is not a bounded streaming-output interface for the LLM.
 ## Schema context
 
 The registered `agent` schema stage publishes enabled status, safe config keys
-(`self_tools`, `neighbors`, `neighbor_depth`), method names, and AgentActor's
-`agentic_endpoint`. The separate `llm` pipeline strips UI/identity noise, `$defs`,
+(`self_tools`, `neighbors`, `neighbor_depth`) and Python method names, not stock
+HTTP execution endpoints. The `llm` pipeline strips UI/identity noise, `$defs`,
 hidden/protected schema properties and selected method metadata. It is schema
 cleanup, not caller-aware redaction of model instance values.
 
 Evidence: [tools.py](../src/n3tx_agents/tools.py),
 [schema_ext.py](../src/n3tx_agents/schema_ext.py),
 [stream specs tests](../src/n3tx_agents/tests/test_streaming_tool_specs.py).
+
+## Changelog
+
+- 2026-11-11: Document mandatory active-TTX tool sources, native caller injection,
+  canonical history policy and retirement of stock execution endpoints.

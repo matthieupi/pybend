@@ -7,13 +7,15 @@ Note and Thread inherit TTX directly; only TTX may use native storage.
 API Surface:
     TTX.from_tx()       — Copy a TX into an unsaved canonical record
     TTX.tx()            — Project a record into an ordinary transport TX
+    TTX.send()          — Route a detached TX from a saved canonical identity
     TTX.value           — Decode known kinds; copy unknown content unchanged
     TTX.threads()       — Direct outgoing records for a saved canonical row
     TTX.history()       — Direct incoming records for a saved canonical row
     TTX.create/get/save  — Raw native or exact-kind projected persistence
     TTX.list/update/delete — Native-shaped, exact-kind typed projections
     TTX.OPEN_THREAD    — Find/create a local owner-specific conversation root
-    TTX.ATTACH/MESSAGE/MARK_READ — Explicit local append, send and read actions
+    TTX.ATTACH         — Attach any TTX to a saved canonical parent
+    TTX.MESSAGE/MARK_READ — Explicit local send and read actions
     .tx() / .ttx()       — Convert a typed object to transport or storage
 
 Note and NoteMixin live in note.py; Thread lives in thread.py. Import public
@@ -160,6 +162,7 @@ class TTX(ActorModel, auto_register=False):
     API Surface:
         from_tx() @classmethod — Build a detached draft without saving
         tx()                  — Copy envelope/content into transport form
+        send()                — Native routing with saved canonical source
         value                 — Validate known content or copy unknown data
         create() / get() / save() — Raw or exact-kind projected persistence
         list() / update() / delete() — Native-shaped exact-kind projections
@@ -168,7 +171,7 @@ class TTX(ActorModel, auto_register=False):
         _storage_dict()       — Include defaults in native row writes
         threads() / history() — Query direct outgoing/incoming records
         OPEN_THREAD()         — Bootstrap an owner-local peer conversation
-        ATTACH()              — Trusted clone/cache append, without dispatch
+        ATTACH()              — Trusted generic clone/attach, without dispatch
         MESSAGE() / MARK_READ() — Owned-root sending and shared read state
 
     The split: register this model, never the typed representations. Native
@@ -260,6 +263,45 @@ class TTX(ActorModel, auto_register=False):
             data=self._payload(), meta=self._projection_meta(transport=True),
         )
 
+    @fullmethod
+    async def send(target, tx: TX) -> None:
+        """Route a detached TX from a saved row through native Actor sending.
+
+        Class-bound calls retain native routing and reply behavior. Instance
+        calls require canonical model-class-to-Matrix routing; native bubbling
+        qualifies the row ID into ttx/id. Archived rows remain valid contexts.
+        JSON-compatible envelopes are deep-copied; noncopyable values can fail.
+        Trusted interceptors may transform the copy, including its source.
+        No storage writes, authorization or delivery receipt are added."""
+        from n3tx_actors.matrix import Matrix
+
+        # 0. Native class replies must not require a persisted instance.
+        if isinstance(target, type):
+            await super(TTX, target).send(tx)
+            return
+        # 1. Validate the persisted identity before routing or interception.
+        if not isinstance(tx, TX):
+            raise TypeError("Expected a TX envelope")
+        saved = TTX.get(target.id, archived=True) if target.id > 0 else None
+        if saved is None:
+            raise ValueError("send requires a saved canonical TTX")
+        # 2. Require the native path that qualifies once and reaches Matrix.
+        cls = type(target)
+        root = cls.parent
+        if (
+            target.parent is not cls
+            or cls.addr != "ttx"
+            or cls.children
+            or not isinstance(root, Matrix)
+            or root.children.get("ttx") is not TTX
+            or TTX.parent is not root
+        ):
+            raise RuntimeError("send requires canonical TTX actor routing")
+        # 3. Native class bubbling adds ttx/; do not double-prefix the source.
+        outgoing = deepcopy(tx)
+        outgoing.source = str(saved.id)
+        await super(TTX, target).send(outgoing)
+
     def _projection_meta(
         self, *, transport: bool = False,
     ) -> dict[str, JsonValue]:
@@ -313,17 +355,20 @@ class TTX(ActorModel, auto_register=False):
         })
 
     def ATTACH(self, entry: TTX) -> TTX:
-        """Clone an entry into this saved Thread and update its local cache.
+        """Clone any TTX entry into this saved canonical parent.
 
-        Trusted Python only; caller owns authorization. Attribution belongs to
-        the root owner, not the author. Inbound content marks the root UNREAD;
-        outbound content preserves existing state. Writes are not atomic."""
-        # 0. Reload even archived roots; no nested Thread caches are permitted.
+        Trusted Python only; caller owns authorization. The detached copy uses
+        parent ownership and a fresh row ID, without copying descendant rows.
+        Non-Thread parents remain unchanged and the copy retains its status.
+        Thread parents reopen and mark inbound entries UNREAD; only non-Thread
+        entries replace latest. Outbound entries preserve the parent's read
+        state. Writes are not atomic and no recursive cache update occurs."""
+        # 0. Require a live canonical parent, including archived rows.
         root = TTX.get(self.id, archived=True) if self.id > 0 else None
-        if root is None or root.kind != "Thread":
-            raise MethodError("ATTACH requires a saved Thread root", 400)
-        if not isinstance(entry, TTX) or entry.kind == "Thread":
-            raise MethodError("Attach a TTX entry, not a Thread root", 400)
+        if root is None:
+            raise MethodError("ATTACH requires a saved TTX parent", 400)
+        if not isinstance(entry, TTX):
+            raise MethodError("Attach a TTX entry", 400)
         # 1. Clone identity locally, retaining UUID/time and detached content.
         clone = entry.ttx()
         clone.id = 0
@@ -331,16 +376,22 @@ class TTX(ActorModel, auto_register=False):
         clone.user_owner = root.user_owner
         clone.archived = False
         clone.meta.pop("user", None)
+        is_thread = root.kind == "Thread"
         inbound = clone.source != root.target
-        clone.status = "UNREAD" if inbound else "READ"
+        if is_thread:
+            clone.status = "UNREAD" if inbound else "READ"
         saved = TTX.create(clone)
-        # 2. Reopen on append; sending must not clear an unread incoming turn.
-        data = deepcopy(root.data)
-        data["latest"] = saved.model_dump(mode="json")
-        TTX.update(root.id, {
-            "data": data, "archived": False,
-            "status": "UNREAD" if inbound else root.status,
-        })
+        # 2. Apply inbox policy only to Threads; containers are not previews.
+        if is_thread:
+            changes: dict[str, object] = {
+                "archived": False,
+                "status": "UNREAD" if inbound else root.status,
+            }
+            if saved.kind != "Thread":
+                data = deepcopy(root.data)
+                data["latest"] = saved.model_dump(mode="json")
+                changes["data"] = data
+            TTX.update(root.id, changes)
         return saved
 
     @classmethod
@@ -752,6 +803,10 @@ class TTX(ActorModel, auto_register=False):
 
 
 # Changelog
+# - 2026-11-11: Accept any TTX parent/entry in ATTACH without input mutation;
+#   retain Thread-only inbox state and non-Thread latest-preview membership.
+#   Add same-signature native send with detached canonical instance sources;
+#   retain class replies and reject routing paths that cannot qualify sources.
 # - 2026-11-10:
 #   - Accept only string response identity extras for native CRUD validation;
 #     omit them from storage and rederive canonical response identity.

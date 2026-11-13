@@ -4,6 +4,11 @@ Discovers @expose_route methods and CRUD operations from actor schemas,
 creates properly-typed async functions that route calls through Matrix as TX,
 and wraps them as Pydantic AI Tool objects.
 
+API: ToolSpec describes a schema-derived tool; discover_tools selects native
+capabilities; create_tool_function/make_tool generate SDK wrappers. Internal
+routing uses Matrix.request/stream with trusted caller metadata and the active
+canonical TTX source. Discovery and routing identity are not access grants.
+
 The generated functions use exec() for dynamic signatures — same approach
 as dataclasses, namedtuple, and attrs. All input comes from trusted model
 schemas (our own code), not user input."""
@@ -57,7 +62,6 @@ def discover_tools(
         List of ToolSpec objects for all discovered tools."""
     # 0. Resolve registered schema providers without granting execution access.
     from n3tx_core.models.storable_mixin import StorableMixin
-    from n3tx_agents.actor import AgentActor
 
     specs = []
     children = (
@@ -97,11 +101,10 @@ def discover_tools(
         if is_storable:
             specs.extend(_crud_tool_specs(addr, tablename, model_name, schema))
 
-        # Auto-exclude run/stream_run from AgentActor subclasses
-        # (these are meta-operations that trigger reasoning loops)
+        # Reasoning engines are not ordinary schema tools.
         agent_methods = set()
-        if isinstance(cls, type) and issubclass(cls, AgentActor):
-            agent_methods = {'run', 'stream_run'}
+        if getattr(cls, '__agent__', False):
+            agent_methods = {'agentic', 'agentic_stream', 'run', 'run_stream'}
 
         # Custom method tools from @expose_route
         specs.extend(_method_tool_specs(
@@ -305,10 +308,15 @@ async def _route_tool_call(
     from n3tx_actors.actor import Actor
 
     root = Actor.root()
+    from .threaded_mixin import current_execution
+
+    owner = current_execution.get()
+    if owner is None:
+        raise RuntimeError("Agent tools require an active TTX execution")
     meta = {'user': ctx.deps.user}
     tx = TX(
         name=method_name,
-        source=root.addr,
+        source=f"ttx/{owner.id}",
         target=target_addr,
         data=data,
         meta=meta,
@@ -421,6 +429,9 @@ def make_tool(spec: ToolSpec):
 
 
 # Changelog (Python has no block-comment syntax):
+# - 2026-11-11: Require the active canonical TTX for every native tool source.
+# - 2026-11-11: Preserve explicit TTX causal sources through native Matrix tool
+#   requests and streams without changing legacy callers or tool selection.
 # - 2026-10-31: Remove synthetic tool observations; retain native TX dispatch.
 # - 2026-10-31: Add payload-free tool observation; retain Matrix routing.
 #   Normalize documentation and source layout.

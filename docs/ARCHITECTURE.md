@@ -49,14 +49,23 @@ alternative to the current FastAPI path.
 | ActorModel / Matrix | Message dispatch and actor-aware model behavior | A universal security boundary for arbitrary Python code |
 | JS runtime | Schema-derived entities, messaging and transport | Visual components |
 | UI package | Native forms/components, view shells, renderer/widget extensions | Backend enforcement |
-| Agent package | Separate Thread/TXRecord storage, caller-attributed append, Notes projection | Atomic multi-append, exhaustive timestamp replay or access from scope metadata |
-| Agent package | Policy/runtime binding to Pydantic AI and model-derived tools | Permission granted merely by discovery |
+| Threads package | Canonical TTX storage, typed User messaging and explicit Notes | Agent-specific history policy or a recursive permission engine |
+| Agent package | One TTX journal, owner/admin agent-root policy, SDK decoding, Matrix invocation and declared capture | Business access from scope, generic admin access to User DMs, atomic effect/history writes or permission from discovery |
 | File package | Metadata model plus explicit byte-store operations | A filesystem sandbox or static upload directory |
 
 Implementation roots are `packages/<package>/src/<import_name>/`. Core's key
 modules are `app.py`, `models/proto_model.py`, `models/storable_mixin.py`,
 `models/proto_schema.py`, `models/proto_dump.py`, `utils/registrar.py`,
 `api/routes_fastapi.py`, `api/backend.py` and `storage/sqlite_storage.py`.
+
+Agent execution follows `Agent.invoke` -> Matrix AGENTIC -> guarded target `run`
+-> one SDK loop. Explicit callee admission and fresh application guards remain
+separate from history authorization; nullable scope is immutable metadata, not
+permission. Full SDK records attach to the authorized TTX root. There is no
+Thread/TXRecord fallback or startup conversion. The [agent package](../packages/n3tx-agents/README.md)
+and [TTX history guide](../packages/n3tx-agents/docs/ttx-history.md) own the exact
+contract; the [threads package](../packages/n3tx-threads/README.md) owns storage,
+User messaging and Notes.
 
 ## Data Flow
 

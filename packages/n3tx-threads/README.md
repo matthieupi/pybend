@@ -1,11 +1,17 @@
 # n3tx-threads
 
-## Current working contract — 2026-11-10
+## Current working contract — 2026-11-11
 
-This package is being developed alongside the existing `n3tx_agents.Thread`
-and `TXRecord`. It does not replace their bootstrap, consumers, or stored data.
+This package owns canonical TTX storage for typed User messaging, explicit Notes
+and agent/execution history. Retired `n3tx_agents.Thread`/`TXRecord` exports and
+tables are not a parallel runtime. Agent-specific policy, SDK decoding and capture
+belong to the [agent package](../n3tx-agents/README.md) and its
+[TTX history guide](../n3tx-agents/docs/ttx-history.md). Native User-DM Thread and
+Message kinds remain distinct from declared owner/admin agent roots.
 The November 4 integration description retained below is historical.
-The current scaffold declares Pydantic 2.11 or newer (below 3).
+The package declares Pydantic 2.11 or newer (below 3).
+`ttx-pre.py` and `ttx-draft.py` are retained historical/concept snapshots, not
+importable public APIs or templates; use the exports and current guides below.
 
 ```python
 from n3tx_threads import TTX, Note, Thread, NoteMixin
@@ -26,6 +32,7 @@ class names identify kinds. An empty stored `kind` means base TTX.
 | API | Responsibility |
 |---|---|
 | `tx()` | Transport projection; discriminator goes in `meta.kind` |
+| `send(tx)` | Native Actor routing from a saved canonical TTX identity |
 | `ttx()` | Canonical projection; discriminator is the stored `kind` field |
 | `value` | Decode known content; preserve unknown kinds as detached JSON |
 | `create/get/list/update/delete/save` | Canonical or exact-kind typed storage |
@@ -65,6 +72,30 @@ Transaction content does not use transaction-level relationship hydration.
 Custom non-TTX nested constructors retain their own hydration/I/O behavior.
 Excluded fields are intentionally omitted during packing: required excluded
 fields can prevent reconstruction, and defaulted ones can reconstruct defaults.
+
+### Native sending from a saved TTX
+
+`await record.send(tx)` retains native `send(tx: TX) -> None` semantics. The
+destination is already `tx.target`. Instance calls deep-copy the TX, retain its
+UUID/time/content/metadata and use the saved row as the logical source. Native
+class bubbling qualifies that source into `ttx/<id>` before Matrix dispatch.
+The caller's TX remains unchanged; use `typed.tx()` to send typed content.
+
+Register TTX with storage and the native Matrix. Instance sending requires the
+standard topology: its concrete model class has address `ttx`, no routing
+children, and the same Matrix parent as the registered canonical TTX actor.
+Reparented instances and other topologies fail explicitly rather than route
+with a malformed source. Unsaved/deleted records fail; archived rows remain
+valid trusted sending contexts. An instance's custom actor address is ignored.
+
+Class-bound `TTX.send(tx)` and typed-class sends delegate unchanged to Actor,
+preserving native replies and interceptor behavior. Trusted interceptors can
+transform the outgoing copy, including its source. Deep copying noncopyable
+Python objects can fail; there is no shallow-copy fallback.
+
+Sending does not persist the outgoing TX, allocate a child execution, inject
+caller authority, or install agent/middleware capture. It returns no response
+or delivery receipt; native Matrix owns routing and request correlation.
 
 ### Explicit local messaging
 
@@ -124,12 +155,17 @@ Empty UUID generates a fresh Message identity; nonempty UUID and finite
 nonnegative event time are preserved. Native direct callers must still supply
 both arguments because the direct parser does not honor signature defaults.
 
-Internal ATTACH clones, resets row ID, sets target to `ttx/<root-id>`, copies
-root ownership and drops `meta.user`. It rejects nested Thread containers,
-updates latest with the canonical saved snapshot, and reopens archived roots.
-Inbound author addresses mark UNREAD; outbound append does not clear existing
-UNREAD or ASK. MARK_READ changes only the authorized root to READ. THREADS
-requires caller/host identity and filters Thread kind, target and owner in SQL.
+Internal ATTACH accepts any saved TTX parent and any TTX entry, including Thread
+containers. It clones, resets row ID, sets target to `ttx/<parent-id>`, copies
+parent ownership, resets the copy's archive state and drops `meta.user`.
+The input and its stored row remain unchanged; descendant rows are not copied.
+Non-Thread parents remain unchanged; attached copies retain entry status.
+Thread parents reopen on attach; inbound author addresses mark UNREAD, while
+outbound append does not clear existing UNREAD or ASK. Only non-Thread entries
+replace latest: attached Thread containers appear in direct history but leave
+the existing preview unchanged. MARK_READ changes only the authorized root to
+READ. THREADS requires caller/host identity and filters Thread kind, target and
+owner in SQL.
 
 Child update/archive/delete refreshes only its directly targeted root's latest
 from visible non-Thread children by descending timestamp; ties have no defined
@@ -183,9 +219,10 @@ Named schema IDs are not new storage resources or implemented HTTP aliases.
 Browser NTT projection/dispatch is not installed by this metadata.
 
 Native CRUD and directional queries are trusted Python, not policy boundaries.
-Kind checks and writes are not atomic. No migration, deployment, automatic
-execution capture, recursive permission engine, or application acceptance follows
-from this package. See [the current contract](docs/thread.md).
+Kind checks and writes are not atomic. Agent execution capture is separately
+owned by `n3tx_agents`; importing this storage package alone does not install it.
+No migration, deployment, recursive permission engine or application acceptance
+follows from this package. See [the current contract](docs/thread.md).
 
 ## Historical TTX integration — November 4
 
@@ -326,6 +363,16 @@ graph traversal or graph ACLs.
 See [TTX storage and model notes](docs/thread.md) for the current contract.
 
 ## Changelog
+
+- 2026-11-12: Align current package navigation with the TTX-only agent cutover;
+  distinguish User-DM kinds and retained concept files from agent history APIs.
+
+- 2026-11-11: Override native send without changing its signature; route copied
+  instance envelopes from canonical saved sources and preserve class replies.
+  Require canonical model-to-Matrix topology rather than change Actor routing.
+
+- 2026-11-11: Generalize ATTACH to any saved TTX parent and TTX entry; preserve
+  detached copying, Thread-only inbox effects and non-Thread latest previews.
 
 - 2026-11-10: Retain reserved string response identities through native CRUD
   response validation while rejecting other top-level extras; keep metadata

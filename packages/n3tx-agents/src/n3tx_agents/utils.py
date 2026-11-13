@@ -1,4 +1,8 @@
-"""Shared policy, routing and caller-normalization helpers."""
+"""Native agent provider selection, context and caller helpers.
+
+Internal API: resolve configured models, format current model context, derive
+actual actor routing and normalize trusted native caller identities.
+No helper grants permissions or derives ownership from actor routing."""
 
 from __future__ import annotations
 
@@ -66,8 +70,8 @@ def _agent_addr(target, cls) -> str:
     return getattr(cls, '__tablename__', cls.__name__)
 
 
-def _thread_user(user):
-    """Normalize route-injected users for Thread CRUD authorization."""
+def _caller_user(user):
+    """Normalize route-injected users for native agent authorization."""
     # 0. Retain dictionaries or translate native user-model identity fields.
     if user is None or isinstance(user, dict):
         return user
@@ -82,6 +86,7 @@ def _thread_user(user):
 
 
 # Changelog (Python has no block-comment syntax):
+# - 2026-11-11: Name caller normalization independently of retired storage.
 # - 2026-10-31: Replace legacy address matching with exact owner/scope binding.
 #   Normalize documentation and source layout.
 #   Replace binding grants with identity/scope checks under native source ACLs.
