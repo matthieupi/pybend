@@ -1,6 +1,7 @@
 """Native SQLite persistence, pooled connections and explicit row conversion.
 
 API: SQLiteStorage provides model CRUD, ordering, hydration and population.
+auto_migrate chooses native reconciliation or existing-table validation.
 Boundary: StorableMixin validates model updates and caller conditions; storage
 executes trusted SQL predicates and does not enforce route authorization.
 Integration: inject a registered backend through model registration."""
@@ -231,21 +232,30 @@ def _public_ref_list(value, target_cls):
 
 
 class SQLiteStorage(AbstractStorage):
-    """SQLite storage backend implementing AbstractStorage.
-    Delegates schema management to SQLiteMigration.
+    """Pooled SQLite persistence implementing AbstractStorage.
 
-    Uses a connection pool to avoid opening/closing a connection per operation,
-    and enables WAL mode so concurrent readers don't block on a writer. """
+    API: model CRUD, JSON/reference hydration and explicit population.
+    Boundary: SQLiteMigration owns schema projection and reconciliation.
+    auto_migrate=False creates absent tables but only validates existing ones.
+    Integration: inject through model registration; pooled WAL connections avoid
+    per-operation connection setup without supplying multi-operation atomicity.
+    Marked bools use native integer binding and Pydantic read validation."""
 
     def __init__(
         self, database: str = 'database.db', pool_size: int = 4,
-        reference_resolver=None,
+        reference_resolver=None, *, auto_migrate: bool = True,
     ):
-        """Initialize the database adapter and reusable connection pool."""
+        """Initialize pooled storage and the model-registration schema policy.
+
+        auto_migrate defaults to native reconciliation. False mode refuses
+        incompatible existing columns/marked constraints without repairing DDL;
+        absent model tables are still created during registration."""
         # 0. Retain schema and optional reference-resolution dependencies.
         self.database = database
         self.reference_resolver = reference_resolver
-        self._migration = SQLiteMigration(database=database)
+        self._migration = SQLiteMigration(
+            database=database, auto_migrate=auto_migrate,
+        )
         # 1. Enable persistent WAL and set each connection's busy timeout.
         # check_same_thread=False is required because FastAPI/Starlette may
         # dispatch requests across threads; our pool handles thread safety.
@@ -404,12 +414,12 @@ class SQLiteStorage(AbstractStorage):
     # ----------------------------------------------
 
     def create_table(self, model_class: Type[Any]):
-        """Create a native model table through the migration backend."""
+        """Create a model table, validating existing tables in false mode."""
         _validate_identifier(model_class.__tablename__)
         self._migration.create_table(model_class)
 
     def migrate_table(self, model_class: Type[Any]):
-        """Delegate explicit model schema reconciliation to migrations."""
+        """Reconcile columns or validate/create according to auto_migrate."""
         _validate_identifier(model_class.__tablename__)
         self._migration.migrate_table(model_class)
 
@@ -870,3 +880,5 @@ class SQLiteStorage(AbstractStorage):
 #   columns; apply native ORDER BY before paging without changing counts.
 # - 2026-11-02: Reject private, hidden and excluded ordering-field probes.
 # - 2026-11-10: Restore native ordering and pagination guards from 123d825.
+# - 2026-11-12: Add opt-in non-migrating model registration; preserve native
+#   defaults and integer Boolean round trips for marked physical columns.

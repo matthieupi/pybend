@@ -13,7 +13,9 @@ ProtoModel + injected StorableMixin
 ```
 
 `register_model(Model, storage=backend)` attaches storage and creates/migrates
-the table. Factory/builder registration uses the same machinery.
+the table by default. Factory/builder registration uses the same machinery.
+An explicit `SQLiteStorage(auto_migrate=False)` creates absent model tables but
+only validates existing ones, as described below.
 
 ## Interface
 
@@ -36,9 +38,16 @@ named `id`. Pass it positionally through the model API.
 
 ### SQLiteStorage Internals
 
-`SQLiteStorage(database='database.db', pool_size=4, reference_resolver=None)`
-uses pooled connections with `check_same_thread=False`, WAL and a 5000 ms busy
-timeout. The timeout waits for locks; it does **not** prevent lock errors or make
+```python
+SQLiteStorage(
+    database='database.db', pool_size=4, reference_resolver=None,
+    auto_migrate=True,
+)
+```
+
+`auto_migrate` is a keyword-only Boolean, defaulting to True. Storage uses pooled
+connections with `check_same_thread=False`, WAL and a 5000 ms busy timeout.
+The timeout waits for locks; it does **not** prevent lock errors or make
 read-modify-write operations atomic. SQLite still serializes writers.
 
 Use a file-backed temporary database in tests. Separate migration/pool
@@ -210,16 +219,90 @@ assume storage population carries the same caller policy as a separate HTTP read
 
 ## Migrations
 
-`SQLiteMigration.create_table` creates tables. `migrate_table` adds missing
-columns and **attempts to drop orphaned columns**, including columns whose names
-start with underscores. It is not additive-only. SQL defaults are type-based and
-may differ from application Field defaults. Type changes, renames, data backfills
-and joins-to-JSON conversion need explicit planning.
+### Default model reconciliation
+
+`SQLiteStorage(auto_migrate=True)` retains ordinary native registration behavior.
+`SQLiteMigration.create_table` creates tables. `migrate_table` adds missing columns
+and **attempts to drop orphaned columns**, including columns whose names start
+with underscores. It is not additive-only. Unmarked SQL defaults are type-based
+and may differ from application Field defaults. Type changes, renames, data
+backfills and joins-to-JSON conversion need explicit planning.
+
+### Non-migrating model registration
+
+Pass a configured backend instance to native bootstrap or registration:
+
+```python
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+
+storage = SQLiteStorage('app.db', auto_migrate=False)
+# Pass storage=storage to create_app(...) or register_model(...).
+```
+
+In this mode both `create_table` and `migrate_table`:
+
+- Create an absent model table and its native relationship indexes.
+- For an existing table, compare its physical column names with the same native
+  projection used by creation, including nested-model `_id` columns and `id`.
+  Missing or surplus columns raise `ValueError` before model DDL; there is no
+  ADD, DROP, rebuild, index creation or automatic repair on an existing table.
+- Validate type, NOT NULL and literal default metadata only for the opted-in
+  fields below, through SQLite PRAGMA metadata. Unmarked types, defaults and
+  nullability are not compared. Unrelated extension tables are not inspected.
+
+Ordinary false-mode registration does not initialize or replay the manual
+`_migrations` ledger. This is a schema policy, **not a read-only storage backend**:
+the usual WAL/pool initialization and CRUD remain, and absent tables are created.
+Registration across several models is not one atomic schema transaction; an
+earlier absent table can be created before a later model refuses its schema.
+Use explicit offline preparation for incompatible existing stores.
+
+### Opt-in NOT NULL defaults
+
+Set `json_schema_extra['x-sqlite-not-null-default'] = True` on an ordinary stored
+field to derive its SQL constraint from a static `Field.default`:
+
+```python
+from pydantic import Field
+
+# Fields inside a model declaration:
+status: str = Field(
+    default='created',
+    json_schema_extra={'x-sqlite-not-null-default': True},
+)
+is_read: bool = Field(
+    default=False,
+    json_schema_extra={'x-sqlite-not-null-default': True},
+)
+```
+
+The string default produces `TEXT NOT NULL DEFAULT 'created'`; the Boolean
+produces `INTEGER NOT NULL DEFAULT 0` (`True` produces `1`). String contents are
+single-quote escaped as literal data, never interpreted as SQL. Missing defaults,
+None, factories, non-string/non-Boolean defaults and strings containing NUL raise
+`ValueError`. Factories are never executed to derive a SQL default.
+
+Marked Boolean defaults use INTEGER consistently for creation, validation and
+native round trips: SQLite binds bools as integers and Pydantic restores bools on
+model reads. Unmarked Boolean creation remains TEXT, and its legacy migration and
+read normalization behavior is unchanged.
+
+False mode requires the marked column's PRAGMA type (case-insensitive), NOT NULL
+flag and literal default to match this projection. It does not evaluate default
+expressions or accept arbitrary equivalent SQL expressions. Default true mode
+uses the hint for new tables or missing columns but does not retrofit constraints
+on existing columns; review such changes as an explicit offline migration.
+
+### Explicit manual migrations
 
 Manual migrations subclass `Migration` with `up(cursor)` and `down(cursor)`.
 `SQLiteMigration.run_migrations()`, `rollback(steps=1)` and `migration_status()`
-manage recorded migrations from the configured directory. A down method is not
-a guarantee that lost data can be recovered. See [Operations](../../../docs/OPERATIONS.md#migrations).
+manage recorded migrations from the configured directory. `SQLiteMigration` also
+accepts keyword-only `auto_migrate=True`; storage passes its policy through.
+The flag controls model registration only, not these explicitly invoked manual
+APIs. Their first use in false mode initializes the tracking ledger. A down method
+is not a guarantee that lost data can be recovered. See
+[Operations](../../../docs/OPERATIONS.md#migrations).
 
 ## Gotchas
 
@@ -229,3 +312,9 @@ a guarantee that lost data can be recovered. See [Operations](../../../docs/OPER
 - JSON arrays do not offer per-element SQL updates through the model API.
 - Raw storage writes bypass merged-model validation and route policy.
 - Do not advertise pooled connections or WAL as distributed-write support.
+
+## Changelog
+
+- 2026-11-12: Document opt-in non-migrating registration, shared native column
+  projection and safe static string/Boolean NOT NULL defaults. Distinguish model
+  validation from explicit manual migrations and read-only storage.
