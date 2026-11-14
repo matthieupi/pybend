@@ -78,11 +78,11 @@ are bound scalar parameters, not SQL fragments. Contains requires a text field;
 membership requires a list/tuple. Empty membership matches nothing, and equality
 or inequality with `None` generates `IS NULL` or `IS NOT NULL`.
 
-The shared condition syntax also accepts `$or` with a nonempty array of nonempty
-condition objects. Each branch receives identical field/value validation;
-siblings remain AND conditions. Nesting is bounded to eight levels. Native list
-combines the complete caller predicate with trusted policy using AND outside the
-OR group. Temporal comparison values use the field's native date/datetime
+The shared condition syntax accepts `$or` and `$and` with a nonempty array of
+nonempty condition objects. Each branch receives identical field/value validation;
+siblings remain AND conditions. Both groups share an eight-level nesting limit.
+Native list combines the complete caller predicate with trusted policy using AND
+outside the group. Temporal comparison values use the field's native date/datetime
 representation, including aware/naive annotations, without UTC normalization.
 
 Trusted authorization rules compile with internal `public=False`, allowing

@@ -64,8 +64,10 @@ Contains is literal and case-sensitive; membership requires an array.
 Caller conditions narrow the existing policy filter; they do not replace it.
 Use `$or` for alternative condition objects, for example
 `{"status":"open","$or":[{"name__contains":"Hello"},{"description__contains":"Hello"}]}`.
-All alternatives remain inside the authorization AND restriction. Empty,
-malformed or more than eight levels of nested alternatives are rejected.
+Use `$and` for a group of conditions that must all match. Both groups require
+nonempty arrays of nonempty objects, may be mixed, and share an eight-level
+nesting limit. All groups remain inside the authorization AND restriction.
+Empty or malformed groups and nesting beyond the limit are rejected.
 Explicit JSON `null` is invalid (omit `where` for no restriction). Filtering and
 ordering reject private/dunder, hidden, and excluded fields; methods and
 undeclared aliases are not columns. Write-protected readable fields remain

@@ -294,7 +294,9 @@ class Where(AccessRule):
         field__gte     -> field >= value
         field__ne      -> field != value
         field__in      -> field IN (...)
-        field__contains -> literal case-sensitive substring"""
+        field__contains -> literal case-sensitive substring
+
+    Logical groups use $or for alternatives and $and for conjunctions."""
     _OPS = OPERATORS
 
     def __init__(self, **conditions):
@@ -311,8 +313,11 @@ class Where(AccessRule):
         if ctx.resource is None:
             return True
         for field, op, value in self._parse():
-            if op == 'OR':
-                if not any(Where(**branch).evaluate(ctx) for branch in value):
+            if op in ('OR', 'AND'):
+                combine = any if op == 'OR' else all
+                if not combine(
+                    Where(**branch).evaluate(ctx) for branch in value
+                ):
                     return False
                 continue
             actual = getattr(ctx.resource, field, None)
@@ -454,5 +459,6 @@ FOLLOWER = Follower()
 
 
 # Changelog
+# - 2026-11-13: Evaluate AND groups alongside existing OR groups.
 # - 2026-11-02: Share validated SQL conditions and add literal contains rules.
 # - 2026-11-10: Restore shared Where compilation and evaluation from 123d825.

@@ -63,18 +63,18 @@ def _is_text(annotation) -> bool:
 
 
 def parse_where(conditions: dict) -> list:
-    """Parse field conditions and OR groups, rejecting unknown operators."""
+    """Parse conditions and logical groups, rejecting unknown operators."""
     # 0. Validate condition keys before interpreting the operator vocabulary.
     if not isinstance(conditions, dict):
         raise ValueError('where must be an object')
     result = []
     for key, value in conditions.items():
-        if key == '$or':
+        if key in ('$or', '$and'):
             if not isinstance(value, list) or not value or any(
                 not isinstance(branch, dict) or not branch for branch in value
             ):
-                raise ValueError('$or requires nonempty condition objects')
-            result.append((None, 'OR', value))
+                raise ValueError(f'{key} requires nonempty condition objects')
+            result.append((None, key[1:].upper(), value))
             continue
         if not isinstance(key, str):
             raise ValueError('where field names must be strings')
@@ -96,17 +96,17 @@ def compile_where(
 ) -> tuple[str, list]:
     """Validate declared fields and compile ANDed, bound scalar predicates.
 
-    Contains is literal and case-sensitive. NULL equality uses IS NULL;
+    Text matching is literal and case-sensitive. NULL equality uses IS NULL;
     empty membership matches no rows. Invalid input raises ValueError.
     Only trusted authorization rules should request public=False. Internal
-    _depth bounds recursive OR groups to eight levels. Date values use native
-    storage representation, without normalizing timezone offsets."""
+    _depth bounds recursive logical groups to eight levels. Date values use
+    native storage representation, without normalizing timezone offsets."""
     # 0. Resolve declared columns; no caller-provided SQL is accepted.
     if _depth > 8:
         raise ValueError('where nesting exceeds eight levels')
     clauses, params = [], []
     for field, operator, value in parse_where(conditions):
-        if operator == 'OR':
+        if operator in ('OR', 'AND'):
             branches = []
             for branch in value:
                 clause, values = compile_where(
@@ -114,7 +114,7 @@ def compile_where(
                 )
                 branches.append(f'({clause})')
                 params.extend(values)
-            clauses.append('(' + ' OR '.join(branches) + ')')
+            clauses.append('(' + f' {operator} '.join(branches) + ')')
             continue
         field_info = query_field(model_class, field, public=public)
         # Qualify identifiers so SQLite cannot treat missing columns as strings.
@@ -180,6 +180,7 @@ def compile_where(
 
 
 # Changelog
+# - 2026-11-13: Support bounded AND groups alongside OR groups.
 # - 2026-11-02: Share validated predicates and literal text contains queries;
 #   restrict public fields and qualify stored columns.
 #   Keep write-protected readable fields eligible for filtering and ordering.

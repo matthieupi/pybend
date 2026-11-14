@@ -301,12 +301,19 @@ def test_direct_queries_readable_protected_field(
     assert response.json()['meta']['total'] == 2
 
 
-def test_direct_or_cannot_escape_policy_or_sibling_conditions(where_rows):
+@pytest.mark.parametrize('path', ['/where_entries', '/WhereEntry/_'])
+def test_direct_or_cannot_escape_policy_or_sibling_conditions(
+    where_rows, path,
+):
     """Apply trusted policy outside the complete OR expression."""
     # 0. The second branch targets a denied row, and the third is hostile data.
     client, model = where_rows
     conditions = {
-        'score__lte': 20,
+        '$and': [
+            {'score__lte': 20},
+            {'name__lt': 'a'},
+            {'$or': [{'score__in': [10, 20, 30]}, {'visible': False}]},
+        ],
         '$or': [{'score__in': [10, 20, 30]}, {'score__in': [10]},
                 {'visible': False},
                 {'name': "' OR 1=1 --"}],
@@ -316,8 +323,12 @@ def test_direct_or_cannot_escape_policy_or_sibling_conditions(where_rows):
         where=conditions, sql_filter=('visible = ?', [True]),
         order_desc='score', limit=1,
     )
-    response = client.get('/where_entries', params={
+    response = client.get(path, params={
         'where': json.dumps(conditions), 'order_desc': 'score', 'limit': 1,
+    })
+    last = client.get(path, params={
+        'where': json.dumps(conditions), 'order_desc': 'score',
+        'limit': 1, 'offset': 1,
     })
     # 2. Neither OR nor membership can widen policy or bypass sibling ANDs.
     assert [row.score for row in page['data']] == [20]
@@ -325,6 +336,11 @@ def test_direct_or_cannot_escape_policy_or_sibling_conditions(where_rows):
     assert response.status_code == 200
     assert [row['score'] for row in response.json()['data']] == [20]
     assert response.json()['meta']['total'] == 2
+    assert last.status_code == 200
+    assert [row['score'] for row in last.json()['data']] == [10]
+    assert last.json()['meta'] == {
+        'total': 2, 'limit': 1, 'offset': 1, 'has_more': False,
+    }
 
 
 @pytest.mark.parametrize(
@@ -333,7 +349,11 @@ def test_direct_or_cannot_escape_policy_or_sibling_conditions(where_rows):
      {'$or': [{'name': 'ok'}, {'hidden': 'secret'}]},
      {'$or': [{'name': 'ok'}, {'excluded': 'secret'}]},
      {'$or': [{'name': 'ok'}, {'name__like': 'x'}]},
-     {'$or': [{'name': 'ok'}, {'name" OR 1=1 --': 'x'}]}],
+     {'$or': [{'name': 'ok'}, {'name" OR 1=1 --': 'x'}]},
+     {'$and': []}, {'$and': [{}]}, {'$and': {'name': 'x'}},
+     {'$and': [{'name': 'ok'}, {'hidden': 'secret'}]},
+     {'$and': [{'name': 'ok'}, {'excluded': 'secret'}]},
+     {'$and': [{'name': 'ok'}, {'score__like': '1'}]}],
 )
 def test_direct_invalid_or_is_422(where_rows, conditions):
     """Reject malformed alternatives and unsafe fields in every branch."""
@@ -352,8 +372,8 @@ def test_direct_deep_or_is_422(where_rows):
     # 0. Construct nine nested alternatives around an otherwise valid leaf.
     client, _ = where_rows
     conditions = {'name': 'ok'}
-    for _ in range(9):
-        conditions = {'$or': [conditions]}
+    for index in range(9):
+        conditions = {'$and' if index % 2 else '$or': [conditions]}
     # 1. Exercise depth validation through direct HTTP.
     response = client.get('/where_entries', params={
         'where': json.dumps(conditions),
@@ -362,6 +382,8 @@ def test_direct_deep_or_is_422(where_rows):
 
 
 # Changelog
+# - 2026-11-13: Intersect fixed AND and search OR before native policy pages;
+#   reject invalid AND inputs and mixed logical depth overflow.
 # - 2026-11-02: Cover native where delegation, SQLite and direct HTTP.
 # - 2026-11-02: Reject public secret probes and preserve trusted policy access.
 # - 2026-11-02: Query readable protected fields without bypassing list policy.

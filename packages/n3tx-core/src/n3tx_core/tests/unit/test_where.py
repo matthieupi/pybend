@@ -365,47 +365,51 @@ def test_or_compiler_groups_branches_and_sibling_conditions():
 @pytest.mark.parametrize(
     'branches', [[], {}, None, 'name', [None], [{}], [{'name': 'ok'}, []]],
 )
-def test_or_rejects_malformed_or_empty_branches(branches):
+@pytest.mark.parametrize('group', ['$or', '$and'])
+def test_logical_groups_reject_malformed_or_empty_branches(branches, group):
     """Require a nonempty list of nonempty condition objects."""
     # 0. Both parsing and compilation must reject malformed alternatives.
     with pytest.raises(ValueError):
-        parse_where({'$or': branches})
+        parse_where({group: branches})
     with pytest.raises(ValueError):
-        compile_where(ConditionRow, {'$or': branches})
+        compile_where(ConditionRow, {group: branches})
 
 
 @pytest.mark.parametrize(
     'field', ['hidden', 'excluded', '__dict__', 'name" OR 1=1 --'],
 )
-def test_or_validates_every_public_branch(field):
+@pytest.mark.parametrize('group', ['$or', '$and'])
+def test_logical_groups_validate_every_public_branch(field, group):
     """A valid first alternative must not excuse a forbidden later branch."""
     # 0. Do not short-circuit query validation after a valid alternative.
     with pytest.raises(ValueError):
         compile_where(PublicQueryRow, {
-            '$or': [{'name': 'ok'}, {field: 'secret'}],
+            group: [{'name': 'ok'}, {field: 'secret'}],
         })
 
 
-def test_or_nesting_boundary():
-    """Permit eight OR levels and reject a ninth before SQLite execution."""
+@pytest.mark.parametrize('groups', [('$or',), ('$and',), ('$and', '$or')])
+def test_logical_group_shared_nesting_boundary(groups):
+    """Share the eight-level bound across AND, OR and mixed expressions."""
     # 0. Build a valid leaf under the approved maximum nesting depth.
     conditions = {'name': 'ok'}
-    for _ in range(8):
-        conditions = {'$or': [conditions]}
+    for index in range(8):
+        conditions = {groups[index % len(groups)]: [conditions]}
     assert compile_where(ConditionRow, conditions)[1] == ['ok']
     # 1. One additional wrapper exceeds the public expression depth bound.
     with pytest.raises(ValueError, match='nesting'):
         compile_where(ConditionRow, {'$or': [conditions]})
 
 
-def test_trusted_policy_or_preserves_nonpublic_field_access():
+@pytest.mark.parametrize('group, operator', [('$or', 'OR'), ('$and', 'AND')])
+def test_trusted_logical_policy_preserves_nonpublic_fields(group, operator):
     """Propagate trusted policy compilation through every recursive branch."""
     # 0. Authorization may restrict hidden and excluded fields inside OR.
-    conditions = {'$or': [{'hidden': 'secret'}, {'excluded': 'secret'}]}
+    conditions = {group: [{'hidden': 'secret'}, {'excluded': 'secret'}]}
     ctx = AccessContext(user={}, action='list', model_class=PublicQueryRow)
     # 1. Public validation must not accidentally replace policy validation.
     assert Where(**conditions).sql_filter(ctx) == (
-        '(("public_query_rows"."hidden" = ?) OR '
+        f'(("public_query_rows"."hidden" = ?) {operator} '
         '("public_query_rows"."excluded" = ?))', ['secret', 'secret'],
     )
 
@@ -553,7 +557,59 @@ def test_nullable_task_or_fallback_matches_native_sqlite_rows(tmp_path):
         connection.close()
 
 
+@pytest.mark.parametrize(
+    ('conditions', 'expected'),
+    [
+        ({'$and': [{'score__gte': 10}, {'name__contains': 'one'}]}, [2]),
+        ({'$and': [{'score__gte': 10}, {'$or': [
+            {'name': 'one'}, {'name__in': ['two']},
+        ]}]}, [2, 3]),
+        ({'$or': [{'$and': [{'name': 'one'}, {'score__lt': 10}]},
+                  {'$and': [{'name': 'two'}, {'score__gte': 10}]}]}, [1, 3]),
+    ],
+)
+def test_valid_logical_groups_have_sql_and_resource_parity(
+    tmp_path, conditions, expected,
+):
+    """Evaluate valid nested AND/OR policies like their compiled SQLite SQL."""
+    # 0. Use ordinary nonnull fields without changing existing NULL contracts.
+    rows = [('one', 0), ('one', 10), ('two', 10), ('three', 20)]
+    rule = Where(**conditions)
+    connection = sqlite3.connect(str(tmp_path / 'logical-groups.db'))
+    try:
+        connection.execute(
+            'CREATE TABLE rows (id INTEGER, name TEXT, score INTEGER)',
+        )
+        connection.executemany('INSERT INTO rows VALUES (?, ?, ?)', [
+            (index, name, score)
+            for index, (name, score) in enumerate(rows, start=1)
+        ])
+        # 1. Compare native resource evaluation with trusted policy SQL.
+        context = AccessContext(
+            user={}, action='list', model_class=ConditionRow,
+        )
+        clause, params = rule.sql_filter(context)
+        selected = connection.execute(
+            'SELECT id FROM rows WHERE ' + clause + ' ORDER BY id', params,
+        ).fetchall()
+        evaluated = []
+        for index, (name, score) in enumerate(rows, start=1):
+            context = AccessContext(
+                user={}, action='read', model_class=ConditionRow,
+                resource=SimpleNamespace(name=name, score=score),
+            )
+            if rule.evaluate(context):
+                evaluated.append((index,))
+        # 2. Every valid branch narrows the same persisted and resource rows.
+        assert selected == evaluated
+        assert selected == [(identifier,) for identifier in expected]
+    finally:
+        connection.close()
+
+
 # Changelog (Python has no native block-comment syntax).
+# - 2026-11-13: Cover shared AND/OR validation and valid policy SQL/evaluation
+#   parity without changing existing NULL or short-circuit expectations.
 # - 2026-11-02: Cover shared compiler security and literal policy predicates.
 # - 2026-11-02: Deny public secret probes and qualify stored identifiers.
 # - 2026-11-02: Allow readable protected fields without exposing hidden ones.
